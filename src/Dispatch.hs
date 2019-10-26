@@ -12,6 +12,8 @@ import           System.IO.Error
 import           System.Directory
 
 data Command = AddTask Task deriving (Show, Read)
+data Query = ShowTasks deriving (Show)
+data Action = Command | Query
 data Event = TaskAdded Task deriving (Show, Read)
 
 data Task = Task { id :: Int
@@ -22,7 +24,11 @@ data State = State { tasks :: [Task]
                    } deriving (Show, Read)
 
 dispatch :: [String] -> IO ()
-dispatch args = do
+dispatch ("add"  : args) = handleCommand $ "add" : args
+dispatch ("list" : args) = handleQuery $ "list" : args
+
+handleCommand :: [String] -> IO ()
+handleCommand args = do
   currState <- readState
   command   <- return $ getCommandFromArgs args
   event     <- return $ getEventFromCommand currState command
@@ -30,9 +36,22 @@ dispatch args = do
   writeEvent event
   writeState nextState
 
+handleQuery :: [String] -> IO ()
+handleQuery args = do
+  currState <- readState
+  query     <- return $ getQueryFromArgs args
+  processQuery currState query
+
 getCommandFromArgs :: [String] -> Command
 getCommandFromArgs ("add" : args) =
   AddTask Task { id = 0, desc = unwords args }
+
+getQueryFromArgs :: [String] -> Query
+getQueryFromArgs ("list" : args) = ShowTasks
+
+processQuery :: State -> Query -> IO ()
+processQuery state query = case query of
+  ShowTasks -> print $ tasks state
 
 getEventFromCommand :: State -> Command -> Event
 getEventFromCommand state (AddTask task) = TaskAdded task
