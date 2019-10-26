@@ -1,7 +1,7 @@
 module Main where
 
 import           System.Environment             ( getArgs )
-import           Dispatch                       ( handleArgs )
+import           Dispatch                       ( dispatch )
 
 main :: IO ()
-main = getArgs >>= handleArgs
+main = getArgs >>= dispatch

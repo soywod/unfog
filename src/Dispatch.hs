@@ -1,5 +1,5 @@
 module Dispatch
-  ( handleArgs
+  ( dispatch
   )
 where
 
@@ -25,24 +25,24 @@ newtype State = State { tasks :: [Task]
 emptyState :: State
 emptyState = State { tasks = [] }
 
-handleArgs :: [String] -> IO ()
-handleArgs ("add"  : args) = handleCommand $ "add" : args
-handleArgs ("list" : args) = handleQuery $ "list" : args
+dispatch :: [String] -> IO ()
+dispatch ("add"  : args) = handleCommand $ "add" : args
+dispatch ("list" : args) = handleQuery $ "list" : args
 
 handleCommand :: [String] -> IO ()
 handleCommand args = do
   events <- readEvents
-  let state   = foldl buildStateFromEvent emptyState events
+  let state   = foldl apply emptyState events
   let command = getCommandFromArgs args
-  let event   = getEventFromCommand state command
+  let event   = executeCommand state command
   writeEvent event
 
 handleQuery :: [String] -> IO ()
 handleQuery args = do
   events <- readEvents
-  let state = foldl buildStateFromEvent emptyState events
+  let state = foldl apply emptyState events
   let query = getQueryFromArgs args
-  processQuery state query
+  executeQuery state query
 
 getCommandFromArgs :: [String] -> Command
 getCommandFromArgs ("add" : args) =
@@ -51,15 +51,15 @@ getCommandFromArgs ("add" : args) =
 getQueryFromArgs :: [String] -> Query
 getQueryFromArgs ("list" : args) = ShowTasks
 
-processQuery :: State -> Query -> IO ()
-processQuery state query = case query of
+executeQuery :: State -> Query -> IO ()
+executeQuery state query = case query of
   ShowTasks -> print $ tasks state
 
-getEventFromCommand :: State -> Command -> Event
-getEventFromCommand state (AddTask task) = TaskAdded task
+executeCommand :: State -> Command -> Event
+executeCommand state (AddTask task) = TaskAdded task
 
-buildStateFromEvent :: State -> Event -> State
-buildStateFromEvent state event = case event of
+apply :: State -> Event -> State
+apply state event = case event of
   TaskAdded task -> state { tasks = tasks state ++ [task] }
 
 getFilePath :: String -> IO String
