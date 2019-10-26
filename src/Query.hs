@@ -6,11 +6,10 @@ import           Store
 data Query = ShowTasks deriving (Show)
 
 handle :: [String] -> IO ()
-handle args = do
-  events <- readEvents
-  let state = foldl State.apply State.new events
-  let query = parseArgs args
-  execute state query
+handle args = state >>= flip execute query
+ where
+  query = parseArgs args
+  state = apply <$> readEvents
 
 parseArgs :: [String] -> Query
 parseArgs ("list" : args) = ShowTasks

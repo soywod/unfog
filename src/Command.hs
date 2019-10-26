@@ -13,12 +13,11 @@ parseArgs :: [String] -> Command
 parseArgs ("add" : args) = AddTask Task { id = 0, desc = unwords args }
 
 handle :: [String] -> IO ()
-handle args = do
-  events <- readEvents
-  let state   = foldl State.apply State.new events
-  let command = parseArgs args
-  let event   = execute state command
-  writeEvent event
+handle args = event >>= writeEvent
+ where
+  state   = apply <$> readEvents
+  command = return $ parseArgs args
+  event   = execute <$> state <*> command
 
 execute :: State -> Command -> Event
 execute state (AddTask task) = TaskAdded task
