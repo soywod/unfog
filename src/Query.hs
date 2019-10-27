@@ -1,15 +1,16 @@
 module Query where
 
+import qualified Store
 import           State
-import           Store
 
 data Query = ShowTasks deriving (Show)
 
 handle :: [String] -> IO ()
-handle args = state >>= flip execute query
+handle args = state >>= executeQuery
  where
-  query = parseArgs args
-  state = apply <$> readEvents
+  query        = parseArgs args
+  state        = State.applyAll <$> Store.readAllEvents
+  executeQuery = flip execute query
 
 parseArgs :: [String] -> Query
 parseArgs ("list" : args) = ShowTasks
