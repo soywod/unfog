@@ -1,5 +1,7 @@
 module Event where
 
+import           Data.Time
+
 import           Task
 
-newtype Event = TaskAdded Task deriving (Show, Read)
+data Event = TaskAdded UTCTime Task deriving (Show, Read)

@@ -1,27 +1,28 @@
 module Command where
 
-import           Data.List                      ( sort )
+import           Data.List
+import           Data.Time
 
 import qualified Store
 import           State
 import           Task
 import           Event
 
-newtype Command = AddTask Task deriving (Show, Read)
+data Command = AddTask UTCTime Task deriving (Show, Read)
 
 handle :: [String] -> IO ()
 handle args = event >>= Store.writeEvent
  where
   state   = State.applyAll <$> Store.readAllEvents
-  command = parseArgs <$> state <*> return args
+  command = parseArgs <$> getCurrentTime <*> state <*> return args
   event   = execute <$> state <*> command
 
-parseArgs :: State -> [String] -> Command
-parseArgs state ("add" : args) =
-  AddTask Task { _id = generateId state, _desc = unwords args }
+parseArgs :: UTCTime -> State -> [String] -> Command
+parseArgs time state ("add" : args) =
+  AddTask time Task { _id = generateId state, _desc = unwords args }
 
 execute :: State -> Command -> Event
-execute state (AddTask task) = TaskAdded task
+execute state (AddTask time task) = TaskAdded time task
 
 generateId :: State -> Int
 generateId state = generateId' currIds genIds
