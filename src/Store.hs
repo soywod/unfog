@@ -1,6 +1,6 @@
 module Store
   ( readAllEvents
-  , writeEvent
+  , writeEvents
   )
 where
 
@@ -15,6 +15,9 @@ import           Utils
 readAllEvents :: IO [Event]
 readAllEvents = mapLineToEvent <$> getStoreFileContent
   where mapLineToEvent = map Prelude.read . lines
+
+writeEvents :: [Event] -> IO ()
+writeEvents = foldl writeEvent' (return ()) where writeEvent' _ = writeEvent
 
 writeEvent :: Event -> IO ()
 writeEvent event = getFilePath "store" >>= appendEventToStore
