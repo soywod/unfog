@@ -17,4 +17,4 @@ parseArgs ("list" : args) = ShowTasks
 
 execute :: State -> Query -> IO ()
 execute state query = case query of
-  ShowTasks -> print $ tasks state
+  ShowTasks -> print $ _tasks state

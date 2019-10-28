@@ -1,5 +1,5 @@
 module Task where
 
-data Task = Task { id :: Int
-                 , desc :: String
+data Task = Task { _id :: Int
+                 , _desc :: String
                  } deriving (Show, Read)
