@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 module Command where
 
 import           Data.List
@@ -7,6 +8,7 @@ import qualified Store
 import           State
 import           Task
 import           Event
+import           Utils.Predicate                ( startsByPlus )
 
 data Command = AddTask UTCTime Task deriving (Show, Read)
 
@@ -18,8 +20,11 @@ handle args = event >>= Store.writeEvent
   event   = execute <$> state <*> command
 
 parseArgs :: UTCTime -> State -> [String] -> Command
-parseArgs time state ("add" : args) =
-  AddTask time Task { _id = generateId state, _desc = unwords args }
+parseArgs time state ("add" : args) = AddTask time Task { _id, _desc, _tags }
+ where
+  _id   = generateId state
+  _desc = unwords $ filter (not . startsByPlus) args
+  _tags = map tail $ filter startsByPlus args
 
 execute :: State -> Command -> Event
 execute state (AddTask time task) = TaskAdded time task
