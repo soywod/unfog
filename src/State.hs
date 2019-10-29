@@ -46,3 +46,14 @@ apply state event = case event of
         nextTask = task { _active = True }
         updateTask currTask | _id currTask == _id nextTask = nextTask
                             | otherwise                    = currTask
+  TaskStopped _ id -> state { _tasks = nextTasks }
+   where
+    tasks     = _tasks state
+    taskFound = Task.findById id tasks
+    nextTasks = case taskFound of
+      Nothing   -> tasks
+      Just task -> map updateTask tasks
+       where
+        nextTask = task { _active = False }
+        updateTask currTask | _id currTask == _id nextTask = nextTask
+                            | otherwise                    = currTask

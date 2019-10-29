@@ -14,6 +14,7 @@ data Command
   | AddTask UTCTime Id Desc [Tag]
   | EditTask UTCTime Id Desc [Tag]
   | StartTask UTCTime Id
+  | StopTask UTCTime Id
   deriving (Show, Read)
 
 handle :: [String] -> IO ()
@@ -27,6 +28,7 @@ parseArgs :: UTCTime -> State -> [String] -> Command
 parseArgs time state ("add"   : args) = addTask time state args
 parseArgs time state ("edit"  : args) = editTask time state args
 parseArgs time state ("start" : args) = startTask time state args
+parseArgs time state ("stop"  : args) = stopTask time state args
 
 addTask time state args = AddTask time id desc tags
  where
@@ -51,10 +53,17 @@ startTask time state args = case args of
     Nothing   -> NoOp
     Just task -> if _active task then NoOp else StartTask time $ _id task
 
+stopTask time state args = case args of
+  []       -> NoOp
+  (id : _) -> case findById (read id) (_tasks state) of
+    Nothing   -> NoOp
+    Just task -> if _active task then StopTask time $ _id task else NoOp
+
 execute :: State -> Command -> [Event]
 execute state (AddTask  time id desc tags) = [TaskAdded time id desc tags]
 execute state (EditTask time id desc tags) = [TaskEdited time id desc tags]
 execute state (StartTask time id         ) = [TaskStarted time id]
+execute state (StopTask  time id         ) = [TaskStopped time id]
 execute state NoOp                         = []
 
 generateId :: State -> Int

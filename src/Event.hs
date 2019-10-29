@@ -8,4 +8,5 @@ data Event
   = TaskAdded UTCTime Id Desc [Tag]
   | TaskEdited UTCTime Id Desc [Tag]
   | TaskStarted UTCTime Id
+  | TaskStopped UTCTime Id
   deriving (Show, Read)
