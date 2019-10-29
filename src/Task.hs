@@ -20,3 +20,9 @@ emptyTask =
 
 findById :: Id -> [Task] -> Maybe Task
 findById id = find $ (==) id . _id
+
+filterByDone :: Bool -> [Task] -> [Task]
+filterByDone predicate tasks = filteredTasks
+ where
+  byDone        = if predicate then _done else not . _done
+  filteredTasks = filter byDone tasks
