@@ -1,4 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
 module Command where
 
 import           Data.List
@@ -10,7 +9,12 @@ import           Task
 import           Event
 import           Utils.Predicate                ( startsByPlus )
 
-data Command = NoOp | AddTask UTCTime Task | EditTask UTCTime Task deriving (Show, Read)
+data Command
+  = NoOp
+  | AddTask UTCTime Id Desc [Tag]
+  | EditTask UTCTime Id Desc [Tag]
+  | StartTask UTCTime Id
+  deriving (Show, Read)
 
 handle :: [String] -> IO ()
 handle args = events >>= Store.writeEvents
@@ -20,28 +24,38 @@ handle args = events >>= Store.writeEvents
   events  = execute <$> state <*> command
 
 parseArgs :: UTCTime -> State -> [String] -> Command
-parseArgs time state ("add"  : args) = addTask time state args
-parseArgs time state ("edit" : args) = editTask time state args
+parseArgs time state ("add"   : args) = addTask time state args
+parseArgs time state ("edit"  : args) = editTask time state args
+parseArgs time state ("start" : args) = startTask time state args
 
-addTask time state args = AddTask time Task { _id, _desc, _tags }
+addTask time state args = AddTask time id desc tags
  where
-  _id   = generateId state
-  _desc = unwords $ filter (not . startsByPlus) args
-  _tags = map tail $ filter startsByPlus args
+  id   = generateId state
+  desc = unwords $ filter (not . startsByPlus) args
+  tags = map tail $ filter startsByPlus args
 
 editTask time state args = case args of
-  [_        ] -> Command.NoOp
-  (id : args) -> case find ((== read id) . _id) (_tasks state) of
-    Nothing   -> Command.NoOp
-    Just task -> EditTask time Task { _id = _id task, _desc, _tags }
+  []          -> NoOp
+  [_        ] -> NoOp
+  (id : args) -> case findById (read id) (_tasks state) of
+    Nothing   -> NoOp
+    Just task -> EditTask time id desc tags
      where
-      _desc = unwords $ filter (not . startsByPlus) args
-      _tags = map tail $ filter startsByPlus args
+      id   = _id task
+      desc = unwords $ filter (not . startsByPlus) args
+      tags = map tail $ filter startsByPlus args
+
+startTask time state args = case args of
+  []       -> NoOp
+  (id : _) -> case findById (read id) (_tasks state) of
+    Nothing   -> NoOp
+    Just task -> if _active task then NoOp else StartTask time $ _id task
 
 execute :: State -> Command -> [Event]
-execute state (AddTask  time task) = [TaskAdded time task]
-execute state (EditTask time task) = [TaskEdited time task]
-execute state NoOp                 = []
+execute state (AddTask  time id desc tags) = [TaskAdded time id desc tags]
+execute state (EditTask time id desc tags) = [TaskEdited time id desc tags]
+execute state (StartTask time id         ) = [TaskStarted time id]
+execute state NoOp                         = []
 
 generateId :: State -> Int
 generateId state = generateId' currIds genIds

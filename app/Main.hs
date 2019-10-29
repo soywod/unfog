@@ -8,6 +8,7 @@ import qualified Query                          ( handle )
 main :: IO ()
 main = getArgs >>= dispatch
  where
-  dispatch ("add"  : args) = Command.handle $ "add" : args
-  dispatch ("edit" : args) = Command.handle $ "edit" : args
-  dispatch ("list" : args) = Query.handle $ "list" : args
+  dispatch ("add"   : args) = Command.handle $ "add" : args
+  dispatch ("edit"  : args) = Command.handle $ "edit" : args
+  dispatch ("start" : args) = Command.handle $ "start" : args
+  dispatch ("list"  : args) = Query.handle $ "list" : args
