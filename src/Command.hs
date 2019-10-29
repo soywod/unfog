@@ -15,6 +15,7 @@ data Command
   | EditTask UTCTime Id Desc [Tag]
   | StartTask UTCTime Id
   | StopTask UTCTime Id
+  | MarkAsDoneTask UTCTime Id Id
   deriving (Show, Read)
 
 handle :: [String] -> IO ()
@@ -29,10 +30,11 @@ parseArgs time state ("add"   : args) = addTask time state args
 parseArgs time state ("edit"  : args) = editTask time state args
 parseArgs time state ("start" : args) = startTask time state args
 parseArgs time state ("stop"  : args) = stopTask time state args
+parseArgs time state ("done"  : args) = markAsDoneTask time state args
 
 addTask time state args = AddTask time id desc tags
  where
-  id   = generateId state
+  id   = generateId $ filter (not . _done) (_tasks state)
   desc = unwords $ filter (not . startsByPlus) args
   tags = map tail $ filter startsByPlus args
 
@@ -59,17 +61,28 @@ stopTask time state args = case args of
     Nothing   -> NoOp
     Just task -> if _active task then StopTask time $ _id task else NoOp
 
+markAsDoneTask time state args = case args of
+  []       -> NoOp
+  (id : _) -> case findById (read id) (_tasks state) of
+    Nothing   -> NoOp
+    Just task -> if _done task then NoOp else MarkAsDoneTask time id nextId
+     where
+      id     = _id task
+      nextId = generateId $ filter _done (_tasks state)
+
 execute :: State -> Command -> [Event]
 execute state (AddTask  time id desc tags) = [TaskAdded time id desc tags]
 execute state (EditTask time id desc tags) = [TaskEdited time id desc tags]
 execute state (StartTask time id         ) = [TaskStarted time id]
 execute state (StopTask  time id         ) = [TaskStopped time id]
-execute state NoOp                         = []
+execute state (MarkAsDoneTask time id nextId) =
+  [TaskMarkedAsDone time id nextId]
+execute state NoOp = []
 
-generateId :: State -> Int
-generateId state = generateId' currIds genIds
+generateId :: [Task] -> Int
+generateId tasks = generateId' currIds genIds
  where
-  currIds = sort $ map _id $ _tasks state
+  currIds = sort $ map _id tasks
   genIds  = [1 ..]
 
 generateId' :: [Int] -> [Int] -> Int

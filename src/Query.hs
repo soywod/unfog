@@ -2,8 +2,9 @@ module Query where
 
 import qualified Store
 import           State
+import           Task
 
-data Query = ShowTasks deriving (Show)
+data Query = ShowTasks [String] deriving (Show)
 
 handle :: [String] -> IO ()
 handle args = state >>= executeQuery
@@ -13,8 +14,12 @@ handle args = state >>= executeQuery
   executeQuery = flip execute query
 
 parseArgs :: [String] -> Query
-parseArgs ("list" : args) = ShowTasks
+parseArgs ("list" : args) = ShowTasks args
 
 execute :: State -> Query -> IO ()
 execute state query = case query of
-  ShowTasks -> print $ _tasks state
+  ShowTasks args -> print filteredTasks
+   where
+    tasks         = _tasks state
+    filterByDone  = if "--done" `elem` args then _done else not . _done
+    filteredTasks = filter filterByDone tasks

@@ -23,7 +23,7 @@ apply state event = case event of
 
   TaskEdited _ id desc tags -> state { _tasks = nextTasks }
    where
-    tasks     = _tasks state
+    tasks     = filter (not . _done) (_tasks state)
     taskFound = Task.findById id tasks
     nextDesc  = if desc == "" then maybe desc _desc taskFound else desc
     nextTags  = maybe tags (union tags <$> _tags) taskFound
@@ -37,7 +37,7 @@ apply state event = case event of
 
   TaskStarted _ id -> state { _tasks = nextTasks }
    where
-    tasks     = _tasks state
+    tasks     = filter (not . _done) (_tasks state)
     taskFound = Task.findById id tasks
     nextTasks = case taskFound of
       Nothing   -> tasks
@@ -46,9 +46,10 @@ apply state event = case event of
         nextTask = task { _active = True }
         updateTask currTask | _id currTask == _id nextTask = nextTask
                             | otherwise                    = currTask
+
   TaskStopped _ id -> state { _tasks = nextTasks }
    where
-    tasks     = _tasks state
+    tasks     = filter (not . _done) (_tasks state)
     taskFound = Task.findById id tasks
     nextTasks = case taskFound of
       Nothing   -> tasks
@@ -57,3 +58,15 @@ apply state event = case event of
         nextTask = task { _active = False }
         updateTask currTask | _id currTask == _id nextTask = nextTask
                             | otherwise                    = currTask
+
+  TaskMarkedAsDone _ id nextId -> state { _tasks = nextTasks }
+   where
+    tasks     = filter (not . _done) (_tasks state)
+    taskFound = Task.findById id tasks
+    nextTasks = case taskFound of
+      Nothing   -> tasks
+      Just task -> map updateTask tasks
+       where
+        nextTask = task { _id = nextId, _done = True }
+        updateTask currTask | _id currTask == id = nextTask
+                            | otherwise          = currTask

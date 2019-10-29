@@ -11,10 +11,12 @@ data Task = Task { _id :: Id
                  , _desc :: Desc
                  , _tags :: [Tag]
                  , _active :: Bool
+                 , _done :: Bool
                  } deriving (Show, Read)
 
 emptyTask :: Task
-emptyTask = Task { _id = 0, _desc = "", _tags = [], _active = False }
+emptyTask =
+  Task { _id = 0, _desc = "", _tags = [], _active = False, _done = False }
 
 findById :: Id -> [Task] -> Maybe Task
 findById id = find $ (==) id . _id
