@@ -14,3 +14,4 @@ main = getArgs >>= dispatch
   dispatch ("stop"  : args) = Command.handle $ "stop" : args
   dispatch ("done"  : args) = Command.handle $ "done" : args
   dispatch ("list"  : args) = Query.handle $ "list" : args
+  dispatch ("show"  : args) = Query.handle $ "show" : args
