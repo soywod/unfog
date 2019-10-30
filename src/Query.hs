@@ -17,7 +17,7 @@ data Query
 handle :: [String] -> IO ()
 handle args = state >>= flip execute query
  where
-  state = State.applyAll <$> Store.readAllEvents
+  state = State.applyAll <$> Store.readAll
   query = parseArgs args
 
 parseArgs :: [String] -> Query

@@ -9,28 +9,45 @@ import           Task
 import           Event
 import           Utils.Predicate                ( startsByPlus )
 
+type Subscriber = Command -> IO ()
+
 data Command
-  = NoOp
-  | AddTask UTCTime Id Desc [Tag]
+  = AddTask UTCTime Id Desc [Tag]
   | EditTask UTCTime Id Desc [Tag]
   | StartTask UTCTime Id
   | StopTask UTCTime Id
   | MarkAsDoneTask UTCTime Id Id
+  | NoOp
   deriving (Show, Read)
 
 handle :: [String] -> IO ()
-handle args = events >>= Store.writeEvents
- where
-  state   = State.applyAll <$> Store.readAllEvents
-  command = parseArgs <$> getCurrentTime <*> state <*> return args
-  events  = execute <$> state <*> command
+handle args = do
+  now   <- getCurrentTime
+  state <- State.applyAll <$> Store.readAll
+  let command = parseCommand now state args
+  let events  = execute state command
+  Store.write events
+  notify command [logger]
 
-parseArgs :: UTCTime -> State -> [String] -> Command
-parseArgs time state ("add"   : args) = addTask time state args
-parseArgs time state ("edit"  : args) = editTask time state args
-parseArgs time state ("start" : args) = startTask time state args
-parseArgs time state ("stop"  : args) = stopTask time state args
-parseArgs time state ("done"  : args) = markAsDoneTask time state args
+notify :: Command -> [Subscriber] -> IO ()
+notify command = foldr notify' (return ()) where notify' sub _ = sub command
+
+logger :: Subscriber
+logger command = case command of
+  AddTask  _ id _ _     -> print id "added"
+  EditTask _ id _ _     -> print id "edited"
+  StartTask _ id        -> print id "started"
+  StopTask  _ id        -> print id "stopped"
+  MarkAsDoneTask _ id _ -> print id "done"
+ where
+  print id action = putStrLn $ "Task [" ++ show id ++ "] " ++ action ++ "!"
+
+parseCommand :: UTCTime -> State -> [String] -> Command
+parseCommand time state ("add"   : args) = addTask time state args
+parseCommand time state ("edit"  : args) = editTask time state args
+parseCommand time state ("start" : args) = startTask time state args
+parseCommand time state ("stop"  : args) = stopTask time state args
+parseCommand time state ("done"  : args) = markAsDoneTask time state args
 
 addTask time state args = AddTask time id desc tags
  where
@@ -71,13 +88,13 @@ markAsDoneTask time state args = case args of
       nextId = generateId $ filter _done (_tasks state)
 
 execute :: State -> Command -> [Event]
-execute state (AddTask  time id desc tags) = [TaskAdded time id desc tags]
-execute state (EditTask time id desc tags) = [TaskEdited time id desc tags]
-execute state (StartTask time id         ) = [TaskStarted time id]
-execute state (StopTask  time id         ) = [TaskStopped time id]
-execute state (MarkAsDoneTask time id nextId) =
-  [TaskMarkedAsDone time id nextId]
-execute state NoOp = []
+execute state command = case command of
+  AddTask  time id desc tags    -> [TaskAdded time id desc tags]
+  EditTask time id desc tags    -> [TaskEdited time id desc tags]
+  StartTask time id             -> [TaskStarted time id]
+  StopTask  time id             -> [TaskStopped time id]
+  MarkAsDoneTask time id nextId -> [TaskMarkedAsDone time id nextId]
+  NoOp                          -> []
 
 generateId :: [Task] -> Int
 generateId tasks = generateId' currIds genIds
