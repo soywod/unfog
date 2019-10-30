@@ -70,3 +70,6 @@ apply state event = case event of
         nextTask = task { _id = nextId, _done = True }
         updateTask currTask | _id currTask == id = nextTask
                             | otherwise          = currTask
+
+  TaskDeleted _ id -> state { _tasks = nextTasks }
+    where nextTasks = filter ((/=) id . _id) (_tasks state)

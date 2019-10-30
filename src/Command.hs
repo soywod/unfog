@@ -18,6 +18,7 @@ data Command
   | StartTask UTCTime Id
   | StopTask UTCTime Id
   | MarkAsDoneTask UTCTime Id Id
+  | DeleteTask UTCTime Id
   | Error String
   | NoOp
   deriving (Show, Read)
@@ -34,13 +35,14 @@ handle args = do
 
 parseArgs :: UTCTime -> State -> [String] -> Command
 parseArgs time state args = case args of
-  ("add"   : args) -> addTask time state args
-  ("edit"  : args) -> editTask time state args
-  ("start" : args) -> startTask time state args
-  ("stop"  : args) -> stopTask time state args
-  ("done"  : args) -> markAsDoneTask time state args
-  (command : _   ) -> Error $ "unfog: " ++ command ++ ": command not found"
-  []               -> Error "unfog: command missing"
+  ("add"    : args) -> addTask time state args
+  ("edit"   : args) -> editTask time state args
+  ("start"  : args) -> startTask time state args
+  ("stop"   : args) -> stopTask time state args
+  ("done"   : args) -> markAsDoneTask time state args
+  ("delete" : args) -> deleteTask time state args
+  (command  : _   ) -> Error $ "unfog: " ++ command ++ ": command not found"
+  []                -> Error "unfog: command missing"
 
 execute :: State -> Command -> [Event]
 execute state command = case command of
@@ -49,6 +51,7 @@ execute state command = case command of
   StartTask time id             -> [TaskStarted time id]
   StopTask  time id             -> [TaskStopped time id]
   MarkAsDoneTask time id nextId -> [TaskMarkedAsDone time id nextId]
+  DeleteTask time id            -> [TaskDeleted time id]
   Error _                       -> []
   NoOp                          -> []
 
@@ -98,6 +101,12 @@ markAsDoneTask time state args = case args of
       id     = _id task
       nextId = generateId $ map _id $ filter _done $ _tasks state
 
+deleteTask time state args = case args of
+  []       -> Error "unfog: delete: missing id"
+  (id : _) -> case maybeRead id >>= flip findById (_tasks state) of
+    Nothing   -> Error "unfog: delete: task not found"
+    Just task -> DeleteTask time $ _id task
+
 notify :: Command -> [Subscriber] -> IO ()
 notify command = foldr notify' (return ()) where notify' sub _ = sub command
 
@@ -108,6 +117,7 @@ logger command = case command of
   StartTask _ id        -> print id "started"
   StopTask  _ id        -> print id "stopped"
   MarkAsDoneTask _ id _ -> print id "done"
+  DeleteTask _ id       -> print id "deleted"
   Error message         -> putStrLn message
   where print id action = putStrLn $ "task [" ++ show id ++ "] " ++ action
 

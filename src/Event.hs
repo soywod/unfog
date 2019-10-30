@@ -10,4 +10,5 @@ data Event
   | TaskStarted UTCTime Id
   | TaskStopped UTCTime Id
   | TaskMarkedAsDone UTCTime Id Id
+  | TaskDeleted UTCTime Id
   deriving (Show, Read)
