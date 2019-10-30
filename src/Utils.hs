@@ -1,5 +1,6 @@
 module Utils where
 
+import           Data.List
 import           Data.Maybe
 import           System.Environment
 
@@ -15,3 +16,17 @@ getConfigDirPath = lookupEnv "XDG_CONFIG_HOME" >>= withDefault
 
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads
+
+generateId :: [Int] -> Int
+generateId ids = generateId' currIds genIds
+ where
+  currIds = sort ids
+  genIds  = [1 ..]
+
+generateId' :: [Int] -> [Int] -> Int
+generateId' [] []          = 1
+generateId' [] (genId : _) = genId
+generateId' (currId : currIds) (genId : genIds)
+  | currId == genId = generateId' currIds genIds
+  | otherwise       = genId
+

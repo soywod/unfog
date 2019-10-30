@@ -11,7 +11,7 @@ import           Utils
 data Query
   = ShowTasks [String]
   | ShowTask Id [String]
-  | Log String
+  | Error String
   deriving (Show)
 
 handle :: [String] -> IO ()
@@ -23,7 +23,7 @@ handle args = state >>= flip execute query
 parseArgs :: [String] -> Query
 parseArgs ("list"      : args) = ShowTasks args
 parseArgs ("show" : id : args) = case maybeRead id of
-  Nothing -> Log "Id invalid"
+  Nothing -> Error "unfog: show: task not found"
   Just id -> ShowTask id args
 
 execute :: State -> Query -> IO ()
@@ -31,14 +31,14 @@ execute state query = case query of
   ShowTasks args -> print tasks
    where
     showDone = "--done" `elem` args
-    tasks    = Task.filterByDone showDone $ _tasks state
+    tasks    = filterByDone showDone $ _tasks state
 
   ShowTask id args -> case maybeTask of
-    Nothing   -> execute state $ Log "Task not found"
+    Nothing   -> execute state $ Error "unfog: show: task not found"
     Just task -> print task
    where
     showDone  = "--done" `elem` args
-    tasks     = Task.filterByDone showDone $ _tasks state
-    maybeTask = Task.findById id tasks
+    tasks     = filterByDone showDone $ _tasks state
+    maybeTask = findById id tasks
 
-  Log message -> putStrLn message
+  Error message -> putStrLn message
