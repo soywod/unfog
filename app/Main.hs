@@ -4,6 +4,7 @@ import           System.Environment             ( getArgs )
 
 import qualified Command                        ( handle )
 import qualified Query                          ( handle )
+import           Utils                          ( elog )
 
 main :: IO ()
 main = getArgs >>= dispatch
@@ -18,5 +19,5 @@ dispatch args = case args of
   ("delete" : args) -> Command.handle $ "delete" : args
   ("list"   : args) -> Query.handle $ "list" : args
   ("show"   : args) -> Query.handle $ "show" : args
-  (command  : _   ) -> putStrLn $ "unfog: " ++ command ++ ": command not found"
-  []                -> putStrLn "unfog: command missing"
+  (command  : _   ) -> elog command "command not found"
+  []                -> elog "" "command missing"

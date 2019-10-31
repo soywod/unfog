@@ -30,3 +30,11 @@ generateId' (currId : currIds) (genId : genIds)
   | currId == genId = generateId' currIds genIds
   | otherwise       = genId
 
+startsByPlus :: String -> Bool
+startsByPlus "+"       = False
+startsByPlus ('+' : _) = True
+startsByPlus _         = False
+
+elog :: String -> String -> IO ()
+elog ""      message = putStrLn $ "unfog: " ++ message
+elog command message = putStrLn $ "unfog: " ++ command ++ ": " ++ message

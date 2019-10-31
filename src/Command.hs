@@ -8,7 +8,6 @@ import           State
 import           Task
 import           Event
 import           Utils
-import           Utils.Predicate                ( startsByPlus )
 
 type Subscriber = Command -> IO ()
 
@@ -19,7 +18,7 @@ data Command
   | StopTask UTCTime Id
   | MarkAsDoneTask UTCTime Id Id
   | DeleteTask UTCTime Id
-  | Error String
+  | Error String String
   | NoOp
   deriving (Show, Read)
 
@@ -41,8 +40,8 @@ parseArgs time state args = case args of
   ("stop"   : args) -> stopTask time state args
   ("done"   : args) -> markAsDoneTask time state args
   ("delete" : args) -> deleteTask time state args
-  (command  : _   ) -> Error $ "unfog: " ++ command ++ ": command not found"
-  []                -> Error "unfog: command missing"
+  (command  : _   ) -> Error command "command not found"
+  []                -> Error "" "command missing"
 
 execute :: State -> Command -> [Event]
 execute state command = case command of
@@ -52,11 +51,11 @@ execute state command = case command of
   StopTask  time id             -> [TaskStopped time id]
   MarkAsDoneTask time id nextId -> [TaskMarkedAsDone time id nextId]
   DeleteTask time id            -> [TaskDeleted time id]
-  Error _                       -> []
+  Error      _    _             -> []
   NoOp                          -> []
 
 addTask time state args = case args of
-  []   -> Error "unfog: add: missing arg"
+  []   -> Error "add" "missing desc"
   args -> AddTask time id desc tags
    where
     id   = generateId $ map _id $ filter (not . _done) $ _tasks state
@@ -64,10 +63,10 @@ addTask time state args = case args of
     tags = map tail $ filter startsByPlus args
 
 editTask time state args = case args of
-  []          -> Error "unfog: edit: missing id"
-  [_        ] -> Error "unfog: edit: missing arg"
+  []          -> Error "edit" "missing id"
+  [_        ] -> Error "edit" "missing arg"
   (id : args) -> case maybeRead id >>= flip findById (_tasks state) of
-    Nothing   -> Error "unfog: edit: task not found"
+    Nothing   -> Error "edit" "task not found"
     Just task -> EditTask time id desc tags
      where
       id   = _id task
@@ -75,36 +74,36 @@ editTask time state args = case args of
       tags = map tail $ filter startsByPlus args
 
 startTask time state args = case args of
-  []       -> Error "unfog: start: missing id"
+  []       -> Error "start" "missing id"
   (id : _) -> case maybeRead id >>= flip findById (_tasks state) of
-    Nothing   -> Error "unfog: start: task not found"
+    Nothing   -> Error "start" "task not found"
     Just task -> if _active task
-      then Error "unfog: start: task already started"
+      then Error "start" "task already started"
       else StartTask time $ _id task
 
 stopTask time state args = case args of
-  []       -> Error "unfog: stop: missing id"
+  []       -> Error "stop" "missing id"
   (id : _) -> case maybeRead id >>= flip findById (_tasks state) of
-    Nothing   -> Error "unfog: stop: task not found"
+    Nothing   -> Error "stop" "task not found"
     Just task -> if _active task
       then StopTask time $ _id task
-      else Error "unfog: stop: task already stopped"
+      else Error "stop" "task already stopped"
 
 markAsDoneTask time state args = case args of
-  []       -> Error "unfog: done: missing id"
+  []       -> Error "done" "missing id"
   (id : _) -> case maybeRead id >>= flip findById (_tasks state) of
-    Nothing   -> Error "unfog: done: task not found"
+    Nothing   -> Error "done" "task not found"
     Just task -> if _done task
-      then Error "unfog: done: task already done"
+      then Error "done" "task already done"
       else MarkAsDoneTask time id nextId
      where
       id     = _id task
       nextId = generateId $ map _id $ filter _done $ _tasks state
 
 deleteTask time state args = case args of
-  []       -> Error "unfog: delete: missing id"
+  []       -> Error "delete" "missing id"
   (id : _) -> case maybeRead id >>= flip findById (_tasks state) of
-    Nothing   -> Error "unfog: delete: task not found"
+    Nothing   -> Error "delete" "task not found"
     Just task -> DeleteTask time $ _id task
 
 notify :: Command -> [Subscriber] -> IO ()
@@ -112,12 +111,12 @@ notify command = foldr notify' (return ()) where notify' sub _ = sub command
 
 logger :: Subscriber
 logger command = case command of
-  AddTask  _ id _ _     -> print id "added"
-  EditTask _ id _ _     -> print id "edited"
-  StartTask _ id        -> print id "started"
-  StopTask  _ id        -> print id "stopped"
-  MarkAsDoneTask _ id _ -> print id "done"
-  DeleteTask _ id       -> print id "deleted"
-  Error message         -> putStrLn message
-  where print id action = putStrLn $ "task [" ++ show id ++ "] " ++ action
+  AddTask  _ id _ _          -> log id "added"
+  EditTask _ id _ _          -> log id "edited"
+  StartTask _ id             -> log id "started"
+  StopTask  _ id             -> log id "stopped"
+  MarkAsDoneTask _ id _      -> log id "done"
+  DeleteTask _       id      -> log id "deleted"
+  Error      command message -> elog command message
+  where log id event = putStrLn $ "task [" ++ show id ++ "] " ++ event
 
