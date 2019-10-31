@@ -1,7 +1,10 @@
 module Task where
 
 import           Control.Exception
-import           Data.List                      ( find )
+import           Data.List
+import           Text.PrettyPrint.Boxes
+
+import           Utils
 
 type Id = Int
 type Desc = String
@@ -26,3 +29,18 @@ filterByDone predicate tasks = filteredTasks
  where
   byDone        = if predicate then _done else not . _done
   filteredTasks = filter byDone tasks
+
+prettyPrint :: [Task] -> IO ()
+prettyPrint tasks =
+  putStrLn
+    $ render
+    $ table
+    $ ["ID", "DESC", "TAGS", "ACTIVE"]
+    : map prettyPrint' tasks
+ where
+  prettyPrint' task =
+    [ show $ _id task
+    , _desc task
+    , unwords $ _tags task
+    , if _active task then "✔" else ""
+    ]

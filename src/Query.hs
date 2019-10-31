@@ -28,14 +28,14 @@ parseArgs ("show" : id : args) = case maybeRead id of
 
 execute :: State -> Query -> IO ()
 execute state query = case query of
-  ShowTasks args -> print tasks
+  ShowTasks args -> prettyPrint tasks
    where
     shouldShowDone = "--done" `elem` args
     tasks          = filterByDone shouldShowDone $ _tasks state
 
   ShowTask id args -> case maybeTask of
     Nothing   -> execute state $ Error "show" "task not found"
-    Just task -> print task
+    Just task -> prettyPrint [task]
    where
     shouldShowDone = "--done" `elem` args
     tasks          = filterByDone shouldShowDone $ _tasks state

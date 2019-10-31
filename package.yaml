@@ -27,6 +27,7 @@ library:
   dependencies:
   - directory
   - time
+  - boxes
 
 executables:
   unfog:
