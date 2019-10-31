@@ -28,6 +28,7 @@ library:
   - directory
   - time
   - boxes
+  - human-readable-duration
 
 executables:
   unfog:

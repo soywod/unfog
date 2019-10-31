@@ -16,9 +16,6 @@ getConfigDirPath = lookupEnv "XDG_CONFIG_HOME" >>= withDefault
     Just path -> (++ "/unfog") <$> return path
     Nothing   -> (++ "/.config/unfog") . fromMaybe "/tmp" <$> lookupEnv "HOME"
 
-maybeRead :: Read a => String -> Maybe a
-maybeRead = fmap fst . listToMaybe . reads
-
 generateId :: [Int] -> Int
 generateId ids = generateId' currIds genIds
  where

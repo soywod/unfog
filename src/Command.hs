@@ -2,6 +2,7 @@ module Command where
 
 import           Data.List
 import           Data.Time
+import           Text.Read
 
 import           Store
 import           State
@@ -65,7 +66,7 @@ addTask time state args = case args of
 editTask time state args = case args of
   []          -> Error "edit" "missing id"
   [_        ] -> Error "edit" "missing arg"
-  (id : args) -> case maybeRead id >>= flip findById (_tasks state) of
+  (id : args) -> case readMaybe id >>= flip findById (_tasks state) of
     Nothing   -> Error "edit" "task not found"
     Just task -> EditTask time id desc tags
      where
@@ -75,7 +76,7 @@ editTask time state args = case args of
 
 startTask time state args = case args of
   []       -> Error "start" "missing id"
-  (id : _) -> case maybeRead id >>= flip findById (_tasks state) of
+  (id : _) -> case readMaybe id >>= flip findById (_tasks state) of
     Nothing   -> Error "start" "task not found"
     Just task -> if _active task
       then Error "start" "task already started"
@@ -83,7 +84,7 @@ startTask time state args = case args of
 
 stopTask time state args = case args of
   []       -> Error "stop" "missing id"
-  (id : _) -> case maybeRead id >>= flip findById (_tasks state) of
+  (id : _) -> case readMaybe id >>= flip findById (_tasks state) of
     Nothing   -> Error "stop" "task not found"
     Just task -> if _active task
       then StopTask time $ _id task
@@ -91,7 +92,7 @@ stopTask time state args = case args of
 
 markAsDoneTask time state args = case args of
   []       -> Error "done" "missing id"
-  (id : _) -> case maybeRead id >>= flip findById (_tasks state) of
+  (id : _) -> case readMaybe id >>= flip findById (_tasks state) of
     Nothing   -> Error "done" "task not found"
     Just task -> if _done task
       then Error "done" "task already done"
@@ -102,7 +103,7 @@ markAsDoneTask time state args = case args of
 
 deleteTask time state args = case args of
   []       -> Error "delete" "missing id"
-  (id : _) -> case maybeRead id >>= flip findById (_tasks state) of
+  (id : _) -> case readMaybe id >>= flip findById (_tasks state) of
     Nothing   -> Error "delete" "task not found"
     Just task -> DeleteTask time $ _id task
 
@@ -119,4 +120,3 @@ logger command = case command of
   DeleteTask _       id      -> log id "deleted"
   Error      command message -> elog command message
   where log id event = putStrLn $ "task [" ++ show id ++ "] " ++ event
-
