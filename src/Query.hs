@@ -60,39 +60,44 @@ showWorktime state events args = do
   now <- getCurrentTime
   let (ids, tags) = getFilters ([], []) args
   let allIds      = ids `union` getIdsByTags tags
-  let worktimes   = map (getWorktime now events) allIds
-  let total       = sum $ map snd worktimes
+  let worktimes =
+        map (toDuration now) $ foldl (getWorktime now allIds) [] events
+  let total = sum $ map snd worktimes
   putStrLn
     $  render
     $  table
     $  [["ID", "WORKTIME"]]
-    ++ map formatWorktime worktimes
+    ++ map format worktimes
     ++ [["TOTAL", approximativeDuration total]]
  where
   getIdsByTags tags = map _id $ filter
     (not . null . intersect tags . map ("+" ++) . _tags)
     (_tasks state)
-  formatWorktime (id, worktime) = [show id, approximativeDuration worktime]
+  format (id, worktime) = [show id, approximativeDuration worktime]
+  getFilters :: ([Id], [Tag]) -> [String] -> ([Id], [Tag])
+  getFilters filters     []           = filters
+  getFilters (ids, tags) (arg : args) = case readMaybe arg :: Maybe Int of
+    Nothing -> getFilters (ids, tags ++ [arg]) args
+    Just id -> getFilters (ids ++ [id], tags) args
 
-getWorktime :: UTCTime -> [Event] -> Id -> (Id, Micro)
-getWorktime now events currId =
-  (currId, realToFrac $ sum $ zipWith diffUTCTime (stops ++ lastStop) starts)
- where
-  starts   = map byDate $ filter onlyStarted events
-  stops    = map byDate $ filter onlyStopped events
-  lastStop = [ now | length starts > length stops ]
-  onlyStarted event = case event of
-    TaskStarted _ id -> id == currId
-    _                -> False
-  onlyStopped event = case event of
-    TaskStopped _ id -> id == currId
-    _                -> False
-  byDate event = case event of
-    TaskStarted start _ -> start
-    TaskStopped stop  _ -> stop
+toDuration :: UTCTime -> Worktime -> (Int, Micro)
+toDuration now (id, (starts, stops)) =
+  (id, realToFrac $ sum $ zipWith diffUTCTime (stops ++ lastStop) starts)
+  where lastStop = [ now | length starts > length stops ]
 
-getFilters :: ([Id], [Tag]) -> [String] -> ([Id], [Tag])
-getFilters filters     []           = filters
-getFilters (ids, tags) (arg : args) = case readMaybe arg :: Maybe Int of
-  Nothing -> getFilters (ids, tags ++ [arg]) args
-  Just id -> getFilters (ids ++ [id], tags) args
+type Worktime = (Id, ([UTCTime], [UTCTime]))
+getWorktime :: UTCTime -> [Id] -> [Worktime] -> Event -> [Worktime]
+getWorktime now ids acc event = case event of
+  TaskStarted start id -> case find ((==) id . fst) acc of
+    Nothing -> (id, ([start], [])) : acc
+    Just (_, (starts, stops)) ->
+      (id, (starts ++ [start], stops)) : filter ((/=) id . fst) acc
+
+  TaskStopped stop id -> case find ((==) id . fst) acc of
+    Nothing -> (id, ([], [stop])) : acc
+    Just (_, (starts, stops)) ->
+      (id, (starts, stops ++ [stop])) : filter ((/=) id . fst) acc
+
+  TaskDeleted _ id -> filter ((/=) id . fst) acc
+
+  _                -> acc
