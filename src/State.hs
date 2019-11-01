@@ -6,12 +6,16 @@ import           Data.List
 
 import           Event
 import           Task
+import           Utils
 
-newtype State = State { _tasks :: [Task]
-                      } deriving (Show, Read)
+data State = State { _tasks :: [Task]
+                   , _showDone :: Bool
+                   , _context :: [Tag]
+                   } deriving (Show, Read)
 
 applyAll :: [Event] -> State
-applyAll = foldl apply emptyState where emptyState = State { _tasks = [] }
+applyAll = foldl apply emptyState
+  where emptyState = State { _tasks = [], _showDone = False, _context = [] }
 
 apply :: State -> Event -> State
 apply state event = case event of
@@ -73,3 +77,8 @@ apply state event = case event of
 
   TaskDeleted _ id -> state { _tasks = nextTasks }
     where nextTasks = filter ((/=) id . _id) (_tasks state)
+
+  ContextSet _ context -> state { _showDone, _context }
+   where
+    _showDone = "done" `elem` context
+    _context  = filter startsByPlus $ context \\ ["done"]

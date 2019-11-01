@@ -17,6 +17,7 @@ dispatch args = case args of
   ("stop"     : args) -> Command.handle $ "stop" : args
   ("done"     : args) -> Command.handle $ "done" : args
   ("delete"   : args) -> Command.handle $ "delete" : args
+  ("context"  : args) -> Command.handle $ "context" : args
   ("list"     : args) -> Query.handle $ "list" : args
   ("show"     : args) -> Query.handle $ "show" : args
   ("worktime" : args) -> Query.handle $ "worktime" : args

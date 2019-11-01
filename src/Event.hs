@@ -11,4 +11,5 @@ data Event
   | TaskStopped UTCTime Id
   | TaskMarkedAsDone UTCTime Id Id
   | TaskDeleted UTCTime Id
+  | ContextSet UTCTime [String]
   deriving (Show, Read)

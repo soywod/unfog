@@ -19,6 +19,7 @@ data Command
   | StopTask UTCTime Id
   | MarkAsDoneTask UTCTime Id Id
   | DeleteTask UTCTime Id
+  | SetContext UTCTime [String]
   | Error String String
   | NoOp
   deriving (Show, Read)
@@ -35,14 +36,15 @@ handle args = do
 
 parseArgs :: UTCTime -> State -> [String] -> Command
 parseArgs time state args = case args of
-  ("add"    : args) -> addTask time state args
-  ("edit"   : args) -> editTask time state args
-  ("start"  : args) -> startTask time state args
-  ("stop"   : args) -> stopTask time state args
-  ("done"   : args) -> markAsDoneTask time state args
-  ("delete" : args) -> deleteTask time state args
-  (command  : _   ) -> Error command "command not found"
-  []                -> Error "" "command missing"
+  ("add"     : args) -> addTask time state args
+  ("edit"    : args) -> editTask time state args
+  ("start"   : args) -> startTask time state args
+  ("stop"    : args) -> stopTask time state args
+  ("done"    : args) -> markAsDoneTask time state args
+  ("delete"  : args) -> deleteTask time state args
+  ("context" : args) -> SetContext time args
+  (command   : _   ) -> Error command "command not found"
+  []                 -> Error "" "command missing"
 
 execute :: State -> Command -> [Event]
 execute state command = case command of
@@ -52,6 +54,7 @@ execute state command = case command of
   StopTask  time id             -> [TaskStopped time id]
   MarkAsDoneTask time id nextId -> [TaskMarkedAsDone time id nextId]
   DeleteTask time id            -> [TaskDeleted time id]
+  SetContext time context       -> [ContextSet time context]
   Error      _    _             -> []
   NoOp                          -> []
 
@@ -112,11 +115,15 @@ notify command = foldr notify' (return ()) where notify' sub _ = sub command
 
 logger :: Subscriber
 logger command = case command of
-  AddTask  _ id _ _          -> log id "added"
-  EditTask _ id _ _          -> log id "edited"
-  StartTask _ id             -> log id "started"
-  StopTask  _ id             -> log id "stopped"
-  MarkAsDoneTask _ id _      -> log id "done"
-  DeleteTask _       id      -> log id "deleted"
+  AddTask  _ id _ _          -> logAction id "added"
+  EditTask _ id _ _          -> logAction id "edited"
+  StartTask _ id             -> logAction id "started"
+  StopTask  _ id             -> logAction id "stopped"
+  MarkAsDoneTask _ id _      -> logAction id "done"
+  DeleteTask _       id      -> logAction id "deleted"
+  SetContext _       context -> logContext context
   Error      command message -> elog command message
-  where log id event = putStrLn $ "task [" ++ show id ++ "] " ++ event
+ where
+  logAction id event = putStrLn $ "unfog: task [" ++ show id ++ "] " ++ event
+  logContext context =
+    putStrLn $ "unfog: context " ++ if null context then "cleared" else "set"
