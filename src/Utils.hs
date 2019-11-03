@@ -22,8 +22,9 @@ startsByPlus ('+' : _) = True
 startsByPlus _         = False
 
 elog :: String -> String -> IO ()
-elog ""      message = putStrLn $ "unfog: " ++ message
-elog command message = putStrLn $ "unfog: " ++ command ++ ": " ++ message
+elog "" message = putStrLn $ "unfog: " ++ message
+elog command message =
+  putStrLn $ "\x1b[31munfog: " ++ command ++ ": " ++ message ++ "\x1b[0m"
 
 -- Source:
 -- https://codereview.stackexchange.com/questions/171992/pretty-printed-tables-in-haskell
