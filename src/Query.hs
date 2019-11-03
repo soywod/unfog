@@ -17,7 +17,7 @@ import           Event
 
 data Query
   = ShowTasks [String]
-  | ShowTask Id [String]
+  | ShowTask Number [String]
   | ShowWorktime [String]
   | Error String String
   deriving (Show)
@@ -31,11 +31,11 @@ handle args = do
 
 parseArgs :: [String] -> Query
 parseArgs args = case args of
-  ("list"      : args) -> ShowTasks args
-  ("worktime"  : args) -> ShowWorktime args
-  ("show" : id : args) -> case readMaybe id of
-    Nothing -> Error "show" "task not found"
-    Just id -> ShowTask id args
+  ("list"          : args) -> ShowTasks args
+  ("worktime"      : args) -> ShowWorktime args
+  ("show" : number : args) -> case readMaybe number of
+    Nothing     -> Error "show" "task not found"
+    Just number -> ShowTask number args
 
 execute :: State -> [Event] -> Query -> IO ()
 execute state events query = case query of
@@ -50,11 +50,11 @@ execute state events query = case query of
     contextLog = "unfog: list"
       ++ if null contextStr then "" else " [" ++ contextStr ++ "]"
 
-  ShowTask id args -> showTaskIfExists
+  ShowTask number args -> showTaskIfExists
    where
     fByTags          = filterByTags $ _context state
     fByDone          = filterByDone $ _showDone state
-    maybeTask        = findById id $ fByTags . fByDone $ _tasks state
+    maybeTask        = findByNumber number $ fByTags . fByDone $ _tasks state
     showTask         = prettyPrint . flip (:) [] <$> maybeTask
     showError        = elog "show" "task not found"
     showTaskIfExists = fromMaybe showError showTask
