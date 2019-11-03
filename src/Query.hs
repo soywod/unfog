@@ -8,6 +8,8 @@ import           Data.Duration
 import           Data.Fixed
 import           Data.List
 import           Text.PrettyPrint.Boxes
+import           Data.Aeson
+import qualified Data.ByteString.Lazy.Char8    as BL
 
 import qualified Store
 import           State
@@ -34,21 +36,25 @@ parseArgs args = case args of
   ("list"          : args) -> ShowTasks args
   ("worktime"      : args) -> ShowWorktime args
   ("show" : number : args) -> case readMaybe number of
-    Nothing     -> Error "show" "task not found"
+    Nothing     -> Query.Error "show" "task not found"
     Just number -> ShowTask number args
 
 execute :: State -> [Event] -> Query -> IO ()
 execute state events query = case query of
-  ShowTasks args -> do
-    putStrLn contextLog
-    prettyPrint tasks
+  ShowTasks args -> if json then printJSON else printText
    where
-    fByTags    = filterByTags $ _context state
-    fByDone    = filterByDone $ _showDone state
-    tasks      = fByTags . fByDone $ _tasks state
-    contextStr = unwords $ [ "done" | _showDone state ] ++ _context state
-    contextLog = "unfog: list"
-      ++ if null contextStr then "" else " [" ++ contextStr ++ "]"
+    json      = "--json" `elem` args
+    fByTags   = filterByTags $ _context state
+    fByDone   = filterByDone $ _showDone state
+    tasks     = fByTags . fByDone $ _tasks state
+    printJSON = BL.putStr $ encode tasks
+    printText = do
+      let context = [ "done" | _showDone state ] ++ _context state
+      let contextStr = unwords context
+            ++ if null context then "" else " [" ++ unwords context ++ "]"
+
+      putStrLn $ "unfog: list" ++ contextStr
+      prettyPrint tasks
 
   ShowTask number args -> showTaskIfExists
    where
@@ -71,7 +77,7 @@ execute state events query = case query of
       else "[" ++ unwords tags ++ "]"
     putStrLn $ approximativeDuration total
 
-  Error command message -> elog command message
+  Query.Error command message -> elog command message
 
 mapToDuration :: UTCTime -> Worktime -> (Id, Micro)
 mapToDuration now (id, (starts, stops)) = (id, diff)

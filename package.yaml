@@ -29,6 +29,9 @@ library:
   - time
   - boxes
   - human-readable-duration
+  - aeson
+  - bytestring
+  - base-compat
 
 executables:
   unfog:

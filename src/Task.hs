@@ -1,8 +1,12 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Task where
+
+import qualified Data.ByteString.Lazy.Char8    as BL
 
 import           Control.Exception
 import           Data.List
 import           Text.PrettyPrint.Boxes
+import           Data.Aeson
 
 import           Utils
 
@@ -18,6 +22,16 @@ data Task = Task { _id :: Id
                  , _active :: Bool
                  , _done :: Bool
                  } deriving (Show, Read, Eq)
+
+instance ToJSON Task where
+  toJSON (Task id number desc tags active done) = object
+    [ "id" .= id
+    , "number" .= number
+    , "desc" .= desc
+    , "tags" .= tags
+    , "active" .= if active then 1 else 0 :: Int
+    , "done" .= if done then 1 else 0 :: Int
+    ]
 
 emptyTask :: Task
 emptyTask = Task { _id     = 0
