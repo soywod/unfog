@@ -53,7 +53,7 @@ filterByTags :: [Tag] -> [Task] -> [Task]
 filterByTags tags tasks = filteredTasks
  where
   filteredTasks = if null tags then tasks else filter byTags tasks
-  byTags        = (==) tags . intersect tags . _tags
+  byTags        = not . null . intersect tags . _tags
 
 prettyPrint :: [Task] -> IO ()
 prettyPrint tasks =

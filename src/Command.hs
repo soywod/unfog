@@ -18,7 +18,7 @@ data Command
   | EditTask UTCTime Id Number Desc [Tag]
   | StartTask UTCTime Id Number
   | StopTask UTCTime Id Number
-  | MarkAsDoneTask UTCTime Id Number
+  | MarkAsDoneTask UTCTime Id Number Number
   | DeleteTask UTCTime Id Number
   | SetContext UTCTime Bool [String]
   | Error String String
@@ -40,9 +40,9 @@ execute state command = case command of
   AddTask  time id number desc tags -> [TaskAdded time id number desc tags]
   EditTask time id number desc tags -> [TaskEdited time id number desc tags]
   StartTask time id number          -> [TaskStarted time id number]
-  StopTask time id number           -> [TaskStopped time id number]
-  MarkAsDoneTask time id number     -> [TaskMarkedAsDone time id number]
-  DeleteTask time id number         -> [TaskDeleted time id number]
+  StopTask  time id number          -> [TaskStopped time id number]
+  MarkAsDoneTask time id _ number   -> [TaskMarkedAsDone time id number]
+  DeleteTask time id       number   -> [TaskDeleted time id number]
   SetContext time showDone context  -> [ContextSet time showDone context]
   Error _ _                         -> []
   NoOp                              -> []
@@ -118,8 +118,9 @@ markAsDoneTask time state args = case args of
     tasks      = filterByDone (_showDone state) (_tasks state)
     maybeTask  = readMaybe number >>= flip findByNumber tasks
     nextNumber = generateNumber $ filter _done $ _tasks state
-    validate task | _done task = Error "done" "task already done"
-                  | otherwise  = MarkAsDoneTask time (_id task) nextNumber
+    validate task
+      | _done task = Error "done" "task already done"
+      | otherwise  = MarkAsDoneTask time (_id task) (_number task) nextNumber
 
 deleteTask time state args = case args of
   []           -> Error "delete" "missing id"
@@ -140,14 +141,14 @@ notify command = foldr (\sub _ -> sub command) (return ())
 
 logger :: Subscriber
 logger event = case event of
-  AddTask  _ _ number _ _           -> logAction number "added"
-  EditTask _ _ number _ _           -> logAction number "edited"
-  StartTask      _ _        number  -> logAction number "started"
-  StopTask       _ _        number  -> logAction number "stopped"
-  MarkAsDoneTask _ _        number  -> logAction number "done"
-  DeleteTask     _ _        number  -> logAction number "deleted"
-  SetContext     _ showDone context -> logContext showDone context
-  Error command message             -> elog command message
+  AddTask  _ _ number _ _       -> logAction number "added"
+  EditTask _ _ number _ _       -> logAction number "edited"
+  StartTask _ _ number          -> logAction number "started"
+  StopTask  _ _ number          -> logAction number "stopped"
+  MarkAsDoneTask _ _ number _   -> logAction number "done"
+  DeleteTask _ _        number  -> logAction number "deleted"
+  SetContext _ showDone context -> logContext showDone context
+  Error command message         -> elog command message
  where
   logAction n event = putStrLn $ "unfog: task [" ++ show n ++ "] " ++ event
   logContext showDone context =

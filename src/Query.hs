@@ -65,7 +65,7 @@ execute state events query = case query of
     let ids       = map _id $ filterByTags args $ _tasks state
     let worktimes = foldl (getWorktime now ids) [] events
     let durations = map (mapToDuration now) worktimes
-    let total = sum $ map snd durations
+    let total     = sum $ map snd durations
     putStrLn $ "unfog: worktime " ++ if null args
       then "global"
       else "[" ++ unwords tags ++ "]"

@@ -65,7 +65,7 @@ apply state event = case event of
       Nothing   -> _tasks state
       Just task -> map updateTask $ _tasks state
        where
-        nextTask = task { _number, _done = True }
+        nextTask = task { _number, _active = False, _done = True }
         updateTask currTask | _id currTask == id = nextTask
                             | otherwise          = currTask
 
