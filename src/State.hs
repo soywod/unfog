@@ -19,66 +19,61 @@ applyAll = foldl apply emptyState
 
 apply :: State -> Event -> State
 apply state event = case event of
-  TaskAdded _ _id _desc _tags -> state { _tasks = nextTasks }
+  TaskAdded _ _id _number _desc _tags -> state { _tasks = nextTasks }
    where
     prevTasks = _tasks state
-    newTask   = emptyTask { _id, _desc, _tags }
+    newTask   = emptyTask { _id, _number, _desc, _tags }
     nextTasks = prevTasks ++ [newTask]
 
-  TaskEdited _ id desc tags -> state { _tasks = nextTasks }
+  TaskEdited _ id _ _desc _tags -> state { _tasks = nextTasks }
    where
-    tasks     = filter (not . _done) (_tasks state)
-    taskFound = Task.findById id tasks
-    nextDesc  = if desc == "" then maybe desc _desc taskFound else desc
-    nextTags  = maybe tags (union tags <$> _tags) taskFound
-    nextTasks = case taskFound of
-      Nothing   -> tasks
-      Just task -> map updateTask tasks
+    maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
+    nextTasks = case maybeTask of
+      Nothing   -> _tasks state
+      Just task -> map updateTask $ _tasks state
        where
-        nextTask = task { _desc = nextDesc, _tags = nextTags }
+        nextTask = task { _desc, _tags }
         updateTask currTask | _id currTask == _id nextTask = nextTask
                             | otherwise                    = currTask
 
-  TaskStarted _ id -> state { _tasks = nextTasks }
+  TaskStarted _ id _ -> state { _tasks = nextTasks }
    where
-    tasks     = filter (not . _done) (_tasks state)
-    taskFound = Task.findById id tasks
-    nextTasks = case taskFound of
-      Nothing   -> tasks
-      Just task -> map updateTask tasks
+    maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
+    nextTasks = case maybeTask of
+      Nothing   -> _tasks state
+      Just task -> map updateTask $ _tasks state
        where
         nextTask = task { _active = True }
         updateTask currTask | _id currTask == _id nextTask = nextTask
                             | otherwise                    = currTask
 
-  TaskStopped _ id -> state { _tasks = nextTasks }
+  TaskStopped _ id _ -> state { _tasks = nextTasks }
    where
-    tasks     = filter (not . _done) (_tasks state)
-    taskFound = Task.findById id tasks
-    nextTasks = case taskFound of
-      Nothing   -> tasks
-      Just task -> map updateTask tasks
+    maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
+    nextTasks = case maybeTask of
+      Nothing   -> _tasks state
+      Just task -> map updateTask $ _tasks state
        where
         nextTask = task { _active = False }
         updateTask currTask | _id currTask == _id nextTask = nextTask
                             | otherwise                    = currTask
 
-  TaskMarkedAsDone _ id nextId -> state { _tasks = nextTasks }
+  TaskMarkedAsDone _ id _number -> state { _tasks = nextTasks }
    where
-    tasks     = filter (not . _done) (_tasks state)
-    taskFound = Task.findById id tasks
-    nextTasks = case taskFound of
-      Nothing   -> tasks
-      Just task -> map updateTask tasks
+    maybeTask = findById id $ filterByDone False (_tasks state)
+    nextTasks = case maybeTask of
+      Nothing   -> _tasks state
+      Just task -> map updateTask $ _tasks state
        where
-        nextTask = task { _id = nextId, _done = True }
+        nextTask = task { _number, _done = True }
         updateTask currTask | _id currTask == id = nextTask
                             | otherwise          = currTask
 
-  TaskDeleted _ id -> state { _tasks = nextTasks }
-    where nextTasks = filter ((/=) id . _id) (_tasks state)
-
-  ContextSet _ context -> state { _showDone, _context }
+  TaskDeleted _ id _ -> state { _tasks = nextTasks }
    where
-    _showDone = "done" `elem` context
-    _context  = filter startsByPlus $ context \\ ["done"]
+    maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
+    nextTasks = case maybeTask of
+      Nothing   -> _tasks state
+      Just task -> filter ((/=) (_id task) . _id) (_tasks state)
+
+  ContextSet _ _showDone _context -> state { _showDone, _context }

@@ -39,65 +39,63 @@ parseArgs args = case args of
 
 execute :: State -> [Event] -> Query -> IO ()
 execute state events query = case query of
-  ShowTasks args -> prettyPrint tasks
+  ShowTasks args -> do
+    putStrLn contextLog
+    prettyPrint tasks
    where
-    shouldShowDone = "--done" `elem` args
-    tasks          = filterByDone shouldShowDone $ _tasks state
+    fByTags    = filterByTags $ _context state
+    fByDone    = filterByDone $ _showDone state
+    tasks      = fByTags . fByDone $ _tasks state
+    contextStr = unwords $ [ "done" | _showDone state ] ++ _context state
+    contextLog = "unfog: list"
+      ++ if null contextStr then "" else " [" ++ contextStr ++ "]"
 
-  ShowWorktime args -> showWorktime state events args
-
-  ShowTask id args  -> case maybeTask of
-    Nothing   -> elog "show" "task not found"
-    Just task -> prettyPrint [task]
+  ShowTask id args -> showTaskIfExists
    where
-    shouldShowDone = "--done" `elem` args
-    tasks          = filterByDone shouldShowDone $ _tasks state
-    maybeTask      = findById id tasks
+    fByTags          = filterByTags $ _context state
+    fByDone          = filterByDone $ _showDone state
+    maybeTask        = findById id $ fByTags . fByDone $ _tasks state
+    showTask         = prettyPrint . flip (:) [] <$> maybeTask
+    showError        = elog "show" "task not found"
+    showTaskIfExists = fromMaybe showError showTask
+
+  ShowWorktime args -> do
+    now <- getCurrentTime
+    let tags      = filter startsByPlus args
+    let ids       = map _id $ filterByTags args $ _tasks state
+    let worktimes = foldl (getWorktime now ids) [] events
+    let durations = map (mapToDuration now) worktimes
+    let total = sum $ map snd durations
+    putStrLn $ "unfog: worktime " ++ if null args
+      then "global"
+      else "[" ++ unwords tags ++ "]"
+    putStrLn $ approximativeDuration total
 
   Error command message -> elog command message
 
-showWorktime state events args = do
-  now <- getCurrentTime
-  let (ids, tags) = getFilters ([], []) args
-  let allIds      = ids `union` getIdsByTags tags
-  let worktimes =
-        map (toDuration now) $ foldl (getWorktime now allIds) [] events
-  let total = sum $ map snd worktimes
-  putStrLn
-    $  render
-    $  table
-    $  [["ID", "WORKTIME"]]
-    ++ map format worktimes
-    ++ [["TOTAL", approximativeDuration total]]
+mapToDuration :: UTCTime -> Worktime -> (Id, Micro)
+mapToDuration now (id, (starts, stops)) = (id, diff)
  where
-  getIdsByTags tags = map _id $ filter
-    (not . null . intersect tags . map ("+" ++) . _tags)
-    (_tasks state)
-  format (id, worktime) = [show id, approximativeDuration worktime]
-  getFilters :: ([Id], [Tag]) -> [String] -> ([Id], [Tag])
-  getFilters filters     []           = filters
-  getFilters (ids, tags) (arg : args) = case readMaybe arg :: Maybe Int of
-    Nothing -> getFilters (ids, tags ++ [arg]) args
-    Just id -> getFilters (ids ++ [id], tags) args
-
-toDuration :: UTCTime -> Worktime -> (Int, Micro)
-toDuration now (id, (starts, stops)) =
-  (id, realToFrac $ sum $ zipWith diffUTCTime (stops ++ lastStop) starts)
-  where lastStop = [ now | length starts > length stops ]
+  lastStop = [ now | length starts > length stops ]
+  diff     = realToFrac $ sum $ zipWith diffUTCTime (stops ++ lastStop) starts
 
 type Worktime = (Id, ([UTCTime], [UTCTime]))
 getWorktime :: UTCTime -> [Id] -> [Worktime] -> Event -> [Worktime]
 getWorktime now ids acc event = case event of
-  TaskStarted start id -> case find ((==) id . fst) acc of
+  TaskStarted start id _ -> ifMatchId id $ case lookupAcc id of
     Nothing -> (id, ([start], [])) : acc
     Just (_, (starts, stops)) ->
-      (id, (starts ++ [start], stops)) : filter ((/=) id . fst) acc
+      (id, (starts ++ [start], stops)) : accWithout id
 
-  TaskStopped stop id -> case find ((==) id . fst) acc of
+  TaskStopped stop id _ -> ifMatchId id $ case lookupAcc id of
     Nothing -> (id, ([], [stop])) : acc
     Just (_, (starts, stops)) ->
-      (id, (starts, stops ++ [stop])) : filter ((/=) id . fst) acc
+      (id, (starts, stops ++ [stop])) : accWithout id
 
-  TaskDeleted _ id -> filter ((/=) id . fst) acc
+  TaskDeleted _ id _ -> accWithout id
 
-  _                -> acc
+  _                  -> acc
+ where
+  ifMatchId id next = if id `elem` ids then next else acc
+  lookupAcc id = find ((==) id . fst) acc
+  accWithout id = filter ((/=) id . fst) acc

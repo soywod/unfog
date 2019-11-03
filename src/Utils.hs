@@ -16,19 +16,6 @@ getConfigDirPath = lookupEnv "XDG_CONFIG_HOME" >>= withDefault
     Just path -> (++ "/unfog") <$> return path
     Nothing   -> (++ "/.config/unfog") . fromMaybe "/tmp" <$> lookupEnv "HOME"
 
-generateId :: [Int] -> Int
-generateId ids = generateId' currIds genIds
- where
-  currIds = sort ids
-  genIds  = [1 ..]
-
-generateId' :: [Int] -> [Int] -> Int
-generateId' [] []          = 1
-generateId' [] (genId : _) = genId
-generateId' (currId : currIds) (genId : genIds)
-  | currId == genId = generateId' currIds genIds
-  | otherwise       = genId
-
 startsByPlus :: String -> Bool
 startsByPlus "+"       = False
 startsByPlus ('+' : _) = True
