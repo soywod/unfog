@@ -28,7 +28,7 @@ instance ToJSON Task where
     [ "id" .= id
     , "number" .= number
     , "desc" .= desc
-    , "tags" .= tags
+    , "tags" .= map tail tags
     , "active" .= if active then 1 else 0 :: Int
     , "done" .= if done then 1 else 0 :: Int
     ]
@@ -80,6 +80,6 @@ prettyPrint tasks =
   prettyPrint' task =
     [ show $ _number task
     , _desc task
-    , unwords $ _tags task
+    , unwords $ map tail $ _tags task
     , if _active task then "✔" else ""
     ]
