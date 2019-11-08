@@ -16,6 +16,7 @@ import           State
 import           Task
 import           Utils
 import           Event
+import           DataType
 
 data Query
   = ShowTasks [String]
@@ -27,9 +28,10 @@ data Query
 handle :: [String] -> IO ()
 handle args = do
   events <- Store.readAll
-  let state = State.applyAll events
-  let query = parseArgs args
-  execute state events query
+  let dataType = getDataType args
+  let state    = State.applyAll events
+  let query    = parseArgs args
+  execute dataType state events query
 
 parseArgs :: [String] -> Query
 parseArgs args = case args of
@@ -39,11 +41,12 @@ parseArgs args = case args of
     Nothing     -> Query.Error "show" "task not found"
     Just number -> ShowTask number args
 
-execute :: State -> [Event] -> Query -> IO ()
-execute state events query = case query of
-  ShowTasks args -> if json then printJSON else printText
+execute :: DataType -> State -> [Event] -> Query -> IO ()
+execute dataType state events query = case query of
+  ShowTasks args -> case dataType of
+    JSON -> printJSON
+    Text -> printText
    where
-    json      = "--json" `elem` args
     fByTags   = filterByTags $ _context state
     fByDone   = filterByDone $ _showDone state
     tasks     = fByTags . fByDone $ _tasks state
@@ -62,7 +65,7 @@ execute state events query = case query of
     fByDone          = filterByDone $ _showDone state
     maybeTask        = findByNumber number $ fByTags . fByDone $ _tasks state
     showTask         = prettyPrint . flip (:) [] <$> maybeTask
-    showError        = elog "show" "task not found"
+    showError        = elog dataType "show" "task not found"
     showTaskIfExists = fromMaybe showError showTask
 
   ShowWorktime args -> do
@@ -77,7 +80,7 @@ execute state events query = case query of
       else "[" ++ unwords tags ++ "]"
     putStrLn $ approximativeDuration total
 
-  Query.Error command message -> elog command message
+  Query.Error command message -> elog dataType command message
 
 mapToDuration :: UTCTime -> Worktime -> (Id, Micro)
 mapToDuration now (id, (starts, stops)) = (id, diff)

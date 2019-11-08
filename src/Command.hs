@@ -4,14 +4,17 @@ import           Data.List
 import           Data.Time
 import           Text.Read
 import           Data.Time.Clock.POSIX
+import           Data.Aeson              hiding ( Error )
+import qualified Data.ByteString.Lazy.Char8    as BL
+import           Text.PrettyPrint.Boxes
 
+import           DataType
+import           JSON
 import           Store
 import           State
 import           Task
 import           Event
 import           Utils
-
-type Subscriber = Command -> IO ()
 
 data Command
   = AddTask UTCTime Id Number Desc [Tag]
@@ -29,11 +32,12 @@ handle :: [String] -> IO ()
 handle args = do
   now   <- getCurrentTime
   state <- State.applyAll <$> Store.readAll
+  let dataType    = getDataType args
   let command     = parseArgs now state args
   let events      = execute state command
   let subscribers = [logger]
   write events
-  notify command subscribers
+  notify dataType command subscribers
 
 execute :: State -> Command -> [Event]
 execute state command = case command of
@@ -136,23 +140,32 @@ setContext time args = SetContext time showDone context
   showDone = "done" `elem` args
   context  = filter startsByPlus args
 
-notify :: Command -> [Subscriber] -> IO ()
-notify command = foldr (\sub _ -> sub command) (return ())
+type Subscriber = DataType -> Command -> IO ()
+notify :: DataType -> Command -> [Subscriber] -> IO ()
+notify dataType command = foldr (\sub _ -> sub dataType command) (return ())
 
 logger :: Subscriber
-logger event = case event of
-  AddTask  _ _ number _ _       -> logAction number "added"
-  EditTask _ _ number _ _       -> logAction number "edited"
-  StartTask _ _ number          -> logAction number "started"
-  StopTask  _ _ number          -> logAction number "stopped"
-  MarkAsDoneTask _ _ number _   -> logAction number "done"
-  DeleteTask _ _        number  -> logAction number "deleted"
-  SetContext _ showDone context -> logContext showDone context
-  Error command message         -> elog command message
+logger dataType event = case event of
+  AddTask  _ _ number _ _       -> alog number "added"
+  EditTask _ _ number _ _       -> alog number "edited"
+  StartTask _ _ number          -> alog number "started"
+  StopTask  _ _ number          -> alog number "stopped"
+  MarkAsDoneTask _ _ number _   -> alog number "done"
+  DeleteTask _ _        number  -> alog number "deleted"
+  SetContext _ showDone context -> clog showDone context
+  Error command message         -> elog dataType command message
  where
-  logAction n event = putStrLn $ "unfog: task [" ++ show n ++ "] " ++ event
-  logContext showDone context =
+  alog n action =
+    let msg = "task [" ++ show n ++ "] " ++ action
+    in  case dataType of
+          JSON -> putJSON True msg
+          Text -> putStrLn $ "unfog: " ++ msg
+
+  clog showDone context =
     let contextStr = unwords ([ "done" | showDone ] ++ context)
-    in  putStrLn $ "unfog: context " ++ if null contextStr
+        msg        = "context " ++ if null contextStr
           then "cleared"
           else "[" ++ contextStr ++ "] set"
+    in  case dataType of
+          JSON -> putJSON True msg
+          Text -> putStrLn $ "unfog: " ++ msg

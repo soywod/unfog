@@ -15,18 +15,18 @@ type Number = Int
 type Desc = String
 type Tag = String
 
-data Task = Task { _id :: Id
-                 , _number :: Number
-                 , _desc :: Desc
-                 , _tags :: [Tag]
-                 , _active :: Bool
-                 , _done :: Bool
-                 } deriving (Show, Read, Eq)
+data Task =
+  Task { _id :: Id
+       , _number :: Number
+       , _desc :: Desc
+       , _tags :: [Tag]
+       , _active :: Bool
+       , _done :: Bool
+       } deriving (Show, Read, Eq)
 
 instance ToJSON Task where
   toJSON (Task id number desc tags active done) = object
-    [ "id" .= id
-    , "number" .= number
+    [ "id" .= number
     , "desc" .= desc
     , "tags" .= map tail tags
     , "active" .= if active then 1 else 0 :: Int
