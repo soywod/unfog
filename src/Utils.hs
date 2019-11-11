@@ -8,8 +8,6 @@ import           Text.PrettyPrint.Boxes
 import           Data.Aeson              hiding ( Error )
 import qualified Data.ByteString.Lazy.Char8    as BL
 
-import           DataType
-
 getFilePath :: String -> IO String
 getFilePath file = (++ "/" ++ file) <$> getConfigDirPath
 
