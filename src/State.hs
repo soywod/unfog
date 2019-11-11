@@ -36,36 +36,38 @@ apply state event = case event of
         updateTask currTask | _id currTask == _id nextTask = nextTask
                             | otherwise                    = currTask
 
-  TaskStarted _ id _ -> state { _tasks = nextTasks }
+  TaskStarted start id _ -> state { _tasks = nextTasks }
    where
     maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
     nextTasks = case maybeTask of
       Nothing   -> _tasks state
       Just task -> map updateTask $ _tasks state
        where
-        nextTask = task { _active = True }
+        nextTask = task { _active = True, _starts = _starts task ++ [start] }
         updateTask currTask | _id currTask == _id nextTask = nextTask
                             | otherwise                    = currTask
 
-  TaskStopped _ id _ -> state { _tasks = nextTasks }
+  TaskStopped stop id _ -> state { _tasks = nextTasks }
    where
     maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
     nextTasks = case maybeTask of
       Nothing   -> _tasks state
       Just task -> map updateTask $ _tasks state
        where
-        nextTask = task { _active = False }
+        nextTask = task { _active = False, _stops = _stops task ++ [stop] }
         updateTask currTask | _id currTask == _id nextTask = nextTask
                             | otherwise                    = currTask
 
-  TaskMarkedAsDone _ id _number -> state { _tasks = nextTasks }
+  TaskMarkedAsDone stop id _number -> state { _tasks = nextTasks }
    where
     maybeTask = findById id $ filterByDone False (_tasks state)
     nextTasks = case maybeTask of
       Nothing   -> _tasks state
       Just task -> map updateTask $ _tasks state
        where
-        nextTask = task { _number, _active = False, _done = True }
+        nextStops = _stops task ++ [ stop | _active task ]
+        nextTask =
+          task { _number, _active = False, _done = True, _stops = nextStops }
         updateTask currTask | _id currTask == id = nextTask
                             | otherwise          = currTask
 

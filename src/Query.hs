@@ -16,7 +16,7 @@ import           State
 import           Task
 import           Utils
 import           Event
-import           DataType
+import           Response
 
 data Query
   = ShowTasks [String]
@@ -25,13 +25,12 @@ data Query
   | Error String String
   deriving (Show)
 
-handle :: [String] -> IO ()
-handle args = do
+handle :: ResponseType -> [String] -> IO ()
+handle rtype args = do
   events <- Store.readAll
-  let dataType = getDataType args
-  let state    = State.applyAll events
-  let query    = parseArgs args
-  execute dataType state events query
+  let state = State.applyAll events
+  let query = parseArgs args
+  execute rtype state events query
 
 parseArgs :: [String] -> Query
 parseArgs args = case args of
@@ -41,46 +40,44 @@ parseArgs args = case args of
     Nothing     -> Query.Error "show" "task not found"
     Just number -> ShowTask number args
 
-execute :: DataType -> State -> [Event] -> Query -> IO ()
-execute dataType state events query = case query of
-  ShowTasks args -> case dataType of
-    JSON -> printJSON
-    Text -> printText
-   where
-    fByTags   = filterByTags $ _context state
-    fByDone   = filterByDone $ _showDone state
-    tasks     = fByTags . fByDone $ _tasks state
-    printJSON = BL.putStr $ encode tasks
-    printText = do
-      let context = [ "done" | _showDone state ] ++ _context state
-      let contextStr = unwords context
-            ++ if null context then "" else " [" ++ unwords context ++ "]"
+execute :: ResponseType -> State -> [Event] -> Query -> IO ()
+execute rtype state events query = case query of
+  ShowTasks args -> do
+    now <- getCurrentTime
+    let fByTags = filterByTags $ _context state
+    let fByDone = filterByDone $ _showDone state
+    let tasks   = mapWithWorktime now . fByTags . fByDone $ _tasks state
+    case rtype of
+      JSON -> printTasks JSON tasks
+      Text -> do
+        let ctx    = [ "done" | _showDone state ] ++ _context state
+        let ctxStr = if null ctx then "" else " [" ++ unwords ctx ++ "]"
+        putStrLn $ "unfog: list" ++ ctxStr
+        printTasks Text tasks
 
-      putStrLn $ "unfog: list" ++ contextStr
-      prettyPrint tasks
-
-  ShowTask number args -> showTaskIfExists
-   where
-    fByTags          = filterByTags $ _context state
-    fByDone          = filterByDone $ _showDone state
-    maybeTask        = findByNumber number $ fByTags . fByDone $ _tasks state
-    showTask         = prettyPrint . flip (:) [] <$> maybeTask
-    showError        = elog dataType "show" "task not found"
-    showTaskIfExists = fromMaybe showError showTask
+  ShowTask number args -> do
+    now <- getCurrentTime
+    let fByTags   = filterByTags $ _context state
+    let fByDone   = filterByDone $ _showDone state
+    let fByNumber = findByNumber number
+    let maybeTask = fByNumber . fByTags . fByDone $ _tasks state
+    case maybeTask of
+      Nothing   -> printErr rtype "show: task not found"
+      Just task -> printTask rtype $ task { _worktime = getWorktime now task }
 
   ShowWorktime args -> do
     now <- getCurrentTime
     let tags      = filter startsByPlus args
     let ids       = map _id $ filterByTags args $ _tasks state
-    let worktimes = foldl (getWorktime now ids) [] events
-    let durations = map (mapToDuration now) worktimes
-    let total     = sum $ map snd durations
-    putStrLn $ "unfog: worktime " ++ if null args
-      then "global"
-      else "[" ++ unwords tags ++ "]"
-    putStrLn $ approximativeDuration total
+    let worktimes = filterByIds ids $ mapWithWorktime now $ _tasks state
+    let total     = sum $ map _worktime worktimes
+    printMsg rtype
+      $  "worktime "
+      ++ (if null args then "global" else "for [" ++ unwords tags ++ "]")
+      ++ ": "
+      ++ humanReadableDuration total
 
-  Query.Error command message -> elog dataType command message
+  Query.Error command message -> printErr rtype $ command ++ ": " ++ message
 
 mapToDuration :: UTCTime -> Worktime -> (Id, Micro)
 mapToDuration now (id, (starts, stops)) = (id, diff)
@@ -89,8 +86,8 @@ mapToDuration now (id, (starts, stops)) = (id, diff)
   diff     = realToFrac $ sum $ zipWith diffUTCTime (stops ++ lastStop) starts
 
 type Worktime = (Id, ([UTCTime], [UTCTime]))
-getWorktime :: UTCTime -> [Id] -> [Worktime] -> Event -> [Worktime]
-getWorktime now ids acc event = case event of
+getWorktimeOld :: UTCTime -> [Id] -> [Worktime] -> Event -> [Worktime]
+getWorktimeOld now ids acc event = case event of
   TaskStarted start id _ -> ifMatchId id $ case lookupAcc id of
     Nothing -> (id, ([start], [])) : acc
     Just (_, (starts, stops)) ->

@@ -9,7 +9,6 @@ import           Data.Aeson              hiding ( Error )
 import qualified Data.ByteString.Lazy.Char8    as BL
 
 import           DataType
-import           JSON
 
 getFilePath :: String -> IO String
 getFilePath file = (++ "/" ++ file) <$> getConfigDirPath
@@ -21,24 +20,10 @@ getConfigDirPath = lookupEnv "XDG_CONFIG_HOME" >>= withDefault
     Just path -> (++ "/unfog") <$> return path
     Nothing   -> (++ "/.config/unfog") . fromMaybe "/tmp" <$> lookupEnv "HOME"
 
-getDataType :: [String] -> DataType
-getDataType args | "--json" `elem` args = JSON
-                 | otherwise            = Text
-
 startsByPlus :: String -> Bool
 startsByPlus "+"       = False
 startsByPlus ('+' : _) = True
 startsByPlus _         = False
-
-putJSON :: Bool -> String -> IO ()
-putJSON _success _data = BL.putStr $ encode $ ResponseJSON _success _data
-
-elog :: DataType -> String -> String -> IO ()
-elog dataType cmd msg =
-  let str = if null cmd then msg else cmd ++ ": " ++ msg
-  in  case dataType of
-        JSON -> putJSON False str
-        Text -> putStrLn $ "\x1b[31munfog: " ++ str ++ "\x1b[0m"
 
 -- Source:
 -- https://codereview.stackexchange.com/questions/171992/pretty-printed-tables-in-haskell

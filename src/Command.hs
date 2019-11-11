@@ -8,13 +8,12 @@ import           Data.Aeson              hiding ( Error )
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Text.PrettyPrint.Boxes
 
-import           DataType
-import           JSON
 import           Store
 import           State
 import           Task
 import           Event
 import           Utils
+import           Response
 
 data Command
   = AddTask UTCTime Id Number Desc [Tag]
@@ -28,16 +27,15 @@ data Command
   | NoOp
   deriving (Show, Read)
 
-handle :: [String] -> IO ()
-handle args = do
+handle :: ResponseType -> [String] -> IO ()
+handle rtype args = do
   now   <- getCurrentTime
   state <- State.applyAll <$> Store.readAll
-  let dataType    = getDataType args
   let command     = parseArgs now state args
   let events      = execute state command
   let subscribers = [logger]
   write events
-  notify dataType command subscribers
+  notify rtype command subscribers
 
 execute :: State -> Command -> [Event]
 execute state command = case command of
@@ -135,37 +133,30 @@ deleteTask time state args = case args of
     tasks     = filterByDone (_showDone state) (_tasks state)
     maybeTask = readMaybe number >>= flip findByNumber tasks
 
-setContext time args = SetContext time showDone context
+setContext time args = SetContext time showDone ctx
  where
   showDone = "done" `elem` args
-  context  = filter startsByPlus args
+  ctx      = filter startsByPlus args
 
-type Subscriber = DataType -> Command -> IO ()
-notify :: DataType -> Command -> [Subscriber] -> IO ()
-notify dataType command = foldr (\sub _ -> sub dataType command) (return ())
+type Subscriber = ResponseType -> Command -> IO ()
+notify :: ResponseType -> Command -> [Subscriber] -> IO ()
+notify rtype command = foldr (\sub _ -> sub rtype command) (return ())
 
 logger :: Subscriber
-logger dataType event = case event of
-  AddTask  _ _ number _ _       -> alog number "added"
-  EditTask _ _ number _ _       -> alog number "edited"
-  StartTask _ _ number          -> alog number "started"
-  StopTask  _ _ number          -> alog number "stopped"
-  MarkAsDoneTask _ _ number _   -> alog number "done"
-  DeleteTask _ _        number  -> alog number "deleted"
-  SetContext _ showDone context -> clog showDone context
-  Error command message         -> elog dataType command message
+logger rtype event = case event of
+  AddTask  _ _ n _ _        -> printAction rtype n "added"
+  EditTask _ _ n _ _        -> printAction rtype n "edited"
+  StartTask _ _ n           -> printAction rtype n "started"
+  StopTask  _ _ n           -> printAction rtype n "stopped"
+  MarkAsDoneTask _ _ n _    -> printAction rtype n "done"
+  DeleteTask _ _        n   -> printAction rtype n "deleted"
+  SetContext _ showDone ctx -> printCtx rtype showDone ctx
+  Error cmd msg             -> printErr rtype $ cmd ++ ": " ++ msg
  where
-  alog n action =
-    let msg = "task [" ++ show n ++ "] " ++ action
-    in  case dataType of
-          JSON -> putJSON True msg
-          Text -> putStrLn $ "unfog: " ++ msg
-
-  clog showDone context =
-    let contextStr = unwords ([ "done" | showDone ] ++ context)
-        msg        = "context " ++ if null contextStr
-          then "cleared"
-          else "[" ++ contextStr ++ "] set"
-    in  case dataType of
-          JSON -> putJSON True msg
-          Text -> putStrLn $ "unfog: " ++ msg
+  printAction rtype n action = printMsg rtype msg
+    where msg = "task [" ++ show n ++ "] " ++ action
+  printCtx rtype showDone ctx = printMsg rtype msg
+   where
+    ctxStr = unwords ([ "done" | showDone ] ++ ctx)
+    msg    = "context "
+      ++ if null ctxStr then "cleared" else "[" ++ ctxStr ++ "] set"

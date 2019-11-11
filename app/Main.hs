@@ -1,27 +1,29 @@
 module Main where
 
+import           Data.List                      ( (\\) )
 import           System.Environment             ( getArgs )
 
-import qualified Command                        ( handle )
-import qualified Query                          ( handle )
-import           Utils
+import qualified Command                       as C
+import qualified Query                         as Q
+import           Response
 
 main :: IO ()
 main = getArgs >>= dispatch
 
 dispatch :: [String] -> IO ()
-dispatch args =
-  let dataType = getDataType args
-  in  case args of
-        ("add"      : args) -> Command.handle $ "add" : args
-        ("edit"     : args) -> Command.handle $ "edit" : args
-        ("start"    : args) -> Command.handle $ "start" : args
-        ("stop"     : args) -> Command.handle $ "stop" : args
-        ("done"     : args) -> Command.handle $ "done" : args
-        ("delete"   : args) -> Command.handle $ "delete" : args
-        ("context"  : args) -> Command.handle $ "context" : args
-        ("list"     : args) -> Query.handle $ "list" : args
-        ("show"     : args) -> Query.handle $ "show" : args
-        ("worktime" : args) -> Query.handle $ "worktime" : args
-        (command    : _   ) -> elog dataType command "command not found"
-        []                  -> elog dataType "" "command missing"
+dispatch args = case args \\ options of
+  ("add"      : args) -> C.handle rtype $ "add" : args
+  ("edit"     : args) -> C.handle rtype $ "edit" : args
+  ("start"    : args) -> C.handle rtype $ "start" : args
+  ("stop"     : args) -> C.handle rtype $ "stop" : args
+  ("done"     : args) -> C.handle rtype $ "done" : args
+  ("delete"   : args) -> C.handle rtype $ "delete" : args
+  ("context"  : args) -> C.handle rtype $ "context" : args
+  ("list"     : args) -> Q.handle rtype $ "list" : args
+  ("show"     : args) -> Q.handle rtype $ "show" : args
+  ("worktime" : args) -> Q.handle rtype $ "worktime" : args
+  (command    : _   ) -> printErr rtype $ command ++ ": command not found"
+  []                  -> printErr rtype "command missing"
+ where
+  options = ["--json"]
+  rtype   = getResponseType args
