@@ -16,12 +16,15 @@ import           Utils
 import           Response
 
 data Command
-  = AddTask UTCTime Id Number Desc [Tag]
-  | EditTask UTCTime Id Number Desc [Tag]
+  = CreateTask UTCTime Id Number Desc [Tag]
+  | UpdateTask UTCTime Id Number Desc [Tag]
+  | ReplaceTask UTCTime Id Number Desc [Tag]
   | StartTask UTCTime Id Number
   | StopTask UTCTime Id Number
+  | ToggleTask UTCTime Id Number
   | MarkAsDoneTask UTCTime Id Number Number
   | DeleteTask UTCTime Id Number
+  | RemoveTask UTCTime Id Number
   | SetContext UTCTime Bool [String]
   | Error String String
   | NoOp
@@ -39,42 +42,47 @@ handle rtype args = do
 
 execute :: State -> Command -> [Event]
 execute state command = case command of
-  AddTask  time id number desc tags -> [TaskAdded time id number desc tags]
-  EditTask time id number desc tags -> [TaskEdited time id number desc tags]
-  StartTask time id number          -> [TaskStarted time id number]
-  StopTask  time id number          -> [TaskStopped time id number]
-  MarkAsDoneTask time id _ number   -> [TaskMarkedAsDone time id number]
-  DeleteTask time id       number   -> [TaskDeleted time id number]
-  SetContext time showDone context  -> [ContextSet time showDone context]
-  Error _ _                         -> []
-  NoOp                              -> []
+  CreateTask time id number desc tags -> [TaskCreated time id number desc tags]
+  UpdateTask time id number desc tags -> [TaskUpdated time id number desc tags]
+  ReplaceTask time id number desc tags ->
+    [TaskReplaced time id number desc tags]
+  StartTask time id number         -> [TaskStarted time id number]
+  StopTask  time id number         -> [TaskStopped time id number]
+  MarkAsDoneTask time id _ number  -> [TaskMarkedAsDone time id number]
+  DeleteTask time id       number  -> [TaskDeleted time id number]
+  SetContext time showDone context -> [ContextSet time showDone context]
+  Error _ _                        -> []
+  NoOp                             -> []
 
 parseArgs :: UTCTime -> State -> [String] -> Command
 parseArgs time state args = case args of
-  ("add"     : args) -> addTask time state args
-  ("edit"    : args) -> editTask time state args
+  ("create"  : args) -> createTask time state args
+  ("update"  : args) -> updateTask time state args
+  ("replace" : args) -> replaceTask time state args
   ("start"   : args) -> startTask time state args
   ("stop"    : args) -> stopTask time state args
+  ("toggle"  : args) -> toggleTask time state args
   ("done"    : args) -> markAsDoneTask time state args
   ("delete"  : args) -> deleteTask time state args
+  ("remove"  : args) -> removeTask time state args
   ("context" : args) -> setContext time args
   (command   : _   ) -> Error command "command not found"
   []                 -> Error "" "command missing"
 
-addTask time state args = case args of
-  []   -> Error "add" "missing desc"
-  args -> AddTask time id number desc tags
+createTask time state args = case args of
+  []   -> Error "create" "missing desc"
+  args -> CreateTask time id number desc tags
    where
     id     = floor $ 1000 * utcTimeToPOSIXSeconds time :: Int
     number = generateNumber $ filter (not . _done) $ _tasks state
     desc   = unwords $ filter (not . startsByPlus) args
     tags   = filter startsByPlus args `union` _context state
 
-editTask time state args = case args of
-  []              -> Error "edit" "missing id"
-  [_            ] -> Error "edit" "missing arg"
+updateTask time state args = case args of
+  []              -> Error "update" "missing id"
+  [_            ] -> Error "update" "missing args"
   (number : args) -> case maybeTask of
-    Nothing   -> Error "edit" "task not found"
+    Nothing   -> Error "update" "task not found"
     Just task -> validate task
    where
     tasks     = filterByDone (_showDone state) (_tasks state)
@@ -84,8 +92,23 @@ editTask time state args = case args of
     newTags   = filter startsByPlus args
     nextTags  = union newTags $ maybe [] _tags maybeTask
     validate task
-      | _done task = Error "start" "task already done"
-      | otherwise  = EditTask time (_id task) (_number task) nextDesc nextTags
+      | _done task = Error "update" "task already done"
+      | otherwise  = UpdateTask time (_id task) (_number task) nextDesc nextTags
+
+replaceTask time state args = case args of
+  []              -> Error "replace" "missing id"
+  [_            ] -> Error "replace" "missing args"
+  (number : args) -> case maybeTask of
+    Nothing   -> Error "replace" "task not found"
+    Just task -> validate task
+   where
+    tasks     = filterByDone (_showDone state) (_tasks state)
+    maybeTask = readMaybe number >>= flip findByNumber tasks
+    nextDesc  = unwords $ filter (not . startsByPlus) args
+    nextTags  = filter startsByPlus args
+    validate task
+      | _done task = Error "replace" "task already done"
+      | otherwise = ReplaceTask time (_id task) (_number task) nextDesc nextTags
 
 startTask time state args = case args of
   []           -> Error "start" "missing id"
@@ -95,21 +118,33 @@ startTask time state args = case args of
    where
     tasks     = filterByDone (_showDone state) (_tasks state)
     maybeTask = readMaybe number >>= flip findByNumber tasks
-    validate task | _active task = Error "start" "task already started"
-                  | _done task   = Error "start" "task already done"
+    validate task | _done task   = Error "start" "task already done"
+                  | _active task = Error "start" "task already started"
                   | otherwise    = StartTask time (_id task) (_number task)
 
 stopTask time state args = case args of
-  []           -> Error "start" "missing id"
+  []           -> Error "stop" "missing id"
   (number : _) -> case maybeTask of
-    Nothing   -> Error "start" "task not found"
+    Nothing   -> Error "stop" "task not found"
     Just task -> validate task
    where
     tasks     = filterByDone (_showDone state) (_tasks state)
     maybeTask = readMaybe number >>= flip findByNumber tasks
-    validate task | not $ _active task = Error "stop" "task already stopped"
-                  | _done task         = Error "stop" "task already done"
-                  | otherwise          = StopTask time (_id task) (_number task)
+    validate task | _done task = Error "stop" "task already done"
+                  | (not . _active) task = Error "stop" "task already stopped"
+                  | otherwise = StopTask time (_id task) (_number task)
+
+toggleTask time state args = case args of
+  []           -> Error "toggle" "missing id"
+  (number : _) -> case maybeTask of
+    Nothing   -> Error "toggle" "task not found"
+    Just task -> validate task
+   where
+    tasks     = filterByDone (_showDone state) (_tasks state)
+    maybeTask = readMaybe number >>= flip findByNumber tasks
+    validate task | _done task   = Error "toggle" "task already done"
+                  | _active task = StopTask time (_id task) (_number task)
+                  | otherwise    = StartTask time (_id task) (_number task)
 
 markAsDoneTask time state args = case args of
   []           -> Error "done" "missing id"
@@ -133,6 +168,20 @@ deleteTask time state args = case args of
     tasks     = filterByDone (_showDone state) (_tasks state)
     maybeTask = readMaybe number >>= flip findByNumber tasks
 
+removeTask time state args = case args of
+  []           -> Error "remove" "missing id"
+  (number : _) -> case maybeTask of
+    Just task -> MarkAsDoneTask time (_id task) (_number task) nextNumber
+    Nothing   -> case maybeDoneTask of
+      Just task -> DeleteTask time (_id task) (_number task)
+      Nothing   -> Error "remove" "task not found"
+   where
+    tasks = if _showDone state then [] else filterByDone False (_tasks state)
+    doneTasks     = filterByDone True (_tasks state)
+    nextNumber    = generateNumber doneTasks
+    maybeTask     = readMaybe number >>= flip findByNumber tasks
+    maybeDoneTask = readMaybe number >>= flip findByNumber doneTasks
+
 setContext time args = SetContext time showDone ctx
  where
   showDone = "done" `elem` args
@@ -144,8 +193,9 @@ notify rtype command = foldr (\sub _ -> sub rtype command) (return ())
 
 logger :: Subscriber
 logger rtype event = case event of
-  AddTask  _ _ n _ _        -> printAction rtype n "added"
-  EditTask _ _ n _ _        -> printAction rtype n "edited"
+  CreateTask  _ _ n _ _     -> printAction rtype n "created"
+  UpdateTask  _ _ n _ _     -> printAction rtype n "updated"
+  ReplaceTask _ _ n _ _     -> printAction rtype n "replaced"
   StartTask _ _ n           -> printAction rtype n "started"
   StopTask  _ _ n           -> printAction rtype n "stopped"
   MarkAsDoneTask _ _ n _    -> printAction rtype n "done"

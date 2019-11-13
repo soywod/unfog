@@ -19,13 +19,24 @@ applyAll = foldl apply emptyState
 
 apply :: State -> Event -> State
 apply state event = case event of
-  TaskAdded _ _id _number _desc _tags -> state { _tasks = nextTasks }
+  TaskCreated _ _id _number _desc _tags -> state { _tasks = nextTasks }
    where
     prevTasks = _tasks state
     newTask   = emptyTask { _id, _number, _desc, _tags }
     nextTasks = prevTasks ++ [newTask]
 
-  TaskEdited _ id _ _desc _tags -> state { _tasks = nextTasks }
+  TaskUpdated _ id _ _desc _tags -> state { _tasks = nextTasks }
+   where
+    maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
+    nextTasks = case maybeTask of
+      Nothing   -> _tasks state
+      Just task -> map updateTask $ _tasks state
+       where
+        nextTask = task { _desc, _tags }
+        updateTask currTask | _id currTask == _id nextTask = nextTask
+                            | otherwise                    = currTask
+
+  TaskReplaced _ id _ _desc _tags -> state { _tasks = nextTasks }
    where
     maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
     nextTasks = case maybeTask of
