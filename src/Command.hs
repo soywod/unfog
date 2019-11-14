@@ -16,15 +16,12 @@ import           Utils
 import           Response
 
 data Command
-  = CreateTask UTCTime Id Number Desc [Tag]
-  | UpdateTask UTCTime Id Number Desc [Tag]
-  | ReplaceTask UTCTime Id Number Desc [Tag]
-  | StartTask UTCTime Id Number
-  | StopTask UTCTime Id Number
-  | ToggleTask UTCTime Id Number
-  | MarkAsDoneTask UTCTime Id Number Number
-  | DeleteTask UTCTime Id Number
-  | RemoveTask UTCTime Id Number
+  = CreateTask UTCTime Reference Id Position Description [Tag]
+  | UpdateTask UTCTime Reference Id Position Description [Tag]
+  | StartTask UTCTime Reference Id
+  | StopTask UTCTime Reference Id
+  | MarkAsDoneTask UTCTime Reference Id Id
+  | DeleteTask UTCTime Reference Id
   | SetContext UTCTime Bool [String]
   | Error String String
   | NoOp
@@ -42,147 +39,145 @@ handle rtype args = do
 
 execute :: State -> Command -> [Event]
 execute state command = case command of
-  CreateTask time id number desc tags -> [TaskCreated time id number desc tags]
-  UpdateTask time id number desc tags -> [TaskUpdated time id number desc tags]
-  ReplaceTask time id number desc tags ->
-    [TaskReplaced time id number desc tags]
-  StartTask time id number         -> [TaskStarted time id number]
-  StopTask  time id number         -> [TaskStopped time id number]
-  MarkAsDoneTask time id _ number  -> [TaskMarkedAsDone time id number]
-  DeleteTask time id       number  -> [TaskDeleted time id number]
-  SetContext time showDone context -> [ContextSet time showDone context]
-  Error _ _                        -> []
-  NoOp                             -> []
+  CreateTask t ref id pos desc tags -> [TaskCreated t ref id pos desc tags]
+  UpdateTask t ref id pos desc tags -> [TaskUpdated t ref id pos desc tags]
+  StartTask t ref id                -> [TaskStarted t ref id]
+  StopTask  t ref id                -> [TaskStopped t ref id]
+  MarkAsDoneTask t ref _ id         -> [TaskMarkedAsDone t ref id]
+  DeleteTask t ref      id          -> [TaskDeleted t ref id]
+  SetContext t showDone context     -> [ContextSet t showDone context]
+  Error _ _                         -> []
+  NoOp                              -> []
 
 parseArgs :: UTCTime -> State -> [String] -> Command
-parseArgs time state args = case args of
-  ("create"  : args) -> createTask time state args
-  ("update"  : args) -> updateTask time state args
-  ("replace" : args) -> replaceTask time state args
-  ("start"   : args) -> startTask time state args
-  ("stop"    : args) -> stopTask time state args
-  ("toggle"  : args) -> toggleTask time state args
-  ("done"    : args) -> markAsDoneTask time state args
-  ("delete"  : args) -> deleteTask time state args
-  ("remove"  : args) -> removeTask time state args
-  ("context" : args) -> setContext time args
+parseArgs t state args = case args of
+  ("create"  : args) -> createTask t state args
+  ("update"  : args) -> updateTask t state args
+  ("replace" : args) -> replaceTask t state args
+  ("start"   : args) -> startTask t state args
+  ("stop"    : args) -> stopTask t state args
+  ("toggle"  : args) -> toggleTask t state args
+  ("done"    : args) -> markAsDoneTask t state args
+  ("delete"  : args) -> deleteTask t state args
+  ("remove"  : args) -> removeTask t state args
+  ("context" : args) -> setContext t args
   (command   : _   ) -> Error command "command not found"
   []                 -> Error "" "command missing"
 
-createTask time state args = case args of
+createTask t state args = case args of
   []   -> Error "create" "missing desc"
-  args -> CreateTask time id number desc tags
+  args -> CreateTask t ref id (-1) desc tags
    where
-    id     = floor $ 1000 * utcTimeToPOSIXSeconds time :: Int
-    number = generateNumber $ filter (not . _done) $ _tasks state
-    desc   = unwords $ filter (not . startsByPlus) args
-    tags   = filter startsByPlus args `union` _context state
+    ref  = floor $ 1000 * utcTimeToPOSIXSeconds t :: Int
+    id   = generateId $ filter (not . _done) $ _tasks state
+    desc = unwords $ filter (not . startsByPlus) args
+    tags = filter startsByPlus args `union` _context state
 
-updateTask time state args = case args of
-  []              -> Error "update" "missing id"
-  [_            ] -> Error "update" "missing args"
-  (number : args) -> case maybeTask of
+updateTask t state args = case args of
+  []          -> Error "update" "missing id"
+  [_        ] -> Error "update" "missing args"
+  (id : args) -> case maybeTask of
     Nothing   -> Error "update" "task not found"
     Just task -> validate task
    where
     tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe number >>= flip findByNumber tasks
+    maybeTask = readMaybe id >>= flip findById tasks
     newDesc   = unwords $ filter (not . startsByPlus) args
     nextDesc  = if newDesc == "" then maybe "" _desc maybeTask else newDesc
     newTags   = filter startsByPlus args
     nextTags  = union newTags $ maybe [] _tags maybeTask
     validate task
       | _done task = Error "update" "task already done"
-      | otherwise  = UpdateTask time (_id task) (_number task) nextDesc nextTags
+      | otherwise  = UpdateTask t (_ref task) (_id task) (-1) nextDesc nextTags
 
-replaceTask time state args = case args of
-  []              -> Error "replace" "missing id"
-  [_            ] -> Error "replace" "missing args"
-  (number : args) -> case maybeTask of
+replaceTask t state args = case args of
+  []          -> Error "replace" "missing id"
+  [_        ] -> Error "replace" "missing args"
+  (id : args) -> case maybeTask of
     Nothing   -> Error "replace" "task not found"
     Just task -> validate task
    where
     tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe number >>= flip findByNumber tasks
+    maybeTask = readMaybe id >>= flip findById tasks
     nextDesc  = unwords $ filter (not . startsByPlus) args
     nextTags  = filter startsByPlus args
     validate task
       | _done task = Error "replace" "task already done"
-      | otherwise = ReplaceTask time (_id task) (_number task) nextDesc nextTags
+      | otherwise  = UpdateTask t (_ref task) (_id task) (-1) nextDesc nextTags
 
-startTask time state args = case args of
-  []           -> Error "start" "missing id"
-  (number : _) -> case maybeTask of
+startTask t state args = case args of
+  []       -> Error "start" "missing id"
+  (id : _) -> case maybeTask of
     Nothing   -> Error "start" "task not found"
     Just task -> validate task
    where
     tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe number >>= flip findByNumber tasks
+    maybeTask = readMaybe id >>= flip findById tasks
     validate task | _done task   = Error "start" "task already done"
                   | _active task = Error "start" "task already started"
-                  | otherwise    = StartTask time (_id task) (_number task)
+                  | otherwise    = StartTask t (_ref task) (_id task)
 
-stopTask time state args = case args of
-  []           -> Error "stop" "missing id"
-  (number : _) -> case maybeTask of
+stopTask t state args = case args of
+  []       -> Error "stop" "missing id"
+  (id : _) -> case maybeTask of
     Nothing   -> Error "stop" "task not found"
     Just task -> validate task
    where
     tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe number >>= flip findByNumber tasks
-    validate task | _done task = Error "stop" "task already done"
+    maybeTask = readMaybe id >>= flip findById tasks
+    validate task | _done task           = Error "stop" "task already done"
                   | (not . _active) task = Error "stop" "task already stopped"
-                  | otherwise = StopTask time (_id task) (_number task)
+                  | otherwise            = StopTask t (_ref task) (_id task)
 
-toggleTask time state args = case args of
-  []           -> Error "toggle" "missing id"
-  (number : _) -> case maybeTask of
+toggleTask t state args = case args of
+  []       -> Error "toggle" "missing id"
+  (id : _) -> case maybeTask of
     Nothing   -> Error "toggle" "task not found"
     Just task -> validate task
    where
     tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe number >>= flip findByNumber tasks
+    maybeTask = readMaybe id >>= flip findById tasks
     validate task | _done task   = Error "toggle" "task already done"
-                  | _active task = StopTask time (_id task) (_number task)
-                  | otherwise    = StartTask time (_id task) (_number task)
+                  | _active task = StopTask t (_ref task) (_id task)
+                  | otherwise    = StartTask t (_ref task) (_id task)
 
-markAsDoneTask time state args = case args of
-  []           -> Error "done" "missing id"
-  (number : _) -> case maybeTask of
+markAsDoneTask t state args = case args of
+  []       -> Error "done" "missing id"
+  (id : _) -> case maybeTask of
     Nothing   -> Error "done" "task not found"
     Just task -> validate task
    where
     tasks      = filterByDone (_showDone state) (_tasks state)
-    maybeTask  = readMaybe number >>= flip findByNumber tasks
-    nextNumber = generateNumber $ filter _done $ _tasks state
+    maybeTask  = readMaybe id >>= flip findById tasks
+    nextNumber = generateId $ filter _done $ _tasks state
     validate task
       | _done task = Error "done" "task already done"
-      | otherwise  = MarkAsDoneTask time (_id task) (_number task) nextNumber
+      | otherwise  = MarkAsDoneTask t (_ref task) (_id task) nextNumber
 
-deleteTask time state args = case args of
-  []           -> Error "delete" "missing id"
-  (number : _) -> case maybeTask of
+deleteTask t state args = case args of
+  []       -> Error "delete" "missing id"
+  (id : _) -> case maybeTask of
     Nothing   -> Error "delete" "task not found"
-    Just task -> DeleteTask time (_id task) (_number task)
+    Just task -> DeleteTask t (_ref task) (_id task)
    where
     tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe number >>= flip findByNumber tasks
+    maybeTask = readMaybe id >>= flip findById tasks
 
-removeTask time state args = case args of
-  []           -> Error "remove" "missing id"
-  (number : _) -> case maybeTask of
-    Just task -> MarkAsDoneTask time (_id task) (_number task) nextNumber
+removeTask t state args = case args of
+  []       -> Error "remove" "missing id"
+  (id : _) -> case maybeTask of
+    Just task -> MarkAsDoneTask t (_ref task) (_id task) nextNumber
     Nothing   -> case maybeDoneTask of
-      Just task -> DeleteTask time (_id task) (_number task)
+      Just task -> DeleteTask t (_ref task) (_id task)
       Nothing   -> Error "remove" "task not found"
    where
     tasks = if _showDone state then [] else filterByDone False (_tasks state)
     doneTasks     = filterByDone True (_tasks state)
-    nextNumber    = generateNumber doneTasks
-    maybeTask     = readMaybe number >>= flip findByNumber tasks
-    maybeDoneTask = readMaybe number >>= flip findByNumber doneTasks
+    nextNumber    = generateId doneTasks
+    maybeTask     = readMaybe id >>= flip findById tasks
+    maybeDoneTask = readMaybe id >>= flip findById doneTasks
 
-setContext time args = SetContext time showDone ctx
+setContext t args = SetContext t showDone ctx
  where
   showDone = "done" `elem` args
   ctx      = filter startsByPlus args
@@ -193,9 +188,8 @@ notify rtype command = foldr (\sub _ -> sub rtype command) (return ())
 
 logger :: Subscriber
 logger rtype event = case event of
-  CreateTask  _ _ n _ _     -> printAction rtype n "created"
-  UpdateTask  _ _ n _ _     -> printAction rtype n "updated"
-  ReplaceTask _ _ n _ _     -> printAction rtype n "replaced"
+  CreateTask _ _ n _ _ _    -> printAction rtype n "created"
+  UpdateTask _ _ n _ _ _    -> printAction rtype n "updated"
   StartTask _ _ n           -> printAction rtype n "started"
   StopTask  _ _ n           -> printAction rtype n "stopped"
   MarkAsDoneTask _ _ n _    -> printAction rtype n "done"
@@ -203,10 +197,13 @@ logger rtype event = case event of
   SetContext _ showDone ctx -> printCtx rtype showDone ctx
   Error cmd msg             -> printErr rtype $ cmd ++ ": " ++ msg
  where
-  printAction rtype n action = printMsg rtype msg
-    where msg = "task [" ++ show n ++ "] " ++ action
-  printCtx rtype showDone ctx = printMsg rtype msg
-   where
-    ctxStr = unwords ([ "done" | showDone ] ++ ctx)
-    msg    = "context "
-      ++ if null ctxStr then "cleared" else "[" ++ ctxStr ++ "] set"
+  printAction rtype n action =
+    let msg = "task [" ++ show n ++ "] " ++ action in printMsg rtype msg
+
+  printCtx rtype showDone ctx =
+    let
+      ctxStr = unwords ([ "done" | showDone ] ++ ctx)
+      msg    = "context "
+        ++ if null ctxStr then "cleared" else "[" ++ ctxStr ++ "] set"
+    in
+      printMsg rtype msg

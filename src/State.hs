@@ -19,74 +19,42 @@ applyAll = foldl apply emptyState
 
 apply :: State -> Event -> State
 apply state event = case event of
-  TaskCreated _ _id _number _desc _tags -> state { _tasks = nextTasks }
+  TaskCreated _ _ref _id _pos _desc _tags -> state { _tasks = nextTasks }
    where
-    prevTasks = _tasks state
-    newTask   = emptyTask { _id, _number, _desc, _tags }
-    nextTasks = prevTasks ++ [newTask]
+    nextTasks = _tasks state ++ [emptyTask { _ref, _id, _pos, _desc, _tags }]
 
-  TaskUpdated _ id _ _desc _tags -> state { _tasks = nextTasks }
+  TaskUpdated _ ref _ _pos _desc _tags -> state { _tasks = nextTasks }
    where
-    maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
-    nextTasks = case maybeTask of
-      Nothing   -> _tasks state
-      Just task -> map updateTask $ _tasks state
-       where
-        nextTask = task { _desc, _tags }
-        updateTask currTask | _id currTask == _id nextTask = nextTask
-                            | otherwise                    = currTask
+    update task = task { _pos, _desc, _tags }
+    nextTasks = getNextTasks ref update
 
-  TaskReplaced _ id _ _desc _tags -> state { _tasks = nextTasks }
+  TaskStarted start ref _ -> state { _tasks = getNextTasks ref update }
    where
-    maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
-    nextTasks = case maybeTask of
-      Nothing   -> _tasks state
-      Just task -> map updateTask $ _tasks state
-       where
-        nextTask = task { _desc, _tags }
-        updateTask currTask | _id currTask == _id nextTask = nextTask
-                            | otherwise                    = currTask
+    update task = task { _active = True, _starts = _starts task ++ [start] }
 
-  TaskStarted start id _ -> state { _tasks = nextTasks }
+  TaskStopped stop ref _ -> state { _tasks = getNextTasks ref update }
    where
-    maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
-    nextTasks = case maybeTask of
-      Nothing   -> _tasks state
-      Just task -> map updateTask $ _tasks state
-       where
-        nextTask = task { _active = True, _starts = _starts task ++ [start] }
-        updateTask currTask | _id currTask == _id nextTask = nextTask
-                            | otherwise                    = currTask
+    update task = task { _active = False, _stops = _stops task ++ [stop] }
 
-  TaskStopped stop id _ -> state { _tasks = nextTasks }
+  TaskMarkedAsDone stop ref _id -> state { _tasks = getNextTasks ref update }
    where
-    maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
-    nextTasks = case maybeTask of
-      Nothing   -> _tasks state
-      Just task -> map updateTask $ _tasks state
-       where
-        nextTask = task { _active = False, _stops = _stops task ++ [stop] }
-        updateTask currTask | _id currTask == _id nextTask = nextTask
-                            | otherwise                    = currTask
+    update task =
+      let nextStops = _stops task ++ [ stop | _active task ]
+      in  task { _id, _active = False, _done = True, _stops = nextStops }
 
-  TaskMarkedAsDone stop id _number -> state { _tasks = nextTasks }
+  TaskDeleted _ ref _ -> state { _tasks = nextTasks }
    where
-    maybeTask = findById id $ filterByDone False (_tasks state)
-    nextTasks = case maybeTask of
-      Nothing   -> _tasks state
-      Just task -> map updateTask $ _tasks state
-       where
-        nextStops = _stops task ++ [ stop | _active task ]
-        nextTask =
-          task { _number, _active = False, _done = True, _stops = nextStops }
-        updateTask currTask | _id currTask == id = nextTask
-                            | otherwise          = currTask
-
-  TaskDeleted _ id _ -> state { _tasks = nextTasks }
-   where
-    maybeTask = findById id $ filterByDone (_showDone state) (_tasks state)
-    nextTasks = case maybeTask of
-      Nothing   -> _tasks state
-      Just task -> filter ((/=) (_id task) . _id) (_tasks state)
+    update _ = emptyTask
+    nextTasks = filter (emptyTask /=) $ getNextTasks ref update
 
   ContextSet _ _showDone _context -> state { _showDone, _context }
+
+ where
+  getNextTasks ref update =
+    case findByRef ref $ filterByDone (_showDone state) (_tasks state) of
+      Nothing -> _tasks state
+      Just task ->
+        let nextTask = update task
+            save currTask | _ref currTask == _ref nextTask = nextTask
+                          | otherwise                      = currTask
+        in  map save (_tasks state)

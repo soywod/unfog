@@ -24,9 +24,11 @@ dispatch args = case args \\ options of
   ("delete"   : args) -> C.handle rtype $ "delete" : args
   ("remove"   : args) -> C.handle rtype $ "remove" : args
   ("context"  : args) -> C.handle rtype $ "context" : args
+
   ("list"     : args) -> Q.handle rtype $ "list" : args
   ("show"     : args) -> Q.handle rtype $ "show" : args
   ("worktime" : args) -> Q.handle rtype $ "worktime" : args
+
   (command    : _   ) -> printErr rtype $ command ++ ": command not found"
   []                  -> printErr rtype "command missing"
  where

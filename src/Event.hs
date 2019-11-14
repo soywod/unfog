@@ -5,12 +5,11 @@ import           Data.Time
 import           Task
 
 data Event
-  = TaskCreated UTCTime Id Number Desc [Tag]
-  | TaskUpdated UTCTime Id Number Desc [Tag]
-  | TaskReplaced UTCTime Id Number Desc [Tag]
-  | TaskStarted UTCTime Id Number
-  | TaskStopped UTCTime Id Number
-  | TaskMarkedAsDone UTCTime Id Number
-  | TaskDeleted UTCTime Id Number
-  | ContextSet UTCTime Bool [String]
+  = TaskCreated UTCTime Reference Id Position Description [Tag]
+  | TaskUpdated UTCTime Reference Id Position Description [Tag]
+  | TaskStarted UTCTime Reference Id
+  | TaskStopped UTCTime Reference Id
+  | TaskMarkedAsDone UTCTime Reference Id
+  | TaskDeleted UTCTime Reference Id
+  | ContextSet UTCTime Done [String]
   deriving (Show, Read)

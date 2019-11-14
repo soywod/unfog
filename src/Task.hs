@@ -2,7 +2,6 @@
 module Task where
 
 import qualified Data.ByteString.Lazy.Char8    as BL
-
 import           Control.Exception
 import           Data.Aeson
 import           Data.Duration
@@ -14,64 +13,72 @@ import           Text.PrettyPrint.Boxes
 import           Utils
 
 type Id = Int
-type Number = Int
-type Desc = String
+type Reference = Int
+type Position = Int
+type Description = String
 type Tag = String
+type Active = Bool
+type Done = Bool
+type Worktime = Micro
 
 data Task =
   Task { _id :: Id
-       , _number :: Number
-       , _desc :: Desc
+       , _ref :: Reference
+       , _pos :: Position
+       , _desc :: Description
        , _tags :: [Tag]
        , _active :: Bool
        , _done :: Bool
-       , _worktime :: Micro
+       , _wtime :: Worktime
        , _starts :: [UTCTime]
        , _stops :: [UTCTime]
        } deriving (Show, Read, Eq)
 
 instance ToJSON Task where
-  toJSON (Task id number desc tags active done worktime _ _) = object
-    [ "id" .= number
+  toJSON (Task id ref pos desc tags active done wtime _ _) = object
+    [ "id" .= id
+    , "ref" .= ref
+    , "pos" .= pos
     , "desc" .= desc
     , "tags" .= map tail tags
     , "active" .= if active then 1 else 0 :: Int
     , "done" .= if done then 1 else 0 :: Int
-    , "worktime" .= object
-      [ "approx" .= approximativeDuration worktime
-      , "human" .= humanReadableDuration worktime
-      , "micro" .= worktime
+    , "wtime" .= object
+      [ "approx" .= approximativeDuration wtime
+      , "human" .= humanReadableDuration wtime
+      , "micro" .= wtime
       ]
     ]
 
 emptyTask :: Task
-emptyTask = Task { _id       = 0
-                 , _number   = 0
-                 , _desc     = ""
-                 , _tags     = []
-                 , _active   = False
-                 , _done     = False
-                 , _worktime = 0
-                 , _starts   = []
-                 , _stops    = []
+emptyTask = Task { _id     = 0
+                 , _ref    = 0
+                 , _pos    = -1
+                 , _desc   = ""
+                 , _tags   = []
+                 , _active = False
+                 , _done   = False
+                 , _wtime  = 0
+                 , _starts = []
+                 , _stops  = []
                  }
 
-generateNumber :: [Task] -> Number
-generateNumber tasks = generateNumber' (sort $ map _number tasks) [1 ..]
+generateId :: [Task] -> Id
+generateId tasks = generateId' (sort $ map _id tasks) [1 ..]
  where
-  generateNumber' [] []           = 1
-  generateNumber' [] (nextId : _) = nextId
-  generateNumber' (currId : currIds) (nextId : nextIds)
-    | currId == nextId = generateNumber' currIds nextIds
+  generateId' [] []           = 1
+  generateId' [] (nextId : _) = nextId
+  generateId' (currId : currIds) (nextId : nextIds)
+    | currId == nextId = generateId' currIds nextIds
     | otherwise        = nextId
 
 findById :: Id -> [Task] -> Maybe Task
 findById id = find $ (==) id . _id
 
-findByNumber :: Number -> [Task] -> Maybe Task
-findByNumber number = find $ (==) number . _number
+findByRef :: Reference -> [Task] -> Maybe Task
+findByRef ref = find $ (==) ref . _ref
 
-filterByDone :: Bool -> [Task] -> [Task]
+filterByDone :: Done -> [Task] -> [Task]
 filterByDone showDone tasks = filteredTasks
  where
   filteredTasks = filter byDone tasks
@@ -89,14 +96,13 @@ filterByTags tags tasks = filteredTasks
 
 mapWithWorktime :: UTCTime -> [Task] -> [Task]
 mapWithWorktime now = map withWorktime
-  where withWorktime task = task { _worktime = getWorktime now task }
+  where withWorktime task = task { _wtime = getWorktime now task }
 
-getWorktime :: UTCTime -> Task -> Micro
-getWorktime now task = worktime
+getWorktime :: UTCTime -> Task -> Worktime
+getWorktime now task = realToFrac $ sum $ zipWith diffUTCTime stops starts
  where
-  starts   = _starts task
-  stops    = _stops task ++ [ now | _active task ]
-  worktime = realToFrac $ sum $ zipWith diffUTCTime stops starts
+  starts = _starts task
+  stops  = _stops task ++ [ now | _active task ]
 
 prettyPrint :: [Task] -> IO ()
 prettyPrint tasks =
@@ -107,7 +113,7 @@ prettyPrint tasks =
     : map prettyPrint' tasks
  where
   prettyPrint' task =
-    [ show $ _number task
+    [ show $ _id task
     , _desc task
     , unwords $ map tail $ _tags task
     , if _active task then "✔" else ""
