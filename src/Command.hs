@@ -16,8 +16,8 @@ import           Utils
 import           Response
 
 data Command
-  = CreateTask UTCTime Reference Id Position Description [Tag]
-  | UpdateTask UTCTime Reference Id Position Description [Tag]
+  = CreateTask UTCTime Reference Id Position Description [Tag] Due
+  | UpdateTask UTCTime Reference Id Position Description [Tag] Due
   | StartTask UTCTime Reference Id
   | StopTask UTCTime Reference Id
   | MarkAsDoneTask UTCTime Reference Id Id
@@ -39,15 +39,15 @@ handle rtype args = do
 
 execute :: State -> Command -> [Event]
 execute state command = case command of
-  CreateTask t ref id pos desc tags -> [TaskCreated t ref id pos desc tags]
-  UpdateTask t ref id pos desc tags -> [TaskUpdated t ref id pos desc tags]
-  StartTask t ref id                -> [TaskStarted t ref id]
-  StopTask  t ref id                -> [TaskStopped t ref id]
-  MarkAsDoneTask t ref _ id         -> [TaskMarkedAsDone t ref id]
-  DeleteTask t ref      id          -> [TaskDeleted t ref id]
-  SetContext t showDone context     -> [ContextSet t showDone context]
-  Error _ _                         -> []
-  NoOp                              -> []
+  CreateTask t r i p desc tags due -> [TaskCreated t r i p desc tags due]
+  UpdateTask t r i p desc tags due -> [TaskUpdated t r i p desc tags due]
+  StartTask t ref id               -> [TaskStarted t ref id]
+  StopTask  t ref id               -> [TaskStopped t ref id]
+  MarkAsDoneTask t ref _ id        -> [TaskMarkedAsDone t ref id]
+  DeleteTask t ref      id         -> [TaskDeleted t ref id]
+  SetContext t showDone context    -> [ContextSet t showDone context]
+  Error _ _                        -> []
+  NoOp                             -> []
 
 parseArgs :: UTCTime -> State -> [String] -> Command
 parseArgs t state args = case args of
@@ -66,12 +66,14 @@ parseArgs t state args = case args of
 
 createTask t state args = case args of
   []   -> Error "create" "missing desc"
-  args -> CreateTask t ref id (-1) desc tags
+  args -> CreateTask t ref id pos desc tags due
    where
     ref  = floor $ 1000 * utcTimeToPOSIXSeconds t :: Int
     id   = generateId $ filter (not . _done) $ _tasks state
+    pos  = -1
     desc = unwords $ filter (not . startsByPlus) args
     tags = filter startsByPlus args `union` _context state
+    due  = Nothing
 
 updateTask t state args = case args of
   []          -> Error "update" "missing id"
@@ -86,9 +88,14 @@ updateTask t state args = case args of
     nextDesc  = if newDesc == "" then maybe "" _desc maybeTask else newDesc
     newTags   = filter startsByPlus args
     nextTags  = union newTags $ maybe [] _tags maybeTask
-    validate task
-      | _done task = Error "update" "task already done"
-      | otherwise  = UpdateTask t (_ref task) (_id task) (-1) nextDesc nextTags
+    validate task | _done task = Error "update" "task already done"
+                  | otherwise  = update task
+    update task =
+      let ref = _ref task
+          id  = _id task
+          pos = -1
+          due = Nothing
+      in  UpdateTask t ref id pos nextDesc nextTags due
 
 replaceTask t state args = case args of
   []          -> Error "replace" "missing id"
@@ -101,9 +108,14 @@ replaceTask t state args = case args of
     maybeTask = readMaybe id >>= flip findById tasks
     nextDesc  = unwords $ filter (not . startsByPlus) args
     nextTags  = filter startsByPlus args
-    validate task
-      | _done task = Error "replace" "task already done"
-      | otherwise  = UpdateTask t (_ref task) (_id task) (-1) nextDesc nextTags
+    validate task | _done task = Error "replace" "task already done"
+                  | otherwise  = update task
+    update task =
+      let ref = _ref task
+          id  = _id task
+          pos = -1
+          due = Nothing
+      in  UpdateTask t ref id pos nextDesc nextTags due
 
 startTask t state args = case args of
   []       -> Error "start" "missing id"
@@ -188,8 +200,8 @@ notify rtype command = foldr (\sub _ -> sub rtype command) (return ())
 
 logger :: Subscriber
 logger rtype event = case event of
-  CreateTask _ _ n _ _ _    -> printAction rtype n "created"
-  UpdateTask _ _ n _ _ _    -> printAction rtype n "updated"
+  CreateTask _ _ n _ _ _ _  -> printAction rtype n "created"
+  UpdateTask _ _ n _ _ _ _  -> printAction rtype n "updated"
   StartTask _ _ n           -> printAction rtype n "started"
   StopTask  _ _ n           -> printAction rtype n "stopped"
   MarkAsDoneTask _ _ n _    -> printAction rtype n "done"

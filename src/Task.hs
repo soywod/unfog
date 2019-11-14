@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Task where
 
 import qualified Data.ByteString.Lazy.Char8    as BL
@@ -17,6 +18,7 @@ type Reference = Int
 type Position = Int
 type Description = String
 type Tag = String
+type Due = Maybe UTCTime
 type Active = Bool
 type Done = Bool
 type Worktime = Micro
@@ -27,6 +29,7 @@ data Task =
        , _pos :: Position
        , _desc :: Description
        , _tags :: [Tag]
+       , _due :: Maybe Due
        , _active :: Bool
        , _done :: Bool
        , _wtime :: Worktime
@@ -35,7 +38,7 @@ data Task =
        } deriving (Show, Read, Eq)
 
 instance ToJSON Task where
-  toJSON (Task id ref pos desc tags active done wtime _ _) = object
+  toJSON (Task id ref pos desc tags due active done wtime _ _) = object
     [ "id" .= id
     , "ref" .= ref
     , "pos" .= pos
@@ -56,6 +59,7 @@ emptyTask = Task { _id     = 0
                  , _pos    = -1
                  , _desc   = ""
                  , _tags   = []
+                 , _due    = Nothing
                  , _active = False
                  , _done   = False
                  , _wtime  = 0
