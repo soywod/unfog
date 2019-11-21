@@ -22,6 +22,7 @@ type Due = Maybe UTCTime
 type Active = Bool
 type Done = Bool
 type Worktime = Micro
+newtype WorktimeRecord = WorktimeRecord {toWorktimeRecord :: Worktime}
 
 data Task =
   Task { _id :: Id
@@ -37,6 +38,13 @@ data Task =
        , _stops :: [UTCTime]
        } deriving (Show, Read, Eq)
 
+instance ToJSON WorktimeRecord where
+  toJSON (WorktimeRecord wtime) = object
+    [ "approx" .= approximativeDuration wtime
+    , "human" .= humanReadableDuration wtime
+    , "micro" .= wtime
+    ]
+
 instance ToJSON Task where
   toJSON (Task id ref pos desc tags due active done wtime _ _) = object
     [ "id" .= id
@@ -46,22 +54,12 @@ instance ToJSON Task where
     , "tags" .= map tail tags
     , "active" .= if active then 1 else 0 :: Int
     , "done" .= if done then 1 else 0 :: Int
-    , "wtime" .= object
-      [ "approx" .= approximativeDuration wtime
-      , "human" .= humanReadableDuration wtime
-      , "micro" .= wtime
-      ]
+    , "wtime" .= WorktimeRecord wtime
     ]
 
 instance ToJSON DailyWtimeRecord where
-  toJSON (DailyWtimeRecord (day, wtime)) = object
-    [ "day" .= day
-    , "wtime" .= object
-      [ "approx" .= approximativeDuration wtime
-      , "human" .= humanReadableDuration wtime
-      , "micro" .= wtime
-      ]
-    ]
+  toJSON (DailyWtimeRecord (date, wtime)) =
+    object ["date" .= date, "wtime" .= WorktimeRecord wtime]
 
 emptyTask :: Task
 emptyTask = Task { _id     = 0
@@ -127,6 +125,7 @@ getWorktimePerDay now tasks = foldl fWorktimePerDay [] $ zip starts stops
 
 type DailyWtime = (String, Micro)
 newtype DailyWtimeRecord = DailyWtimeRecord {toDailyWtimeRecord :: DailyWtime}
+newtype DailyWtimeTotalRecord = DailyWtimeTotalRecord {toDailyWtimeTotalRecord :: Worktime}
 fWorktimePerDay :: [DailyWtime] -> (UTCTime, UTCTime) -> [DailyWtime]
 fWorktimePerDay acc (start, stop) = case lookup key acc of
   Nothing       -> (key, nextSecs) : nextAcc
@@ -159,5 +158,5 @@ prettyPrintWtime :: [DailyWtime] -> IO ()
 prettyPrintWtime wtime =
   putStrLn $ render $ table $ header : map prettyPrint wtime
  where
-  header = ["DAY", "WORKTIME"]
-  prettyPrint (day, wtime) = [day, humanReadableDuration $ realToFrac wtime]
+  header = ["DATE", "WORKTIME"]
+  prettyPrint (date, wtime) = [date, humanReadableDuration $ realToFrac wtime]
