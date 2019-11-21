@@ -156,7 +156,13 @@ prettyPrintTasks tasks =
 
 prettyPrintWtime :: [DailyWtime] -> IO ()
 prettyPrintWtime wtime =
-  putStrLn $ render $ table $ header : map prettyPrint wtime
+  putStrLn
+    $  render
+    $  table
+    $  [header]
+    ++ map prettyPrint wtime
+    ++ [["TOTAL", humanReadableDuration total]]
  where
   header = ["DATE", "WORKTIME"]
   prettyPrint (date, wtime) = [date, humanReadableDuration $ realToFrac wtime]
+  total = foldl (\acc (_, x) -> acc + x) 0 wtime
