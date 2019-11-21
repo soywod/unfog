@@ -10,6 +10,7 @@ data Response
   = ResponseMsg String
   | ResponseTask Task
   | ResponseTasks [Task]
+  | ResponseWtime [DailyWtime]
   | ResponseErr String
 
 data ResponseType = JSON | Text
@@ -22,12 +23,19 @@ printMsg rtype msg = case rtype of
 printTask :: ResponseType -> Task -> IO ()
 printTask rtype task = case rtype of
   JSON -> BL.putStr $ encode $ ResponseTask task
-  Text -> prettyPrint [task]
+  Text -> prettyPrintTasks [task]
 
 printTasks :: ResponseType -> [Task] -> IO ()
 printTasks rtype tasks = case rtype of
   JSON -> BL.putStr $ encode $ ResponseTasks tasks
-  Text -> prettyPrint tasks
+  Text -> prettyPrintTasks tasks
+
+printWtime :: ResponseType -> String -> [DailyWtime] -> IO ()
+printWtime rtype msg wtime = case rtype of
+  JSON -> BL.putStr $ encode $ ResponseWtime wtime
+  Text -> do
+    putStrLn msg
+    prettyPrintWtime wtime
 
 printErr :: ResponseType -> String -> IO ()
 printErr rtype err = case rtype of
@@ -38,7 +46,9 @@ instance ToJSON Response where
   toJSON (ResponseMsg   msg  ) = object ["ok" .= (1 :: Int), "data" .= msg]
   toJSON (ResponseTask  task ) = object ["ok" .= (1 :: Int), "data" .= task]
   toJSON (ResponseTasks tasks) = object ["ok" .= (1 :: Int), "data" .= tasks]
-  toJSON (ResponseErr   err  ) = object ["ok" .= (0 :: Int), "data" .= err]
+  toJSON (ResponseWtime wtime) =
+    object ["ok" .= (1 :: Int), "data" .= map DailyWtimeRecord wtime]
+  toJSON (ResponseErr err) = object ["ok" .= (0 :: Int), "data" .= err]
 
 getResponseType :: [String] -> ResponseType
 getResponseType args | "--json" `elem` args = JSON

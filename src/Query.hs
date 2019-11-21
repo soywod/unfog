@@ -62,19 +62,17 @@ execute rtype state events query = case query of
     let fByNumber = findById id
     let maybeTask = fByNumber . fByTags . fByDone $ _tasks state
     case maybeTask of
-      Nothing   -> printErr rtype "show: task not found"
-      Just task -> printTask rtype $ task { _wtime = getWorktime now task }
+      Nothing -> printErr rtype "show: task not found"
+      Just task ->
+        printTask rtype $ task { _wtime = getTotalWorktime now task }
 
   ShowWorktime args -> do
     now <- getCurrentTime
     let tags  = filter startsByPlus args
     let ids   = map _id $ filterByTags args $ _tasks state
     let tasks = filterByIds ids $ mapWithWorktime now $ _tasks state
-    let total = sum $ map _wtime tasks
-    printMsg rtype
-      $  "worktime "
-      ++ (if null args then "global" else "for [" ++ unwords tags ++ "]")
-      ++ ": "
-      ++ humanReadableDuration total
+    let wtime = getWorktimePerDay now tasks
+    let ctx = if null args then "global" else "for [" ++ unwords tags ++ "]"
+    printWtime rtype ("unfog: wtime " ++ ctx) wtime
 
   Query.Error command message -> printErr rtype $ command ++ ": " ++ message

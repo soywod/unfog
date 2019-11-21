@@ -27,6 +27,7 @@ dispatch args = case args \\ options of
 
   ("list"     : args) -> Q.handle rtype $ "list" : args
   ("show"     : args) -> Q.handle rtype $ "show" : args
+  ("wtime"    : args) -> Q.handle rtype $ "worktime" : args
   ("worktime" : args) -> Q.handle rtype $ "worktime" : args
 
   (command    : _   ) -> printErr rtype $ command ++ ": command not found"

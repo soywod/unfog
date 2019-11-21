@@ -6,10 +6,10 @@ import qualified Data.ByteString.Lazy.Char8    as BL
 import           Control.Exception
 import           Data.Aeson
 import           Data.Duration
-import           Data.Fixed
 import           Data.List
 import           Data.Time
 import           Text.PrettyPrint.Boxes
+import           Data.Fixed
 
 import           Utils
 
@@ -46,6 +46,16 @@ instance ToJSON Task where
     , "tags" .= map tail tags
     , "active" .= if active then 1 else 0 :: Int
     , "done" .= if done then 1 else 0 :: Int
+    , "wtime" .= object
+      [ "approx" .= approximativeDuration wtime
+      , "human" .= humanReadableDuration wtime
+      , "micro" .= wtime
+      ]
+    ]
+
+instance ToJSON DailyWtimeRecord where
+  toJSON (DailyWtimeRecord (day, wtime)) = object
+    [ "day" .= day
     , "wtime" .= object
       [ "approx" .= approximativeDuration wtime
       , "human" .= humanReadableDuration wtime
@@ -100,25 +110,54 @@ filterByTags tags tasks = filteredTasks
 
 mapWithWorktime :: UTCTime -> [Task] -> [Task]
 mapWithWorktime now = map withWorktime
-  where withWorktime task = task { _wtime = getWorktime now task }
+  where withWorktime task = task { _wtime = getTotalWorktime now task }
 
-getWorktime :: UTCTime -> Task -> Worktime
-getWorktime now task = realToFrac $ sum $ zipWith diffUTCTime stops starts
+getTotalWorktime :: UTCTime -> Task -> Worktime
+getTotalWorktime now task = realToFrac $ sum $ zipWith diffUTCTime stops starts
  where
   starts = _starts task
   stops  = _stops task ++ [ now | _active task ]
 
-prettyPrint :: [Task] -> IO ()
-prettyPrint tasks =
-  putStrLn
-    $ render
-    $ table
-    $ ["ID", "DESC", "TAGS", "ACTIVE"]
-    : map prettyPrint' tasks
+getWorktimePerDay :: UTCTime -> [Task] -> [DailyWtime]
+getWorktimePerDay now tasks = foldl fWorktimePerDay [] $ zip starts stops
  where
-  prettyPrint' task =
+  (starts, stops) = foldl fByStartsAndStops ([], []) tasks
+  fByStartsAndStops (starts, stops) t =
+    (starts ++ _starts t, stops ++ _stops t ++ [ now | _active t ])
+
+type DailyWtime = (String, Micro)
+newtype DailyWtimeRecord = DailyWtimeRecord {toDailyWtimeRecord :: DailyWtime}
+fWorktimePerDay :: [DailyWtime] -> (UTCTime, UTCTime) -> [DailyWtime]
+fWorktimePerDay acc (start, stop) = case lookup key acc of
+  Nothing       -> (key, nextSecs) : nextAcc
+  Just prevSecs -> (key, prevSecs + nextSecs) : filter ((/=) key . fst) nextAcc
+ where
+  key                 = show currDay
+  currDay             = utctDay start
+  endOfDay            = read $ show currDay ++ " 23:59:59.999999999" :: UTCTime
+  nextDay = read $ show (addDays 1 currDay) ++ " 00:00:00" :: UTCTime
+  (nextSecs, nextAcc) = if stop < endOfDay
+    then (realToFrac $ diffUTCTime stop start, acc)
+    else
+      ( realToFrac $ diffUTCTime endOfDay start
+      , fWorktimePerDay acc (nextDay, stop)
+      )
+
+prettyPrintTasks :: [Task] -> IO ()
+prettyPrintTasks tasks =
+  putStrLn $ render $ table $ header : map prettyPrint tasks
+ where
+  header = ["ID", "DESC", "TAGS", "ACTIVE"]
+  prettyPrint task =
     [ show $ _id task
     , _desc task
     , unwords $ map tail $ _tags task
     , if _active task then "✔" else ""
     ]
+
+prettyPrintWtime :: [DailyWtime] -> IO ()
+prettyPrintWtime wtime =
+  putStrLn $ render $ table $ header : map prettyPrint wtime
+ where
+  header = ["DAY", "WORKTIME"]
+  prettyPrint (day, wtime) = [day, humanReadableDuration $ realToFrac wtime]
