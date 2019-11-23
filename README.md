@@ -1,5 +1,5 @@
-# ⌚ unfog
-A simple CLI to manage your tasks and track your time, written in Haskell.
+# ⌚ Unfog
+A simple task and time manager, written in [Haskell](https://www.haskell.org).
 
 ## Table of contents
 
@@ -23,16 +23,103 @@ A simple CLI to manage your tasks and track your time, written in Haskell.
 ## Installation
 ### From binary
 ### From sources
+
+First you need to install
+[stack](https://docs.haskellstack.org/en/stable/README/):
+
+```bash
+curl -sSL https://get.haskellstack.org/ | sh
+```
+
+Then build from git:
+```bash
+git clone https://github.com/unfog-io/unfog-cli.git unfog && cd unfog
+stack install
+```
+
 ## Usage
 ### Create
+
+To create a task, you need:
+
+  - A description
+  - A list of tags *(optional)*
+
+```bash
+unfog create <desc> <+tag1> <+tag2> ...
+```
+
+*Note: a tag should always start by `+`.*
+
 ### Show
+
+```bash
+unfog show <id>
+```
+
 ### List
+
+```bash
+unfog list
+```
+
 ### Update
+
+```bash
+unfog update <id> <desc> <+tag1> <-tag2> ...
+```
+
 ### Toggle
+
+```bash
+unfog start <id>
+unfog stop <id>
+unfog toggle <id>
+```
+
 ### Done
+
+```bash
+unfog done <id>
+```
+
+*Note: done tasks can be listed with the [`done` context](#context).*
+
 ### Delete
+
+```bash
+unfog delete <id>
+```
+
 ### Context
+
+Filters tasks by the given tags. Once set up:
+
+- You will see only tasks containing at least one tag of your context
+- When you [create](#create) a task, all tags in your context will be assigned
+  to it
+
+```bash
+unfog context <+tag1> <+tag2> ...
+```
+
+The special context `done` allows you to see done tasks:
+
+```bash
+unfog context done
+```
+
+*Note: normal contexts (+tags) and special contexts can be used together.*
+
 ### Worktime
+
+Shows the total worktime spent on tasks belonging to the given context, grouped
+by days. An empty context will show the worktime of all your tasks:
+
+```bash
+unfog wtime <+tag1> <+tag2> ...
+```
+
 ## Contributing
 
 Git commit messages follow the [Angular
