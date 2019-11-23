@@ -1,4 +1,5 @@
 # ⌚ Unfog
+
 A simple task and time manager, written in [Haskell](https://www.haskell.org).
 
 ## Table of contents
@@ -22,6 +23,13 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
 
 ## Installation
 ### From binary
+
+For now, only linux x86_64 is supported:
+
+```
+https://github.com/unfog-io/unfog-cli/releases/download/v0.1.0/unfog-linux-x86_64
+```
+
 ### From sources
 
 First you need to install
@@ -136,6 +144,9 @@ Tests should be added for each new functionality. Be sure to run tests before
 proposing a pull request.
 
 ## Changelog
+
+- **Nov. 23, 2019** - First release v0.1.0
+
 ## Credits
 
 - [Kronos](https://github.com/soywod/kronos.vim), the unfog predecessor

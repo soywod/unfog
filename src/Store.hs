@@ -1,6 +1,6 @@
 module Store
   ( readAll
-  , write
+  , writeAll
   )
 where
 
@@ -16,15 +16,15 @@ readAll :: IO [Event]
 readAll = mapLineToEvent <$> getStoreFileContent
   where mapLineToEvent = map Prelude.read . lines
 
-write :: [Event] -> IO ()
-write = foldr write' (return ())
+writeAll :: [Event] -> IO ()
+writeAll = foldr write' (return ())
  where
   write' event _ = getFilePath "store" >>= appendToStore event
   appendToStore event = flip appendFile $ show event ++ "\n"
 
 getStoreFileContent :: IO String
 getStoreFileContent = do
-  let tmpStorePath = "/tmp/unfog-store"
+  let tmpStorePath = "/tmp/unfog.store"
   storePath <- getFilePath "store"
   copyFile' storePath tmpStorePath
   storeContent <- readFile' tmpStorePath

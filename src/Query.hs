@@ -21,7 +21,7 @@ import           Response
 data Query
   = ShowTasks [String]
   | ShowTask Id [String]
-  | ShowWorktime [String]
+  | ShowWtime [String]
   | Error String String
   deriving (Show)
 
@@ -35,7 +35,7 @@ handle rtype args = do
 parseArgs :: [String] -> Query
 parseArgs args = case args of
   ("list"          : args) -> ShowTasks args
-  ("worktime"      : args) -> ShowWorktime args
+  ("worktime"      : args) -> ShowWtime args
   ("show" : number : args) -> case readMaybe number of
     Nothing     -> Query.Error "show" "task not found"
     Just number -> ShowTask number args
@@ -46,7 +46,7 @@ execute rtype state events query = case query of
     now <- getCurrentTime
     let fByTags = filterByTags $ _context state
     let fByDone = filterByDone $ _showDone state
-    let tasks   = mapWithWorktime now . fByTags . fByDone $ _tasks state
+    let tasks   = mapWithWtime now . fByTags . fByDone $ _tasks state
     case rtype of
       JSON -> printTasks JSON tasks
       Text -> do
@@ -62,16 +62,15 @@ execute rtype state events query = case query of
     let fByNumber = findById id
     let maybeTask = fByNumber . fByTags . fByDone $ _tasks state
     case maybeTask of
-      Nothing -> printErr rtype "show: task not found"
-      Just task ->
-        printTask rtype $ task { _wtime = getTotalWorktime now task }
+      Nothing   -> printErr rtype "show: task not found"
+      Just task -> printTask rtype $ task { _wtime = getTotalWtime now task }
 
-  ShowWorktime args -> do
+  ShowWtime args -> do
     now <- getCurrentTime
     let tags  = filter startsByPlus args
     let ids   = map _id $ filterByTags args $ _tasks state
-    let tasks = filterByIds ids $ mapWithWorktime now $ _tasks state
-    let wtime = getWorktimePerDay now tasks
+    let tasks = filterByIds ids $ mapWithWtime now $ _tasks state
+    let wtime = getWtimePerDay now tasks
     let ctx = if null args then "global" else "for [" ++ unwords tags ++ "]"
     printWtime rtype ("unfog: wtime " ++ ctx) wtime
 

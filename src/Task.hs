@@ -14,32 +14,32 @@ import           Data.Fixed
 import           Utils
 
 type Id = Int
-type Reference = Int
-type Position = Int
-type Description = String
+type Ref = Int
+type Pos = Int
+type Desc = String
 type Tag = String
 type Due = Maybe UTCTime
 type Active = Bool
 type Done = Bool
-type Worktime = Micro
-newtype WorktimeRecord = WorktimeRecord {toWorktimeRecord :: Worktime}
+type Wtime = Micro
 
 data Task =
   Task { _id :: Id
-       , _ref :: Reference
-       , _pos :: Position
-       , _desc :: Description
+       , _ref :: Ref
+       , _pos :: Pos
+       , _desc :: Desc
        , _tags :: [Tag]
        , _due :: Maybe Due
        , _active :: Bool
        , _done :: Bool
-       , _wtime :: Worktime
+       , _wtime :: Wtime
        , _starts :: [UTCTime]
        , _stops :: [UTCTime]
        } deriving (Show, Read, Eq)
 
-instance ToJSON WorktimeRecord where
-  toJSON (WorktimeRecord wtime) = object
+newtype WtimeRecord = WtimeRecord {toWtimeRecord :: Wtime}
+instance ToJSON WtimeRecord where
+  toJSON (WtimeRecord wtime) = object
     [ "approx" .= approximativeDuration wtime
     , "human" .= humanReadableDuration wtime
     , "micro" .= wtime
@@ -54,12 +54,12 @@ instance ToJSON Task where
     , "tags" .= map tail tags
     , "active" .= if active then 1 else 0 :: Int
     , "done" .= if done then 1 else 0 :: Int
-    , "wtime" .= WorktimeRecord wtime
+    , "wtime" .= WtimeRecord wtime
     ]
 
 instance ToJSON DailyWtimeRecord where
   toJSON (DailyWtimeRecord (date, wtime)) =
-    object ["date" .= date, "wtime" .= WorktimeRecord wtime]
+    object ["date" .= date, "wtime" .= WtimeRecord wtime]
 
 emptyTask :: Task
 emptyTask = Task { _id     = 0
@@ -87,7 +87,7 @@ generateId tasks = generateId' (sort $ map _id tasks) [1 ..]
 findById :: Id -> [Task] -> Maybe Task
 findById id = find $ (==) id . _id
 
-findByRef :: Reference -> [Task] -> Maybe Task
+findByRef :: Ref -> [Task] -> Maybe Task
 findByRef ref = find $ (==) ref . _ref
 
 filterByDone :: Done -> [Task] -> [Task]
@@ -106,18 +106,18 @@ filterByTags tags tasks = filteredTasks
   byTags        = not . null . intersect tags . _tags
 
 
-mapWithWorktime :: UTCTime -> [Task] -> [Task]
-mapWithWorktime now = map withWorktime
-  where withWorktime task = task { _wtime = getTotalWorktime now task }
+mapWithWtime :: UTCTime -> [Task] -> [Task]
+mapWithWtime now = map withWtime
+  where withWtime task = task { _wtime = getTotalWtime now task }
 
-getTotalWorktime :: UTCTime -> Task -> Worktime
-getTotalWorktime now task = realToFrac $ sum $ zipWith diffUTCTime stops starts
+getTotalWtime :: UTCTime -> Task -> Wtime
+getTotalWtime now task = realToFrac $ sum $ zipWith diffUTCTime stops starts
  where
   starts = _starts task
   stops  = _stops task ++ [ now | _active task ]
 
-getWorktimePerDay :: UTCTime -> [Task] -> [DailyWtime]
-getWorktimePerDay now tasks = foldl fWorktimePerDay [] $ zip starts stops
+getWtimePerDay :: UTCTime -> [Task] -> [DailyWtime]
+getWtimePerDay now tasks = foldl fWtimePerDay [] $ zip starts stops
  where
   (starts, stops) = foldl fByStartsAndStops ([], []) tasks
   fByStartsAndStops (starts, stops) t =
@@ -125,9 +125,9 @@ getWorktimePerDay now tasks = foldl fWorktimePerDay [] $ zip starts stops
 
 type DailyWtime = (String, Micro)
 newtype DailyWtimeRecord = DailyWtimeRecord {toDailyWtimeRecord :: DailyWtime}
-newtype DailyWtimeTotalRecord = DailyWtimeTotalRecord {toDailyWtimeTotalRecord :: Worktime}
-fWorktimePerDay :: [DailyWtime] -> (UTCTime, UTCTime) -> [DailyWtime]
-fWorktimePerDay acc (start, stop) = case lookup key acc of
+newtype DailyWtimeTotalRecord = DailyWtimeTotalRecord {toDailyWtimeTotalRecord :: Wtime}
+fWtimePerDay :: [DailyWtime] -> (UTCTime, UTCTime) -> [DailyWtime]
+fWtimePerDay acc (start, stop) = case lookup key acc of
   Nothing       -> (key, nextSecs) : nextAcc
   Just prevSecs -> (key, prevSecs + nextSecs) : filter ((/=) key . fst) nextAcc
  where
@@ -139,7 +139,7 @@ fWorktimePerDay acc (start, stop) = case lookup key acc of
     then (realToFrac $ diffUTCTime stop start, acc)
     else
       ( realToFrac $ diffUTCTime endOfDay start
-      , fWorktimePerDay acc (nextDay, stop)
+      , fWtimePerDay acc (nextDay, stop)
       )
 
 prettyPrintTasks :: [Task] -> IO ()

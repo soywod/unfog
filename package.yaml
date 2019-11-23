@@ -1,6 +1,6 @@
 name:                unfog
-version:             0.1.0.0
-github:              "soywod/unfog"
+version:             0.1.0
+github:              "unfog-io/unfog-cli"
 license:             BSD3
 author:              "Clément DOUIN"
 maintainer:          "clement.douin@posteo.net"
@@ -11,13 +11,13 @@ extra-source-files:
 - ChangeLog.md
 
 # Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
+synopsis:            A simple task and time manager.
+category:            CLI
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/unfog#readme>
+description:         Please see the README on GitHub at <https://github.com/unfog-io/unfog-cli#readme>
 
 dependencies:
 - base >= 4.7 && < 5

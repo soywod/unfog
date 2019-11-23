@@ -8,7 +8,7 @@ import           Data.Aeson              hiding ( Error )
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Text.PrettyPrint.Boxes
 
-import           Store
+import qualified Store
 import           State
 import           Task
 import           Event
@@ -16,12 +16,12 @@ import           Utils
 import           Response
 
 data Command
-  = CreateTask UTCTime Reference Id Position Description [Tag] Due
-  | UpdateTask UTCTime Reference Id Position Description [Tag] Due
-  | StartTask UTCTime Reference Id
-  | StopTask UTCTime Reference Id
-  | MarkAsDoneTask UTCTime Reference Id Id
-  | DeleteTask UTCTime Reference Id
+  = CreateTask UTCTime Ref Id Pos Desc [Tag] Due
+  | UpdateTask UTCTime Ref Id Pos Desc [Tag] Due
+  | StartTask UTCTime Ref Id
+  | StopTask UTCTime Ref Id
+  | MarkAsDoneTask UTCTime Ref Id Id
+  | DeleteTask UTCTime Ref Id
   | SetContext UTCTime Bool [String]
   | Error String String
   | NoOp
@@ -34,7 +34,7 @@ handle rtype args = do
   let command     = parseArgs now state args
   let events      = execute state command
   let subscribers = [logger]
-  write events
+  Store.writeAll events
   notify rtype command subscribers
 
 execute :: State -> Command -> [Event]
@@ -200,17 +200,17 @@ notify rtype command = foldr (\sub _ -> sub rtype command) (return ())
 
 logger :: Subscriber
 logger rtype event = case event of
-  CreateTask _ _ n _ _ _ _  -> printAction rtype n "created"
-  UpdateTask _ _ n _ _ _ _  -> printAction rtype n "updated"
-  StartTask _ _ n           -> printAction rtype n "started"
-  StopTask  _ _ n           -> printAction rtype n "stopped"
-  MarkAsDoneTask _ _ n _    -> printAction rtype n "done"
-  DeleteTask _ _        n   -> printAction rtype n "deleted"
+  CreateTask _ _ id _ _ _ _ -> printAction rtype id "created"
+  UpdateTask _ _ id _ _ _ _ -> printAction rtype id "updated"
+  StartTask _ _ id          -> printAction rtype id "started"
+  StopTask  _ _ id          -> printAction rtype id "stopped"
+  MarkAsDoneTask _ _ id _   -> printAction rtype id "done"
+  DeleteTask _ _        id  -> printAction rtype id "deleted"
   SetContext _ showDone ctx -> printCtx rtype showDone ctx
   Error cmd msg             -> printErr rtype $ cmd ++ ": " ++ msg
  where
-  printAction rtype n action =
-    let msg = "task [" ++ show n ++ "] " ++ action in printMsg rtype msg
+  printAction rtype id action =
+    let msg = "task [" ++ show id ++ "] " ++ action in printMsg rtype msg
 
   printCtx rtype showDone ctx =
     let
