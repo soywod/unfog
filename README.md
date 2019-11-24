@@ -2,6 +2,9 @@
 
 A simple task and time manager, written in [Haskell](https://www.haskell.org).
 
+
+![image](https://user-images.githubusercontent.com/10437171/69493813-cd07d980-0eb3-11ea-911d-8d3e3f493b70.png)
+
 ## Table of contents
 
   * [Installation](#installation)
@@ -57,6 +60,8 @@ To create a task, you need:
 unfog create <desc> <+tag1> <+tag2> ...
 ```
 
+![image](https://user-images.githubusercontent.com/10437171/69493623-1145aa80-0eb1-11ea-8e34-f14bb3c831bc.png)
+
 *Note: a tag should always start by `+`.*
 
 ### Show
@@ -65,11 +70,15 @@ unfog create <desc> <+tag1> <+tag2> ...
 unfog show <id>
 ```
 
+![image](https://user-images.githubusercontent.com/10437171/69493650-6ed9f700-0eb1-11ea-99f7-77bee937ec3c.png)
+
 ### List
 
 ```bash
 unfog list
 ```
+
+![image](https://user-images.githubusercontent.com/10437171/69493551-338af880-0eb0-11ea-90fa-5c3c2f7783d4.png)
 
 ### Update
 
@@ -84,6 +93,8 @@ unfog start <id>
 unfog stop <id>
 unfog toggle <id>
 ```
+
+![image](https://user-images.githubusercontent.com/10437171/69493665-b2346580-0eb1-11ea-8cd4-46f3df331f5a.png)
 
 ### Done
 
@@ -117,16 +128,22 @@ The special context `done` allows you to see done tasks:
 unfog context done
 ```
 
+![image](https://user-images.githubusercontent.com/10437171/69493746-c88ef100-0eb2-11ea-9dc2-c17dc7b4b8e4.png)
+
 *Note: normal contexts (+tags) and special contexts can be used together.*
+*Note: giving an empty (or invalid) context will clear it.*
 
 ### Worktime
 
 Shows the total worktime spent on tasks belonging to the given context, grouped
 by days. An empty context will show the worktime of all your tasks:
 
+
 ```bash
 unfog wtime <+tag1> <+tag2> ...
 ```
+
+![image](https://user-images.githubusercontent.com/10437171/69493775-2ae7f180-0eb3-11ea-88a3-a59eb088830e.png)
 
 ## Contributing
 
