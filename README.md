@@ -1,7 +1,6 @@
-# ⌚ Unfog
+# ⌚ Unfog.cli
 
 A simple task and time manager, written in [Haskell](https://www.haskell.org).
-
 
 ![image](https://user-images.githubusercontent.com/10437171/69493813-cd07d980-0eb3-11ea-911d-8d3e3f493b70.png)
 
@@ -20,12 +19,14 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
     * [Delete](#delete)
     * [Context](#context)
     * [Worktime](#worktime)
+  * [Options](#options)
+    * [JSON](#json)
   * [Contributing](#contributing)
   * [Changelog](#changelog)
   * [Credits](#credits)
 
 ## Installation
-### From binary
+### From binaries
 
 For now, only linux x86_64 is supported:
 
@@ -98,11 +99,13 @@ unfog toggle <id>
 
 ### Done
 
+Mark as done a task will remove it from the main list by adding a special tag `done`:
+
 ```bash
 unfog done <id>
 ```
 
-*Note: done tasks can be listed with the [`done` context](#context).*
+*Note: done tasks can be listed by enabling the [`done` context](#context).*
 
 ### Delete
 
@@ -145,6 +148,51 @@ unfog wtime <+tag1> <+tag2> ...
 
 ![image](https://user-images.githubusercontent.com/10437171/69493775-2ae7f180-0eb3-11ea-88a3-a59eb088830e.png)
 
+## Options
+### JSON
+
+By adding the `--json` option, the output will be printed in JSON format:
+
+```
+{
+  "ok": 0 | 1,
+  "data": String | Task | [Task] | Worktime
+}
+```
+
+```
+Task {
+  id: Int
+  ref: Int
+  pos: Int
+  desc: String
+  tags: [String]
+  active: 0 | 1
+  done: 0 | 1
+  wtime: WtimeRecord
+}
+
+Worktime {
+  total: WtimeRecord,
+  wtimes: [{
+    date: String (day)
+    wtime: WtimeRecord,
+  }]
+}
+
+WtimeRecord {
+  approx: String (worktime approximation)
+  human: String (full worktime)
+  micro: Int (worktime in micro seconds)
+}
+```
+
+![image](https://user-images.githubusercontent.com/10437171/69493950-e14cd600-0eb5-11ea-9804-1095e6deb73e.png)
+
+This is useful to create user interafaces. Here the list of current implementations:
+
+  - [Unfog.vim](https://github.com/unfog-io/unfog-vim) for Vim/Neovim
+
 ## Contributing
 
 Git commit messages follow the [Angular
@@ -169,4 +217,3 @@ proposing a pull request.
 - [Kronos](https://github.com/soywod/kronos.vim), the unfog predecessor
 - [Taskwarrior](https://taskwarrior.org), a task manager
 - [Timewarrior](https://taskwarrior.org/docs/timewarrior), a time tracker
-  Taskwarrior wrapper for vim
