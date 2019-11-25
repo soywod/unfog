@@ -10,13 +10,29 @@ let
       # cabal.projects
     ];
     modules = [
-      # specific package overrides would go here
-      # example:
-      #  packages.cbors.package.ghcOptions = "-Werror";
-      #  packages.cbors.patches = [ ./one.patch ];
-      #  packages.cbors.flags.optimize-gmp = false;
-      # It may be better to set flags in stack.yaml instead
-      # (`stack-to-nix` will include them as defaults).
+      (let
+        staticLibs = [
+          (pkgs.gmp6.override { withStatic = true; })
+          (pkgs.libffi.overrideAttrs (oldAttrs: {
+            dontDisableStatic = true;
+            configureFlags = (oldAttrs.configureFlags or []) ++ [
+              "--enable-static"
+              "--disable-shared"
+            ];
+          }))
+        ];
+
+        withFullyStatic = {
+          configureFlags = [
+              "--disable-executable-dynamic"
+              "--disable-shared"
+              "--ghc-option=-optl=-pthread"
+              "--ghc-option=-optl=-static"
+            ] ++ map (drv: "--ghc-option=-optl=-L${drv}/lib") staticLibs;
+          };
+      in {
+        packages.unfog.components.exes.unfog = withFullyStatic;
+      })
     ];
   };
 
