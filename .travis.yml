@@ -50,6 +50,7 @@ jobs:
           - ${STACK_HOME}
           - ${HOME}/AppData/Local/Programs/stack
       before_deploy:
-        - cp ${STACK_BIN}/unfog.exe ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}
+        - cp ${STACK_BIN}/unfog.exe ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}.exe
       deploy:
         <<: *deploy_base
+        file: ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}.exe
