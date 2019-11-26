@@ -1,5 +1,5 @@
 name:                unfog
-version:             0.1.3
+version:             0.1.4
 github:              "unfog-io/unfog-cli"
 license:             BSD3
 author:              "Clément DOUIN"
@@ -42,7 +42,6 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     - -O2
-    - -split-objs
     dependencies:
     - unfog
 

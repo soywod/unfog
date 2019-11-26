@@ -18,11 +18,11 @@ jobs:
         directories:
           - ${STACK_HOME}
       before_deploy:
-        - cp ${STACK_BIN}/unfog ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}
+        - tar czf "${STACK_BIN}/unfog-${TRAVIS_OS_NAME}.tar.gz" -C "${STACK_BIN}" unfog
       deploy: &deploy_base
         provider: releases
         api_key: ${GITHUB_TOKEN}
-        file: ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}
+        file: ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}.tar.gz
         skip_cleanup: true
         draft: false
         name: ${TRAVIS_TAG}
@@ -37,7 +37,7 @@ jobs:
         directories:
           - ${STACK_HOME}
       before_deploy:
-        - cp ${STACK_BIN}/unfog ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}
+        - tar czf "${STACK_BIN}/unfog-${TRAVIS_OS_NAME}.tar.gz" -C "${STACK_BIN}" unfog
       deploy:
         <<: *deploy_base
 
@@ -50,7 +50,7 @@ jobs:
           - ${STACK_HOME}
           - ${HOME}/AppData/Local/Programs/stack
       before_deploy:
-        - cp ${STACK_BIN}/unfog.exe ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}.exe
+        - mv "${STACK_BIN}/unfog" "${STACK_BIN}/unfog.exe"
+        - tar czf "${STACK_BIN}/unfog-${TRAVIS_OS_NAME}.tar.gz" -C "${STACK_BIN}" unfog.exe
       deploy:
         <<: *deploy_base
-        file: ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}.exe
