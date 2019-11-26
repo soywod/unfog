@@ -1,4 +1,4 @@
-# ⌚ Unfog.cli
+# ⌚ Unfog.cli [![Build Status](https://travis-ci.org/unfog-io/unfog-cli.svg?branch=master)](https://travis-ci.org/unfog-io/unfog-cli)
 
 A simple task and time manager, written in [Haskell](https://www.haskell.org).
 
@@ -28,11 +28,8 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
 ## Installation
 ### From binaries
 
-For now, only linux x86_64 is supported:
-
-```
-https://github.com/unfog-io/unfog-cli/releases/download/v0.1.0/unfog-linux-x86_64
-```
+Linux, OSX and Windows are supported. See the latest release [on
+GitHub](https://github.com/unfog-io/unfog-cli/releases/latest).
 
 ### From sources
 
@@ -210,7 +207,8 @@ proposing a pull request.
 
 ## Changelog
 
-- **Nov. 23, 2019** - First release v0.1.0
+- **Nov. 26, 2019** - Make CLI cross-compatible Linux, OSX and Windows
+- **Nov. 23, 2019** - First release
 
 ## Credits
 
