@@ -1,9 +1,5 @@
 language: generic
 
-cache:
-  directories:
-    - ${STACK_HOME}
-
 before_install:
   - mkdir -p ${STACK_BIN}
   - export PATH=${STACK_BIN}:$PATH
@@ -18,6 +14,9 @@ jobs:
       env:
         - STACK_HOME=${HOME}/.stack
         - STACK_BIN=${HOME}/.local/bin
+      cache:
+        directories:
+          - ${STACK_HOME}
       before_deploy:
         - cp ${STACK_BIN}/unfog ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}
       deploy: &deploy_base
@@ -34,6 +33,9 @@ jobs:
       env:
         - STACK_HOME=${HOME}/.stack
         - STACK_BIN=${HOME}/.local/bin
+      cache:
+        directories:
+          - ${STACK_HOME}
       before_deploy:
         - cp ${STACK_BIN}/unfog ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}
       deploy:
@@ -43,6 +45,10 @@ jobs:
       env:
         - STACK_HOME=${HOME}/AppData/Roaming/stack
         - STACK_BIN=${HOME}/AppData/Roaming/local/bin
+      cache:
+        directories:
+          - ${STACK_HOME}
+          - ${HOME}/AppData/Local/Programs/stack
       before_deploy:
         - cp ${STACK_BIN}/unfog.exe ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}
       deploy:
