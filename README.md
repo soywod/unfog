@@ -28,8 +28,13 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
 ## Installation
 ### From binaries
 
-Linux, OSX and Windows are supported. See the latest release [on
-GitHub](https://github.com/unfog-io/unfog-cli/releases/latest).
+```bash
+curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/install.sh | sh
+```
+
+*Note: Linux, OSX and Windows are supported. See the [releases
+section](https://github.com/unfog-io/unfog-cli/releases).*
+
 
 ### From sources
 

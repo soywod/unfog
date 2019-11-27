@@ -20,8 +20,11 @@ get_os () {
 
 cd /tmp
 os=`get_os`
-curl -Lo unfog.tar.gz "https://github.com/unfog-io/unfog-cli/releases/latest/download/unfog-${os}.tar.gz"
+echo "Downloading latest ${os} release..."
+curl -sLo unfog.tar.gz "https://github.com/unfog-io/unfog-cli/releases/latest/download/unfog-${os}.tar.gz"
+echo "Installing binaries..."
 tar xzf unfog.tar.gz
 rm unfog.tar.gz
 chmod u+x unfog*
 sudo mv unfog* /usr/local/bin/
+echo "Unfog installed!"
