@@ -11,6 +11,7 @@ import           System.Directory
 import           Event
 import           State
 import           Utils
+import           Path                           ( getFilePath )
 
 readAll :: IO [Event]
 readAll = mapLineToEvent <$> getStoreFileContent

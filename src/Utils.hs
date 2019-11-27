@@ -2,21 +2,9 @@ module Utils where
 
 import           Prelude                 hiding ( (<>) )
 import           Data.List
-import           Data.Maybe
-import           System.Environment
 import           Text.PrettyPrint.Boxes
 import           Data.Aeson              hiding ( Error )
 import qualified Data.ByteString.Lazy.Char8    as BL
-
-getFilePath :: String -> IO String
-getFilePath file = (++ "/" ++ file) <$> getConfigDirPath
-
-getConfigDirPath :: IO String
-getConfigDirPath = lookupEnv "XDG_CONFIG_HOME" >>= withDefault
- where
-  withDefault maybePath = case maybePath of
-    Just path -> (++ "/unfog") <$> return path
-    Nothing   -> (++ "/.config/unfog") . fromMaybe "/tmp" <$> lookupEnv "HOME"
 
 startsByPlus :: String -> Bool
 startsByPlus "+"       = False
