@@ -22,7 +22,7 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
   * [Options](#options)
     * [JSON](#json)
   * [Contributing](#contributing)
-  * [Changelog](#changelog)
+  * [Changelog](https://github.com/unfog-io/unfog-cli/blob/master/CHANGELOG.md#changelog)
   * [Credits](#credits)
 
 ## Installation
@@ -209,11 +209,6 @@ convention. A line should never contain more than `80` characters.
 
 Tests should be added for each new functionality. Be sure to run tests before
 proposing a pull request.
-
-## Changelog
-
-- **Nov. 26, 2019** - Make CLI cross-compatible Linux, OSX and Windows
-- **Nov. 23, 2019** - First release
 
 ## Credits
 
