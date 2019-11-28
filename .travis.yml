@@ -1,4 +1,4 @@
-language: generic
+language: bash
 
 before_install:
   - mkdir -p ${STACK_BIN}
