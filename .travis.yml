@@ -1,5 +1,10 @@
 language: bash
 
+if: tag IS present
+branches:
+  only:
+    - master
+
 before_install:
   - mkdir -p ${STACK_BIN}
   - export PATH=${STACK_BIN}:$PATH
