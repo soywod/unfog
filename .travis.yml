@@ -1,9 +1,6 @@
-language: bash
-
+language: shell
+os: linux
 if: tag IS present
-branches:
-  only:
-    - master
 
 before_install:
   - mkdir -p ${STACK_BIN}
@@ -11,6 +8,7 @@ before_install:
   - travis_retry curl -sSL https://get.haskellstack.org/ | sh
 
 script:
+  - stack test
   - stack install
 
 jobs:
@@ -26,9 +24,8 @@ jobs:
         - tar czf "${STACK_BIN}/unfog-${TRAVIS_OS_NAME}.tar.gz" -C "${STACK_BIN}" unfog
       deploy: &deploy_base
         provider: releases
-        api_key: ${GITHUB_TOKEN}
+        token: ${GITHUB_TOKEN}
         file: ${STACK_BIN}/unfog-${TRAVIS_OS_NAME}.tar.gz
-        skip_cleanup: true
         draft: false
         name: ${TRAVIS_TAG}
         on:

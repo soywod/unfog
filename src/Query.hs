@@ -49,9 +49,8 @@ execute args state events query = do
       now <- getCurrentTime
       let ctx     = _ctx state
       let fByTags = filterByTags ctx
-      print $ map _tags $ fByTags $ filter _done $ _tasks state
       let fByDone = filterByDone $ "done" `elem` ctx
-      let tasks   = mapWithWtime now . fByTags . fByDone $ _tasks state
+      let tasks = mapWithWtime now . fByTags . fByDone $ _tasks state
       case rtype of
         JSON -> printTasks JSON tasks
         Text -> do
