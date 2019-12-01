@@ -7,13 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2019-12-01
+
 ### Added 
 
 - Changelog
+- New syntax to remove tags: `-tag` [#6]
+
+### Changed
+
+- **[BREAKING]** New parser introduced, based on parser combinators ([ReadP](https://hackage.haskell.org/package/base-4.12.0.0/docs/Text-ParserCombinators-ReadP.html)). Events have been impacted (simplified), so the previous store is not compatible anymore. You can upgrade it with this command: `sed -i -E 's/True |False |\+//g' ~/.config/unfog/store`
 
 ### Fixed 
 
-- [#5] Create config dir if not exists
+- Create config dir if not exists [#5]
 
 ## [0.1.4] - 2019-11-26
 
@@ -52,7 +59,8 @@ First release :tada:
 
 - Linux binaries
 
-[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.1.4...HEAD
+[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/unfog-io/unfog-cli/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/unfog-io/unfog-cli/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/unfog-io/unfog-cli/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/unfog-io/unfog-cli/compare/v0.1.1...v0.1.2
@@ -60,3 +68,4 @@ First release :tada:
 [0.1.0]: https://github.com/unfog-io/unfog-cli/releases/tag/v0.1.0
 
 [#5]: https://github.com/unfog-io/unfog-cli/issues/5
+[#6]: https://github.com/unfog-io/unfog-cli/issues/6

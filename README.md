@@ -127,15 +127,14 @@ Filters tasks by the given tags. Once set up:
 unfog context <+tag1> <+tag2> ...
 ```
 
-The special context `done` allows you to see done tasks:
+The special context `+done` allows you to see done tasks:
 
 ```bash
-unfog context done
+unfog context +done
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/69493746-c88ef100-0eb2-11ea-9dc2-c17dc7b4b8e4.png)
 
-*Note: normal contexts (+tags) and special contexts can be used together.*
 *Note: giving an empty (or invalid) context will clear it.*
 
 ### Worktime
