@@ -8,12 +8,13 @@ import           Data.Aeson              hiding ( Error )
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Text.PrettyPrint.Boxes
 
-import qualified Store
+import           Store
 import           State
 import           Task
 import           Event
 import           Utils
 import           Response
+import qualified Parsec
 
 data Command
   = CreateTask UTCTime Ref Id Pos Desc [Tag] Due
@@ -27,15 +28,16 @@ data Command
   | NoOp
   deriving (Show, Read)
 
-handle :: ResponseType -> [String] -> IO ()
-handle rtype args = do
-  now   <- getCurrentTime
-  state <- State.applyAll <$> Store.readAll
-  let command     = parseArgs now state args
+handle :: Parsec.ArgTree -> IO ()
+handle args = do
+  now  <- getCurrentTime
+  evts <- readEvents
+  let state       = applyEvents evts
+  let command     = getCmd now args state
   let events      = execute state command
   let subscribers = [logger]
-  Store.writeAll events
-  notify rtype command subscribers
+  writeEvents evts
+  -- notify rtype command subscribers
 
 execute :: State -> Command -> [Event]
 execute state command = case command of
@@ -49,145 +51,145 @@ execute state command = case command of
   Error _ _                        -> []
   NoOp                             -> []
 
-parseArgs :: UTCTime -> State -> [String] -> Command
-parseArgs t state args = case args of
-  ("create"  : args) -> createTask t state args
-  ("update"  : args) -> updateTask t state args
-  ("replace" : args) -> replaceTask t state args
-  ("start"   : args) -> startTask t state args
-  ("stop"    : args) -> stopTask t state args
-  ("toggle"  : args) -> toggleTask t state args
-  ("done"    : args) -> markAsDoneTask t state args
-  ("delete"  : args) -> deleteTask t state args
-  ("remove"  : args) -> removeTask t state args
-  ("context" : args) -> setContext t args
-  (command   : _   ) -> Error command "command not found"
-  []                 -> Error "" "command missing"
+getCmd :: UTCTime -> Parsec.ArgTree -> State -> Command
+getCmd t args state = case Parsec._cmd args of
+  "create" -> createTask t args state
+  -- "update"  -> updateTask t args state
+  -- "replace" -> replaceTask t args state
+  -- "start"   -> startTask t args state
+  -- "stop"    -> stopTask t args state
+  -- "toggle"  -> toggleTask t args state
+  -- "done"    -> markAsDoneTask t args state
+  -- "delete"  -> deleteTask t args state args
+  -- "remove"  -> removeTask t args state args
+  -- "context" -> setContext t args
+  -- (cmd : _) -> Error cmd "command not found"
+  []       -> Error "" "command missing"
 
-createTask t state args = case args of
-  []   -> Error "create" "missing desc"
-  args -> CreateTask t ref id pos desc tags due
-   where
-    ref  = floor $ 1000 * utcTimeToPOSIXSeconds t :: Int
-    id   = generateId $ filter (not . _done) $ _tasks state
-    pos  = -1
-    desc = unwords $ filter (not . startsByPlus) args
-    tags = filter startsByPlus args `union` _context state
-    due  = Nothing
+createTask :: UTCTime -> Parsec.ArgTree -> State -> Command
+createTask t args state = CreateTask t ref id pos desc tags due
+ where
+  ref  = floor $ 1000 * utcTimeToPOSIXSeconds t :: Int
+  id   = generateId $ filter (not . _done) $ _tasks state
+  pos  = -1
+  desc = Parsec._desc args
+  tags = Parsec._tags args `union` _context state
+  due  = Nothing
 
-updateTask t state args = case args of
-  []          -> Error "update" "missing id"
-  [_        ] -> Error "update" "missing args"
-  (id : args) -> case maybeTask of
-    Nothing   -> Error "update" "task not found"
-    Just task -> validate task
-   where
-    tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe id >>= flip findById tasks
-    newDesc   = unwords $ filter (not . startsByPlus) args
-    nextDesc  = if newDesc == "" then maybe "" _desc maybeTask else newDesc
-    newTags   = filter startsByPlus args
-    nextTags  = union newTags $ maybe [] _tags maybeTask
-    validate task | _done task = Error "update" "task already done"
-                  | otherwise  = update task
-    update task =
-      let ref = _ref task
-          id  = _id task
-          pos = -1
-          due = Nothing
-      in  UpdateTask t ref id pos nextDesc nextTags due
+-- updateTask :: UTCTime -> Parsec.ArgTree -> State -> Command
+-- updateTask t args state = case args of
+--   []          -> Error "update" "missing id"
+--   [_        ] -> Error "update" "missing args"
+--   (id : args) -> case maybeTask of
+--     Nothing   -> Error "update" "task not found"
+--     Just task -> validate task
+--    where
+--     tasks     = filterByDone (_showDone state) (_tasks state)
+--     maybeTask = readMaybe id >>= flip findById tasks
+--     newDesc   = unwords $ filter (not . startsByPlus) args
+--     nextDesc  = if newDesc == "" then maybe "" _desc maybeTask else newDesc
+--     newTags   = filter startsByPlus args
+--     nextTags  = union newTags $ maybe [] _tags maybeTask
+--     validate task | _done task = Error "update" "task already done"
+--                   | otherwise  = update task
+--     update task =
+--       let ref = _ref task
+--           id  = _id task
+--           pos = -1
+--           due = Nothing
+--       in  UpdateTask t ref id pos nextDesc nextTags due
 
-replaceTask t state args = case args of
-  []          -> Error "replace" "missing id"
-  [_        ] -> Error "replace" "missing args"
-  (id : args) -> case maybeTask of
-    Nothing   -> Error "replace" "task not found"
-    Just task -> validate task
-   where
-    tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe id >>= flip findById tasks
-    nextDesc  = unwords $ filter (not . startsByPlus) args
-    nextTags  = filter startsByPlus args
-    validate task | _done task = Error "replace" "task already done"
-                  | otherwise  = update task
-    update task =
-      let ref = _ref task
-          id  = _id task
-          pos = -1
-          due = Nothing
-      in  UpdateTask t ref id pos nextDesc nextTags due
+-- replaceTask t state args = case args of
+--   []          -> Error "replace" "missing id"
+--   [_        ] -> Error "replace" "missing args"
+--   (id : args) -> case maybeTask of
+--     Nothing   -> Error "replace" "task not found"
+--     Just task -> validate task
+--    where
+--     tasks     = filterByDone (_showDone state) (_tasks state)
+--     maybeTask = readMaybe id >>= flip findById tasks
+--     nextDesc  = unwords $ filter (not . startsByPlus) args
+--     nextTags  = filter startsByPlus args
+--     validate task | _done task = Error "replace" "task already done"
+--                   | otherwise  = update task
+--     update task =
+--       let ref = _ref task
+--           id  = _id task
+--           pos = -1
+--           due = Nothing
+--       in  UpdateTask t ref id pos nextDesc nextTags due
 
-startTask t state args = case args of
-  []       -> Error "start" "missing id"
-  (id : _) -> case maybeTask of
-    Nothing   -> Error "start" "task not found"
-    Just task -> validate task
-   where
-    tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe id >>= flip findById tasks
-    validate task | _done task   = Error "start" "task already done"
-                  | _active task = Error "start" "task already started"
-                  | otherwise    = StartTask t (_ref task) (_id task)
+-- startTask t state args = case args of
+--   []       -> Error "start" "missing id"
+--   (id : _) -> case maybeTask of
+--     Nothing   -> Error "start" "task not found"
+--     Just task -> validate task
+--    where
+--     tasks     = filterByDone (_showDone state) (_tasks state)
+--     maybeTask = readMaybe id >>= flip findById tasks
+--     validate task | _done task   = Error "start" "task already done"
+--                   | _active task = Error "start" "task already started"
+--                   | otherwise    = StartTask t (_ref task) (_id task)
 
-stopTask t state args = case args of
-  []       -> Error "stop" "missing id"
-  (id : _) -> case maybeTask of
-    Nothing   -> Error "stop" "task not found"
-    Just task -> validate task
-   where
-    tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe id >>= flip findById tasks
-    validate task | _done task           = Error "stop" "task already done"
-                  | (not . _active) task = Error "stop" "task already stopped"
-                  | otherwise            = StopTask t (_ref task) (_id task)
+-- stopTask t state args = case args of
+--   []       -> Error "stop" "missing id"
+--   (id : _) -> case maybeTask of
+--     Nothing   -> Error "stop" "task not found"
+--     Just task -> validate task
+--    where
+--     tasks     = filterByDone (_showDone state) (_tasks state)
+--     maybeTask = readMaybe id >>= flip findById tasks
+--     validate task | _done task           = Error "stop" "task already done"
+--                   | (not . _active) task = Error "stop" "task already stopped"
+--                   | otherwise            = StopTask t (_ref task) (_id task)
 
-toggleTask t state args = case args of
-  []       -> Error "toggle" "missing id"
-  (id : _) -> case maybeTask of
-    Nothing   -> Error "toggle" "task not found"
-    Just task -> validate task
-   where
-    tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe id >>= flip findById tasks
-    validate task | _done task   = Error "toggle" "task already done"
-                  | _active task = StopTask t (_ref task) (_id task)
-                  | otherwise    = StartTask t (_ref task) (_id task)
+-- toggleTask t state args = case args of
+--   []       -> Error "toggle" "missing id"
+--   (id : _) -> case maybeTask of
+--     Nothing   -> Error "toggle" "task not found"
+--     Just task -> validate task
+--    where
+--     tasks     = filterByDone (_showDone state) (_tasks state)
+--     maybeTask = readMaybe id >>= flip findById tasks
+--     validate task | _done task   = Error "toggle" "task already done"
+--                   | _active task = StopTask t (_ref task) (_id task)
+--                   | otherwise    = StartTask t (_ref task) (_id task)
 
-markAsDoneTask t state args = case args of
-  []       -> Error "done" "missing id"
-  (id : _) -> case maybeTask of
-    Nothing   -> Error "done" "task not found"
-    Just task -> validate task
-   where
-    tasks      = filterByDone (_showDone state) (_tasks state)
-    maybeTask  = readMaybe id >>= flip findById tasks
-    nextNumber = generateId $ filter _done $ _tasks state
-    validate task
-      | _done task = Error "done" "task already done"
-      | otherwise  = MarkAsDoneTask t (_ref task) (_id task) nextNumber
+-- markAsDoneTask t state args = case args of
+--   []       -> Error "done" "missing id"
+--   (id : _) -> case maybeTask of
+--     Nothing   -> Error "done" "task not found"
+--     Just task -> validate task
+--    where
+--     tasks      = filterByDone (_showDone state) (_tasks state)
+--     maybeTask  = readMaybe id >>= flip findById tasks
+--     nextNumber = generateId $ filter _done $ _tasks state
+--     validate task
+--       | _done task = Error "done" "task already done"
+--       | otherwise  = MarkAsDoneTask t (_ref task) (_id task) nextNumber
 
-deleteTask t state args = case args of
-  []       -> Error "delete" "missing id"
-  (id : _) -> case maybeTask of
-    Nothing   -> Error "delete" "task not found"
-    Just task -> DeleteTask t (_ref task) (_id task)
-   where
-    tasks     = filterByDone (_showDone state) (_tasks state)
-    maybeTask = readMaybe id >>= flip findById tasks
+-- deleteTask t state args = case args of
+--   []       -> Error "delete" "missing id"
+--   (id : _) -> case maybeTask of
+--     Nothing   -> Error "delete" "task not found"
+--     Just task -> DeleteTask t (_ref task) (_id task)
+--    where
+--     tasks     = filterByDone (_showDone state) (_tasks state)
+--     maybeTask = readMaybe id >>= flip findById tasks
 
-removeTask t state args = case args of
-  []       -> Error "remove" "missing id"
-  (id : _) -> case maybeTask of
-    Just task -> MarkAsDoneTask t (_ref task) (_id task) nextNumber
-    Nothing   -> case maybeDoneTask of
-      Just task -> DeleteTask t (_ref task) (_id task)
-      Nothing   -> Error "remove" "task not found"
-   where
-    tasks = if _showDone state then [] else filterByDone False (_tasks state)
-    doneTasks     = filterByDone True (_tasks state)
-    nextNumber    = generateId doneTasks
-    maybeTask     = readMaybe id >>= flip findById tasks
-    maybeDoneTask = readMaybe id >>= flip findById doneTasks
+-- removeTask t state args = case args of
+--   []       -> Error "remove" "missing id"
+--   (id : _) -> case maybeTask of
+--     Just task -> MarkAsDoneTask t (_ref task) (_id task) nextNumber
+--     Nothing   -> case maybeDoneTask of
+--       Just task -> DeleteTask t (_ref task) (_id task)
+--       Nothing   -> Error "remove" "task not found"
+--    where
+--     tasks = if _showDone state then [] else filterByDone False (_tasks state)
+--     doneTasks     = filterByDone True (_tasks state)
+--     nextNumber    = generateId doneTasks
+--     maybeTask     = readMaybe id >>= flip findById tasks
+--     maybeDoneTask = readMaybe id >>= flip findById doneTasks
 
 setContext t args = SetContext t showDone ctx
  where

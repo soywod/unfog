@@ -25,12 +25,12 @@ data Query
   | Error String String
   deriving (Show)
 
-handle :: ResponseType -> [String] -> IO ()
-handle rtype args = do
-  events <- Store.readAll
-  let state = State.applyAll events
-  let query = parseArgs args
-  execute rtype state events query
+-- handle :: ResponseType -> [String] -> IO ()
+-- handle rtype args = do
+--   events <- Store.readAll
+--   let state = State.applyAll events
+--   let query = parseArgs args
+--   execute rtype state events query
 
 parseArgs :: [String] -> Query
 parseArgs args = case args of

@@ -13,8 +13,8 @@ data State = State { _tasks :: [Task]
                    , _context :: [Tag]
                    } deriving (Show, Read)
 
-applyAll :: [Event] -> State
-applyAll = foldl apply emptyState
+applyEvents :: [Event] -> State
+applyEvents = foldl apply emptyState
   where emptyState = State { _tasks = [], _showDone = False, _context = [] }
 
 apply :: State -> Event -> State
