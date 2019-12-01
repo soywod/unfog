@@ -18,18 +18,39 @@ data Arg
   | AddOpt String
   deriving Show
 
-data ArgTree = ArgTree { _cmd :: String
+data ArgType = Cmd | Qry deriving (Show, Eq)
+data ArgOpts = ArgOpts { _json :: Bool } deriving (Show, Eq)
+data ArgTree = ArgTree { _type :: ArgType
+                       , _cmd :: String
                        , _id :: Int
                        , _desc :: String
                        , _tags :: [String]
                        , _opts :: ArgOpts
                        } deriving (Show, Eq)
 
-newtype ArgOpts = ArgOpts { _json :: Bool } deriving (Show, Eq)
 
-emptyTree :: ArgTree
-emptyTree =
-  ArgTree { _id = 0, _cmd = "", _desc = "", _tags = [], _opts = ArgOpts False }
+emptyArgTree :: ArgTree
+emptyArgTree = ArgTree { _id   = 0
+                       , _type = Cmd
+                       , _cmd  = ""
+                       , _desc = ""
+                       , _tags = []
+                       , _opts = ArgOpts False
+                       }
+
+queries = ["list", "show", "worktime"]
+commands =
+  [ "create"
+  , "update"
+  , "replace"
+  , "start"
+  , "stop"
+  , "toggle"
+  , "done"
+  , "delete"
+  , "remove"
+  , "context"
+  ]
 
 -- Main exprs
 
@@ -196,23 +217,25 @@ parser =
 
 eval :: ArgTree -> Arg -> ArgTree
 eval tree arg = case arg of
-  SetCmd  _cmd -> tree { _cmd }
+  SetCmd _cmd -> tree { _cmd, _type }
+   where
+    _type | _cmd `elem` commands = Cmd
+          | _cmd `elem` queries  = Qry
   SetId   _id  -> tree { _id }
   AddTag  tag  -> tree { _tags = _tags tree ++ [tag] }
   DelTag  tag  -> tree { _tags = _tags tree \\ [tag] }
-  AddWord desc -> tree { _desc = nextDesc }
+  AddWord desc -> tree { _desc = desc' }
+    where desc' = if null (_desc tree) then desc else _desc tree ++ " " ++ desc
+  AddOpt opt -> tree { _opts = opts }
    where
-    nextDesc = if null (_desc tree) then desc else _desc tree ++ " " ++ desc
-  AddOpt opt -> tree { _opts = nextOpts }
-   where
-    nextOpts = case opt of
+    opts = case opt of
       "json" -> (_opts tree) { _json = True }
 
 runParser :: ReadP [Arg] -> String -> ArgTree
-runParser p "" = emptyTree
+runParser p "" = emptyArgTree
 runParser p s  = case readP_to_S p s of
-  []  -> emptyTree
-  res -> foldl eval emptyTree $ fst . last $ res
+  []  -> emptyArgTree
+  res -> foldl eval emptyArgTree $ fst . last $ res
 
 parseArgs :: String -> ArgTree
 parseArgs = runParser parser

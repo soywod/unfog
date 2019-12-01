@@ -11,5 +11,5 @@ data Event
   | TaskStopped UTCTime Ref Id
   | TaskMarkedAsDone UTCTime Ref Id
   | TaskDeleted UTCTime Ref Id
-  | ContextSet UTCTime Done [String]
+  | ContextSet UTCTime [Tag]
   deriving (Show, Read)

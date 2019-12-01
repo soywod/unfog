@@ -31,7 +31,7 @@ data Task =
        , _tags :: [Tag]
        , _due :: Maybe Due
        , _active :: Bool
-       , _done :: Bool
+       , _done :: Done
        , _wtime :: Wtime
        , _starts :: [UTCTime]
        , _stops :: [UTCTime]
@@ -51,7 +51,7 @@ instance ToJSON Task where
     , "ref" .= ref
     , "pos" .= pos
     , "desc" .= desc
-    , "tags" .= map tail tags
+    , "tags" .= tags
     , "active" .= if active then 1 else 0 :: Int
     , "done" .= if done then 1 else 0 :: Int
     , "wtime" .= WtimeRecord wtime
@@ -102,9 +102,9 @@ filterByIds ids = filter (flip elem ids . _id)
 filterByTags :: [Tag] -> [Task] -> [Task]
 filterByTags tags tasks = filteredTasks
  where
-  filteredTasks = if null tags then tasks else filter byTags tasks
-  byTags        = not . null . intersect tags . _tags
-
+  tags'         = tags \\ ["done"]
+  filteredTasks = if null tags' then tasks else filter byTags tasks
+  byTags        = not . null . intersect tags' . _tags
 
 mapWithWtime :: UTCTime -> [Task] -> [Task]
 mapWithWtime now = map withWtime
@@ -150,7 +150,7 @@ prettyPrintTasks tasks =
   prettyPrint task =
     [ show $ _id task
     , _desc task
-    , unwords $ map tail $ _tags task
+    , unwords $ _tags task
     , if _active task then "✔" else ""
     ]
 
