@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Delete command [#1]
+
 ## [0.2.0] - 2019-12-01
 
 ### Added 
@@ -67,5 +71,6 @@ First release :tada:
 [0.1.1]: https://github.com/unfog-io/unfog-cli/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/unfog-io/unfog-cli/releases/tag/v0.1.0
 
+[#1]: https://github.com/unfog-io/unfog-cli/issues/1
 [#5]: https://github.com/unfog-io/unfog-cli/issues/5
 [#6]: https://github.com/unfog-io/unfog-cli/issues/6

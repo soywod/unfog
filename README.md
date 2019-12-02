@@ -17,6 +17,7 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
     * [Toggle](#toggle)
     * [Done](#done)
     * [Delete](#delete)
+    * [Remove](#remove)
     * [Context](#context)
     * [Worktime](#worktime)
   * [Options](#options)
@@ -114,6 +115,11 @@ unfog done <id>
 ```bash
 unfog delete <id>
 ```
+
+### Remove
+
+The remove command acts like a toggle. If the task is already done, then it
+[deletes it](#delete), otherwise it [marks it as done](#done).
 
 ### Context
 
