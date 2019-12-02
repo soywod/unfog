@@ -43,9 +43,7 @@ apply state event = case event of
       in  task { _id, _active = False, _done = True, _stops = nextStops }
 
   TaskDeleted _ ref _ -> state { _tasks = nextTasks }
-   where
-    update _ = emptyTask
-    nextTasks = filter (emptyTask /=) $ getNextTasks ref update
+    where nextTasks = filter ((/=) ref . _ref) (_tasks state)
 
   ContextSet _ _ctx -> state { _ctx }
 
