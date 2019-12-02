@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Delete command [#1]
+- Worktime doesn't take in consideration the context [#2]
 
 ## [0.2.0] - 2019-12-01
 

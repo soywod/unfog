@@ -72,7 +72,7 @@ execute args state events query = do
 
     ShowWtime args -> do
       now <- getCurrentTime
-      let tags  = Parsec._tags args
+      let tags  = Parsec._tags args `union` _ctx state
       let ids   = map _id $ filterByTags tags $ _tasks state
       let tasks = filterByIds ids $ mapWithWtime now $ _tasks state
       let wtime = getWtimePerDay now tasks
