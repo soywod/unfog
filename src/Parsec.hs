@@ -38,7 +38,7 @@ emptyArgTree = ArgTree { _id   = 0
                        , _opts = ArgOpts False
                        }
 
-queries = ["list", "show", "worktime"]
+queries = ["list", "show", "worktime", "help"]
 commands =
   [ "create"
   , "update"
@@ -140,6 +140,13 @@ worktimeExpr = do
   rest <- many $ (AddTag <$> addTagExpr) <|> (AddOpt <$> optExpr)
   return $ cmd : rest
 
+helpExpr :: ReadP [Arg]
+helpExpr = do
+  skipSpaces
+  cmd <- SetCmd <$> cmdAliasExpr ["help", "--help", "-h"]
+  skipSpaces
+  return [cmd]
+
 -- Composite exprs
 
 cmdWithIdExpr :: [String] -> ReadP [Arg]
@@ -214,6 +221,7 @@ parser =
     <|> listExpr
     <|> showExpr
     <|> worktimeExpr
+    <|> helpExpr
 
 eval :: ArgTree -> Arg -> ArgTree
 eval tree arg = case arg of

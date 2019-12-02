@@ -139,3 +139,8 @@ spec = parallel $ do
         `shouldBe` ArgTree Qry "worktime" 0 "" ["tag", "tag2"] (ArgOpts False)
       parseArgs "worktime +tag --json +tag2"
         `shouldBe` ArgTree Qry "worktime" 0 "" ["tag", "tag2"] (ArgOpts True)
+
+    it "should parse help args" $ do
+      parseArgs "help" `shouldBe` ArgTree Qry "help" 0 "" [] (ArgOpts False)
+      parseArgs "--help" `shouldBe` ArgTree Qry "help" 0 "" [] (ArgOpts False)
+      parseArgs "-h" `shouldBe` ArgTree Qry "help" 0 "" [] (ArgOpts False)

@@ -23,6 +23,7 @@ data Query
   = ShowTasks Parsec.ArgTree
   | ShowTask Parsec.ArgTree
   | ShowWtime Parsec.ArgTree
+  | ShowHelp
   | Error String String
   deriving (Show)
 
@@ -37,6 +38,7 @@ getQry :: Parsec.ArgTree -> Query
 getQry args = case Parsec._cmd args of
   "list"     -> ShowTasks args
   "worktime" -> ShowWtime args
+  "help"     -> ShowHelp
   "show"     -> case Parsec._id args of
     0  -> Query.Error "show" "invalid arguments"
     id -> ShowTask args
@@ -78,5 +80,18 @@ execute args state events query = do
       let wtime = getWtimePerDay now tasks
       let ctx = if null tags then "global" else "for [" ++ unwords tags ++ "]"
       printWtime rtype ("unfog: wtime " ++ ctx) wtime
+
+    ShowHelp -> do
+      putStrLn "Usage: unfog <cmd> [args...] [opts...]"
+      putStrLn "unfog <create|add> <desc> [+tag...] [--json]"
+      putStrLn "unfog <update|edit> <id> [desc] [+tag...] [-tag...] [--json]"
+      putStrLn "unfog <replace|set> <id> <desc> [+tag...] [--json]"
+      putStrLn "unfog <start|stop|toggle> <id> [--json]"
+      putStrLn "unfog <done|delete|remove> <id> [--json]"
+      putStrLn "unfog <context|ctx> [+tag...] [--json]"
+      putStrLn "unfog <list> [--json]"
+      putStrLn "unfog <show> <id> [--json]"
+      putStrLn "unfog <worktime|wtime> [+tag...] [--json]"
+      putStrLn "unfog <help>"
 
     Query.Error command message -> printErr rtype $ command ++ ": " ++ message
