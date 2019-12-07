@@ -39,6 +39,11 @@ printWtime rtype msg wtime = case rtype of
     putStrLn msg
     prettyPrintWtime wtime
 
+printVersion :: ResponseType -> String -> IO ()
+printVersion rtype version = case rtype of
+  JSON -> BL.putStr $ encode $ ResponseMsg version
+  Text -> putStrLn version
+
 printErr :: ResponseType -> String -> IO ()
 printErr rtype err = case rtype of
   JSON -> BL.putStr $ encode $ ResponseErr err

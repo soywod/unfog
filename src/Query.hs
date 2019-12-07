@@ -24,6 +24,7 @@ data Query
   | ShowTask Parsec.ArgTree
   | ShowWtime Parsec.ArgTree
   | ShowHelp
+  | ShowVersion
   | Error String String
   deriving (Show)
 
@@ -40,6 +41,7 @@ getQuery args = case Parsec._cmd args of
   "list"     -> ShowTasks args
   "worktime" -> ShowWtime args
   "help"     -> ShowHelp
+  "version"  -> ShowVersion
   "show"     -> case Parsec._id args of
     0  -> Query.Error "show" "invalid arguments"
     id -> ShowTask args
@@ -93,6 +95,9 @@ execute args state events query = do
       putStrLn "unfog <list> [--json]"
       putStrLn "unfog <show> <id> [--json]"
       putStrLn "unfog <worktime|wtime> [+tag...] [--json]"
-      putStrLn "unfog <help>"
+      putStrLn "unfog <help|h>"
+      putStrLn "unfog <version|v>"
+
+    ShowVersion                 -> printVersion rtype "0.2.0"
 
     Query.Error command message -> printErr rtype $ command ++ ": " ++ message
