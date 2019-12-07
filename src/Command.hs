@@ -17,8 +17,8 @@ import           Response
 import qualified Parsec
 
 data Command
-  = CreateTask UTCTime Ref Id Pos Desc [Tag] Due
-  | UpdateTask UTCTime Ref Id Pos Desc [Tag] Due
+  = CreateTask UTCTime Ref Id Pos Desc [Tag] (Maybe Duration)
+  | UpdateTask UTCTime Ref Id Pos Desc [Tag] (Maybe Duration)
   | StartTask UTCTime Ref Id
   | StopTask UTCTime Ref Id
   | MarkAsDoneTask UTCTime Ref Id Id
@@ -34,11 +34,25 @@ subscribers = [logger]
 handle :: Parsec.ArgTree -> IO ()
 handle args = do
   now   <- getCurrentTime
-  state <- applyEvents <$> readEvents
-  let cmd  = getCmd now args state
+  state <- applyEvents now <$> readEvents
+  let cmd  = getCommand now args state
   let evts = execute state cmd
   writeEvents evts
   notify args cmd subscribers
+
+getCommand :: UTCTime -> Parsec.ArgTree -> State -> Command
+getCommand t args state = case Parsec._cmd args of
+  "create"  -> createTask t args state
+  "update"  -> updateTask t args state
+  "replace" -> replaceTask t args state
+  "start"   -> startTask t args state
+  "stop"    -> stopTask t args state
+  "toggle"  -> toggleTask t args state
+  "done"    -> markAsDoneTask t args state
+  "delete"  -> deleteTask t args state
+  "remove"  -> removeTask t args state
+  "context" -> setContext t args
+  _         -> Error "" "invalid arguments"
 
 execute :: State -> Command -> [Event]
 execute state command = case command of
@@ -51,20 +65,6 @@ execute state command = case command of
   SetContext t ctx                 -> [ContextSet t ctx]
   Error      _ _                   -> []
   NoOp                             -> []
-
-getCmd :: UTCTime -> Parsec.ArgTree -> State -> Command
-getCmd t args state = case Parsec._cmd args of
-  "create"  -> createTask t args state
-  "update"  -> updateTask t args state
-  "replace" -> replaceTask t args state
-  "start"   -> startTask t args state
-  "stop"    -> stopTask t args state
-  "toggle"  -> toggleTask t args state
-  "done"    -> markAsDoneTask t args state
-  "delete"  -> deleteTask t args state
-  "remove"  -> removeTask t args state
-  "context" -> setContext t args
-  _         -> Error "" "invalid arguments"
 
 createTask :: UTCTime -> Parsec.ArgTree -> State -> Command
 createTask t args state = CreateTask t ref id pos desc tags due
@@ -127,9 +127,9 @@ startTask t args state = case Parsec._id args of
    where
     tasks     = filterByDone ("done" `elem` _ctx state) (_tasks state)
     maybeTask = findById id tasks
-    validate task | _done task   = Error "start" "task already done"
-                  | _active task = Error "start" "task already started"
-                  | otherwise    = StartTask t (_ref task) (_id task)
+    validate task | _done task       = Error "start" "task already done"
+                  | _active task > 0 = Error "start" "task already started"
+                  | otherwise        = StartTask t (_ref task) (_id task)
 
 stopTask :: UTCTime -> Parsec.ArgTree -> State -> Command
 stopTask t args state = case Parsec._id args of
@@ -140,9 +140,9 @@ stopTask t args state = case Parsec._id args of
    where
     tasks     = filterByDone ("done" `elem` _ctx state) (_tasks state)
     maybeTask = findById id tasks
-    validate task | _done task           = Error "stop" "task already done"
-                  | (not . _active) task = Error "stop" "task already stopped"
-                  | otherwise            = StopTask t (_ref task) (_id task)
+    validate task | _done task        = Error "stop" "task already done"
+                  | _active task == 0 = Error "stop" "task already stopped"
+                  | otherwise         = StopTask t (_ref task) (_id task)
 
 toggleTask :: UTCTime -> Parsec.ArgTree -> State -> Command
 toggleTask t args state = case Parsec._id args of
@@ -153,9 +153,9 @@ toggleTask t args state = case Parsec._id args of
    where
     tasks     = filterByDone ("done" `elem` _ctx state) (_tasks state)
     maybeTask = findById id tasks
-    validate task | _done task   = Error "toggle" "task already done"
-                  | _active task = StopTask t (_ref task) (_id task)
-                  | otherwise    = StartTask t (_ref task) (_id task)
+    validate task | _done task       = Error "toggle" "task already done"
+                  | _active task > 0 = StopTask t (_ref task) (_id task)
+                  | otherwise        = StartTask t (_ref task) (_id task)
 
 markAsDoneTask :: UTCTime -> Parsec.ArgTree -> State -> Command
 markAsDoneTask t args state = case Parsec._id args of

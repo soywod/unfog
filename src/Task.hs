@@ -5,9 +5,9 @@ module Task where
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Control.Exception
 import           Data.Aeson
-import           Data.Duration
 import           Data.List
 import           Data.Time
+import           Data.Duration
 import           Text.PrettyPrint.Boxes
 import           Data.Fixed
 
@@ -18,10 +18,9 @@ type Ref = Int
 type Pos = Int
 type Desc = String
 type Tag = String
-type Due = Maybe UTCTime
 type Active = Bool
 type Done = Bool
-type Wtime = Micro
+type Duration = Micro
 
 data Task =
   Task { _id :: Id
@@ -29,17 +28,25 @@ data Task =
        , _pos :: Pos
        , _desc :: Desc
        , _tags :: [Tag]
-       , _due :: Maybe Due
-       , _active :: Bool
+       , _due :: Maybe Duration
+       , _active :: Duration
        , _done :: Done
-       , _wtime :: Wtime
+       , _wtime :: Duration
        , _starts :: [UTCTime]
        , _stops :: [UTCTime]
        } deriving (Show, Read, Eq)
 
-newtype WtimeRecord = WtimeRecord {toWtimeRecord :: Wtime}
-instance ToJSON WtimeRecord where
-  toJSON (WtimeRecord wtime) = object
+newtype TimeRecord = TimeRecord {toTimeRecord :: Duration}
+instance ToJSON TimeRecord where
+  toJSON (TimeRecord time) = object
+    [ "approx" .= (approximativeDuration time ++ " ago")
+    , "human" .= (humanReadableDuration time ++ " ago")
+    , "micro" .= time
+    ]
+
+newtype DurationRecord = DurationRecord {toWtimeRecord :: Duration}
+instance ToJSON DurationRecord where
+  toJSON (DurationRecord wtime) = object
     [ "approx" .= approximativeDuration wtime
     , "human" .= humanReadableDuration wtime
     , "micro" .= wtime
@@ -52,14 +59,14 @@ instance ToJSON Task where
     , "pos" .= pos
     , "desc" .= desc
     , "tags" .= tags
-    , "active" .= if active then 1 else 0 :: Int
+    , "active" .= TimeRecord active
     , "done" .= if done then 1 else 0 :: Int
-    , "wtime" .= WtimeRecord wtime
+    , "wtime" .= DurationRecord wtime
     ]
 
 instance ToJSON DailyWtimeRecord where
   toJSON (DailyWtimeRecord (date, wtime)) =
-    object ["date" .= date, "wtime" .= WtimeRecord wtime]
+    object ["date" .= date, "wtime" .= DurationRecord wtime]
 
 emptyTask :: Task
 emptyTask = Task { _id     = 0
@@ -68,7 +75,7 @@ emptyTask = Task { _id     = 0
                  , _desc   = ""
                  , _tags   = []
                  , _due    = Nothing
-                 , _active = False
+                 , _active = 0
                  , _done   = False
                  , _wtime  = 0
                  , _starts = []
@@ -110,22 +117,22 @@ mapWithWtime :: UTCTime -> [Task] -> [Task]
 mapWithWtime now = map withWtime
   where withWtime task = task { _wtime = getTotalWtime now task }
 
-getTotalWtime :: UTCTime -> Task -> Wtime
+getTotalWtime :: UTCTime -> Task -> Duration
 getTotalWtime now task = realToFrac $ sum $ zipWith diffUTCTime stops starts
  where
   starts = _starts task
-  stops  = _stops task ++ [ now | _active task ]
+  stops  = _stops task ++ [ now | _active task > 0 ]
 
 getWtimePerDay :: UTCTime -> [Task] -> [DailyWtime]
 getWtimePerDay now tasks = foldl fWtimePerDay [] $ zip starts stops
  where
   (starts, stops) = foldl fByStartsAndStops ([], []) tasks
   fByStartsAndStops (starts, stops) t =
-    (starts ++ _starts t, stops ++ _stops t ++ [ now | _active t ])
+    (starts ++ _starts t, stops ++ _stops t ++ [ now | _active t > 0 ])
 
-type DailyWtime = (String, Micro)
+type DailyWtime = (String, Duration)
 newtype DailyWtimeRecord = DailyWtimeRecord {toDailyWtimeRecord :: DailyWtime}
-newtype DailyWtimeTotalRecord = DailyWtimeTotalRecord {toDailyWtimeTotalRecord :: Wtime}
+newtype DailyWtimeTotalRecord = DailyWtimeTotalRecord {toDailyWtimeTotalRecord :: Duration}
 fWtimePerDay :: [DailyWtime] -> (UTCTime, UTCTime) -> [DailyWtime]
 fWtimePerDay acc (start, stop) = case lookup key acc of
   Nothing       -> (key, nextSecs) : nextAcc
@@ -151,7 +158,9 @@ prettyPrintTasks tasks =
     [ show $ _id task
     , _desc task
     , unwords $ _tags task
-    , if _active task then "✔" else ""
+    , if _active task > 0
+      then approximativeDuration (_active task) ++ " ago"
+      else ""
     ]
 
 prettyPrintWtime :: [DailyWtime] -> IO ()

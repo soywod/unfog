@@ -3,6 +3,7 @@ module State where
 
 import           Data.Maybe
 import           Data.List
+import           Data.Time
 
 import           Event
 import           Task
@@ -12,35 +13,35 @@ data State = State { _tasks :: [Task]
                    , _ctx :: [Tag]
                    } deriving (Show, Read)
 
-applyEvents :: [Event] -> State
-applyEvents = foldl apply emptyState
+applyEvents :: UTCTime -> [Event] -> State
+applyEvents now = foldl (apply now) emptyState
   where emptyState = State { _tasks = [], _ctx = [] }
 
-apply :: State -> Event -> State
-apply state event = case event of
+apply :: UTCTime -> State -> Event -> State
+apply now state event = case event of
   TaskCreated _ _ref _id _pos _desc _tags due -> state { _tasks = nextTasks }
    where
-    newTask   = emptyTask { _ref, _id, _pos, _desc, _tags, _due = Just due }
+    newTask   = emptyTask { _ref, _id, _pos, _desc, _tags, _due = due }
     nextTasks = _tasks state ++ [newTask]
 
   TaskUpdated _ ref _ _pos _desc _tags due -> state { _tasks = nextTasks }
    where
-    update task = task { _pos, _desc, _tags, _due = Just due }
+    update task = task { _pos, _desc, _tags, _due = due }
     nextTasks = getNextTasks ref update
 
   TaskStarted start ref _ -> state { _tasks = getNextTasks ref update }
    where
-    update task = task { _active = True, _starts = _starts task ++ [start] }
+    active = realToFrac $ diffUTCTime now start
+    update task = task { _active = active, _starts = _starts task ++ [start] }
 
   TaskStopped stop ref _ -> state { _tasks = getNextTasks ref update }
-   where
-    update task = task { _active = False, _stops = _stops task ++ [stop] }
+    where update task = task { _active = 0, _stops = _stops task ++ [stop] }
 
   TaskMarkedAsDone stop ref _id -> state { _tasks = getNextTasks ref update }
    where
     update task =
-      let nextStops = _stops task ++ [ stop | _active task ]
-      in  task { _id, _active = False, _done = True, _stops = nextStops }
+      let nextStops = _stops task ++ [ stop | _active task > 0 ]
+      in  task { _id, _active = 0, _done = True, _stops = nextStops }
 
   TaskDeleted _ ref _ -> state { _tasks = nextTasks }
     where nextTasks = filter ((/=) ref . _ref) (_tasks state)

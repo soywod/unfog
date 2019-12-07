@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add basic help command [#3]
 
+### Changed
+
+- Replace active ✔ by the elapsed time [#8]
+
 ### Fixed
 
 - Delete command [#1]
@@ -81,3 +85,4 @@ First release :tada:
 [#3]: https://github.com/unfog-io/unfog-cli/issues/3
 [#5]: https://github.com/unfog-io/unfog-cli/issues/5
 [#6]: https://github.com/unfog-io/unfog-cli/issues/6
+[#8]: https://github.com/unfog-io/unfog-cli/issues/8

@@ -30,12 +30,13 @@ data Query
 handle :: Parsec.ArgTree -> IO ()
 handle args = do
   evts <- readEvents
-  let state = applyEvents evts
-  let qry   = getQry args
+  now  <- getCurrentTime
+  let state = applyEvents now evts
+  let qry   = getQuery args
   execute args state evts qry
 
-getQry :: Parsec.ArgTree -> Query
-getQry args = case Parsec._cmd args of
+getQuery :: Parsec.ArgTree -> Query
+getQuery args = case Parsec._cmd args of
   "list"     -> ShowTasks args
   "worktime" -> ShowWtime args
   "help"     -> ShowHelp

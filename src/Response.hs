@@ -52,7 +52,7 @@ instance ToJSON Response where
     [ "ok" .= (1 :: Int)
     , "data" .= object
       [ "wtimes" .= map DailyWtimeRecord wtime
-      , "total" .= WtimeRecord (foldl (\t (_, w) -> t + w) 0 wtime)
+      , "total" .= DurationRecord (foldl (\t (_, w) -> t + w) 0 wtime)
       ]
     ]
   toJSON (ResponseErr err) = object ["ok" .= (0 :: Int), "data" .= err]
