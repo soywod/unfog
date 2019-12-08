@@ -1,4 +1,4 @@
-# ⌚ Unfog.cli [![Build Status](https://travis-ci.org/unfog-io/unfog-cli.svg?branch=master)](https://travis-ci.org/unfog-io/unfog-cli)
+# ⌚ Unfog.cli
 
 A simple task and time manager, written in [Haskell](https://www.haskell.org).
 
