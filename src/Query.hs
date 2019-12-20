@@ -4,6 +4,7 @@ import qualified Data.ByteString.Lazy.Char8    as BL
 import           Control.Exception
 import           Data.Maybe
 import           Text.Read
+import           Data.Time
 import           Data.Time.Clock
 import           Data.Duration
 import           Data.Fixed
@@ -101,3 +102,4 @@ execute args state events query = do
     ShowVersion                 -> printVersion rtype "0.2.1"
 
     Query.Error command message -> printErr rtype $ command ++ ": " ++ message
+

@@ -10,139 +10,227 @@ import           Parsec
 spec :: Spec
 spec = parallel $ do
   describe "Test args parser" $ do
-    it "should parse empty args" $ do
+    it "invalid cmd" $ do
       parseArgs "" `shouldBe` emptyArgTree
       parseArgs "bad-cmd" `shouldBe` emptyArgTree
       parseArgs "--bad-arg" `shouldBe` emptyArgTree
 
-    it "should parse create args" $ do
+    it "invalid create" $ do
       parseArgs "create" `shouldBe` emptyArgTree
-      parseArgs "create desc"
-        `shouldBe` ArgTree Cmd "create" 0 "desc" [] (ArgOpts False)
-      parseArgs "create +tag desc"
-        `shouldBe` ArgTree Cmd "create" 0 "desc" ["tag"] (ArgOpts False)
-      parseArgs "create desc +tag"
-        `shouldBe` ArgTree Cmd "create" 0 "desc" ["tag"] (ArgOpts False)
-      parseArgs "add desc +tag"
-        `shouldBe` ArgTree Cmd "create" 0 "desc" ["tag"] (ArgOpts False)
-      parseArgs "add desc +tag --json"
-        `shouldBe` ArgTree Cmd "create" 0 "desc" ["tag"] (ArgOpts True)
-      parseArgs "add desc --bad-arg"
-        `shouldBe` ArgTree Cmd "create" 0 "desc --bad-arg" [] (ArgOpts False)
-      parseArgs "add desc - hypen"
-        `shouldBe` ArgTree Cmd "create" 0 "desc - hypen" [] (ArgOpts False)
 
-    it "should parse update args" $ do
+    it "create desc with - hyphen" $ do
+      parseArgs "create desc with - hyphen" `shouldBe` emptyArgTree
+        { _cmd  = "create"
+        , _desc = "desc with - hyphen"
+        }
+
+    it "create +tag desc +tag2 desc2" $ do
+      parseArgs "create +tag desc +tag2 desc2" `shouldBe` emptyArgTree
+        { _cmd  = "create"
+        , _desc = "desc desc2"
+        , _tags = ["tag", "tag2"]
+        }
+
+    it "add +tag desc --json +tag2 desc2 --bad-arg" $ do
+      parseArgs "add +tag desc --json +tag2 desc2 --bad-arg"
+        `shouldBe` emptyArgTree { _cmd  = "create"
+                                , _desc = "desc desc2 --bad-arg"
+                                , _tags = ["tag", "tag2"]
+                                , _opts = ArgOpts True
+                                }
+
+    it "invalid update" $ do
       parseArgs "update" `shouldBe` emptyArgTree
       parseArgs "update bad-id" `shouldBe` emptyArgTree
       parseArgs "update 1" `shouldBe` emptyArgTree
-      parseArgs "update 2 desc"
-        `shouldBe` ArgTree Cmd "update" 2 "desc" [] (ArgOpts False)
-      parseArgs "update 3 4 +tag desc"
-        `shouldBe` ArgTree Cmd "update" 3 "4 desc" ["tag"] (ArgOpts False)
-      parseArgs "edit 100 +tag desc -tag"
-        `shouldBe` ArgTree Cmd "update" 100 "desc" [] (ArgOpts False)
-      parseArgs "edit 100 +tag desc -tag --json"
-        `shouldBe` ArgTree Cmd "update" 100 "desc" [] (ArgOpts True)
 
-    it "should parse replace args" $ do
+    it "update 1 desc" $ do
+      parseArgs "update 1 desc"
+        `shouldBe` emptyArgTree { _cmd = "update", _id = 1, _desc = "desc" }
+
+    it "update 2 +tag desc +tag2 desc2 --json" $ do
+      parseArgs "update 2 +tag desc +tag2 desc2 --json" `shouldBe` emptyArgTree
+        { _cmd  = "update"
+        , _id   = 2
+        , _desc = "desc desc2"
+        , _tags = ["tag", "tag2"]
+        , _opts = ArgOpts True
+        }
+
+    it "edit 2 +tag desc +tag2 desc2 -tag" $ do
+      parseArgs "edit 2 +tag desc +tag2 desc2 -tag" `shouldBe` emptyArgTree
+        { _cmd  = "update"
+        , _id   = 2
+        , _desc = "desc desc2"
+        , _tags = ["tag2"]
+        }
+
+    it "invalid replace" $ do
       parseArgs "replace" `shouldBe` emptyArgTree
       parseArgs "replace bad-id" `shouldBe` emptyArgTree
       parseArgs "replace 1" `shouldBe` emptyArgTree
-      parseArgs "replace 2 desc"
-        `shouldBe` ArgTree Cmd "replace" 2 "desc" [] (ArgOpts False)
-      parseArgs "replace 3 4 +tag desc"
-        `shouldBe` ArgTree Cmd "replace" 3 "4 desc" ["tag"] (ArgOpts False)
-      parseArgs "set 100 +tag desc"
-        `shouldBe` ArgTree Cmd "replace" 100 "desc" ["tag"] (ArgOpts False)
-      parseArgs "set 100 --json +tag desc"
-        `shouldBe` ArgTree Cmd "replace" 100 "desc" ["tag"] (ArgOpts True)
 
-    it "should parse start args" $ do
+    it "replace 1 desc" $ do
+      parseArgs "replace 1 desc"
+        `shouldBe` emptyArgTree { _cmd = "replace", _id = 1, _desc = "desc" }
+
+    it "replace 2 +tag desc +tag2 desc2 --json" $ do
+      parseArgs "replace 2 +tag desc +tag2 desc2 --json" `shouldBe` emptyArgTree
+        { _cmd  = "replace"
+        , _id   = 2
+        , _desc = "desc desc2"
+        , _tags = ["tag", "tag2"]
+        , _opts = ArgOpts True
+        }
+
+    it "set 2 +tag desc +tag2 desc2 -tag" $ do
+      parseArgs "set 2 +tag desc +tag2 desc2 -tag" `shouldBe` emptyArgTree
+        { _cmd  = "replace"
+        , _id   = 2
+        , _desc = "desc desc2 -tag"
+        , _tags = ["tag", "tag2"]
+        }
+
+    it "invalid start" $ do
       parseArgs "start" `shouldBe` emptyArgTree
       parseArgs "start bad-id" `shouldBe` emptyArgTree
-      parseArgs "start 1" `shouldBe` ArgTree Cmd "start" 1 "" [] (ArgOpts False)
-      parseArgs "start --json 1" `shouldBe` emptyArgTree
-      parseArgs "start 1 --json"
-        `shouldBe` ArgTree Cmd "start" 1 "" [] (ArgOpts True)
 
-    it "should parse stop args" $ do
+    it "start 1" $ do
+      parseArgs "start 1" `shouldBe` emptyArgTree { _cmd = "start", _id = 1 }
+      parseArgs "start 1 --json" `shouldBe` emptyArgTree { _cmd  = "start"
+                                                         , _id   = 1
+                                                         , _opts = ArgOpts True
+                                                         }
+
+    it "invalid stop" $ do
       parseArgs "stop" `shouldBe` emptyArgTree
       parseArgs "stop bad-id" `shouldBe` emptyArgTree
-      parseArgs "stop 1" `shouldBe` ArgTree Cmd "stop" 1 "" [] (ArgOpts False)
-      parseArgs "stop 1 --json"
-        `shouldBe` ArgTree Cmd "stop" 1 "" [] (ArgOpts True)
 
-    it "should parse toggle args" $ do
+    it "stop 1" $ do
+      parseArgs "stop 1" `shouldBe` emptyArgTree { _cmd = "stop", _id = 1 }
+      parseArgs "stop 1 --json" `shouldBe` emptyArgTree { _cmd  = "stop"
+                                                        , _id   = 1
+                                                        , _opts = ArgOpts True
+                                                        }
+
+    it "invalid toggle" $ do
       parseArgs "toggle" `shouldBe` emptyArgTree
       parseArgs "toggle bad-id" `shouldBe` emptyArgTree
-      parseArgs "toggle 1"
-        `shouldBe` ArgTree Cmd "toggle" 1 "" [] (ArgOpts False)
-      parseArgs "toggle 1 --json"
-        `shouldBe` ArgTree Cmd "toggle" 1 "" [] (ArgOpts True)
 
-    it "should parse done args" $ do
+    it "toggle 1" $ do
+      parseArgs "toggle 1" `shouldBe` emptyArgTree { _cmd = "toggle", _id = 1 }
+      parseArgs "toggle 1 --json" `shouldBe` emptyArgTree { _cmd  = "toggle"
+                                                          , _id   = 1
+                                                          , _opts = ArgOpts True
+                                                          }
+
+    it "invalid done" $ do
       parseArgs "done" `shouldBe` emptyArgTree
       parseArgs "done bad-id" `shouldBe` emptyArgTree
-      parseArgs "done 1" `shouldBe` ArgTree Cmd "done" 1 "" [] (ArgOpts False)
-      parseArgs "done 1 --json"
-        `shouldBe` ArgTree Cmd "done" 1 "" [] (ArgOpts True)
 
-    it "should parse delete args" $ do
+    it "done 1" $ do
+      parseArgs "done 1" `shouldBe` emptyArgTree { _cmd = "done", _id = 1 }
+      parseArgs "done 1 --json" `shouldBe` emptyArgTree { _cmd  = "done"
+                                                        , _id   = 1
+                                                        , _opts = ArgOpts True
+                                                        }
+
+    it "invalid delete" $ do
       parseArgs "delete" `shouldBe` emptyArgTree
       parseArgs "delete bad-id" `shouldBe` emptyArgTree
-      parseArgs "delete 1"
-        `shouldBe` ArgTree Cmd "delete" 1 "" [] (ArgOpts False)
-      parseArgs "delete 1 --json"
-        `shouldBe` ArgTree Cmd "delete" 1 "" [] (ArgOpts True)
 
-    it "should parse remove args" $ do
+    it "delete 1" $ do
+      parseArgs "delete 1" `shouldBe` emptyArgTree { _cmd = "delete", _id = 1 }
+      parseArgs "delete 1 --json" `shouldBe` emptyArgTree { _cmd  = "delete"
+                                                          , _id   = 1
+                                                          , _opts = ArgOpts True
+                                                          }
+
+    it "invalid remove" $ do
       parseArgs "remove" `shouldBe` emptyArgTree
       parseArgs "remove bad-id" `shouldBe` emptyArgTree
-      parseArgs "remove 1"
-        `shouldBe` ArgTree Cmd "remove" 1 "" [] (ArgOpts False)
-      parseArgs "remove 1 --json"
-        `shouldBe` ArgTree Cmd "remove" 1 "" [] (ArgOpts True)
 
-    it "should parse context args" $ do
-      parseArgs "context"
-        `shouldBe` ArgTree Cmd "context" 0 "" [] (ArgOpts False)
-      parseArgs "context bad-tag"
-        `shouldBe` ArgTree Cmd "context" 0 "" [] (ArgOpts False)
-      parseArgs "context +tag"
-        `shouldBe` ArgTree Cmd "context" 0 "" ["tag"] (ArgOpts False)
+    it "remove 1" $ do
+      parseArgs "remove 1" `shouldBe` emptyArgTree { _cmd = "remove", _id = 1 }
+      parseArgs "remove 1 --json" `shouldBe` emptyArgTree { _cmd  = "remove"
+                                                          , _id   = 1
+                                                          , _opts = ArgOpts True
+                                                          }
+
+    it "clear context" $ do
+      parseArgs "context" `shouldBe` emptyArgTree { _cmd = "context" }
+      parseArgs "context bad-tag" `shouldBe` emptyArgTree { _cmd = "context" }
+
+    it "context +tag" $ do
+      parseArgs "context +tag +tag2"
+        `shouldBe` emptyArgTree { _cmd = "context", _tags = ["tag", "tag2"] }
+
+    it "ctx +tag +tag2 --json" $ do
       parseArgs "ctx +tag +tag2"
-        `shouldBe` ArgTree Cmd "context" 0 "" ["tag", "tag2"] (ArgOpts False)
-      parseArgs "ctx +tag --json +tag2"
-        `shouldBe` ArgTree Cmd "context" 0 "" ["tag", "tag2"] (ArgOpts True)
+        `shouldBe` emptyArgTree { _cmd = "context", _tags = ["tag", "tag2"] }
 
-    it "should parse list args" $ do
-      parseArgs "list" `shouldBe` ArgTree Qry "list" 0 "" [] (ArgOpts False)
-      parseArgs "list bad-arg"
-        `shouldBe` ArgTree Qry "list" 0 "" [] (ArgOpts False)
-      parseArgs "list --bad-opt"
-        `shouldBe` ArgTree Qry "list" 0 "" [] (ArgOpts False)
-      parseArgs "list --json"
-        `shouldBe` ArgTree Qry "list" 0 "" [] (ArgOpts True)
+    it "list" $ do
+      parseArgs "list" `shouldBe` emptyArgTree { _type = Qry, _cmd = "list" }
+      parseArgs "list --json" `shouldBe` emptyArgTree { _type = Qry
+                                                      , _cmd  = "list"
+                                                      , _opts = ArgOpts True
+                                                      }
 
-    it "should parse show args" $ do
+    it "invalid show" $ do
       parseArgs "show" `shouldBe` emptyArgTree
       parseArgs "show bad-id" `shouldBe` emptyArgTree
-      parseArgs "show 1" `shouldBe` ArgTree Qry "show" 1 "" [] (ArgOpts False)
-      parseArgs "show 1 --json"
-        `shouldBe` ArgTree Qry "show" 1 "" [] (ArgOpts True)
 
-    it "should parse worktime args" $ do
+    it "show 1" $ do
+      parseArgs "show 1"
+        `shouldBe` emptyArgTree { _type = Qry, _cmd = "show", _id = 1 }
+      parseArgs "show 1 --json" `shouldBe` emptyArgTree { _type = Qry
+                                                        , _cmd  = "show"
+                                                        , _id   = 1
+                                                        , _opts = ArgOpts True
+                                                        }
+
+    it "worktime" $ do
       parseArgs "worktime"
-        `shouldBe` ArgTree Qry "worktime" 0 "" [] (ArgOpts False)
-      parseArgs "worktime bad-tag"
-        `shouldBe` ArgTree Qry "worktime" 0 "" [] (ArgOpts False)
-      parseArgs "worktime +tag +tag2"
-        `shouldBe` ArgTree Qry "worktime" 0 "" ["tag", "tag2"] (ArgOpts False)
-      parseArgs "worktime +tag --json +tag2"
-        `shouldBe` ArgTree Qry "worktime" 0 "" ["tag", "tag2"] (ArgOpts True)
+        `shouldBe` emptyArgTree { _type = Qry, _cmd = "worktime" }
 
-    it "should parse help args" $ do
-      parseArgs "help" `shouldBe` ArgTree Qry "help" 0 "" [] (ArgOpts False)
-      parseArgs "--help" `shouldBe` ArgTree Qry "help" 0 "" [] (ArgOpts False)
-      parseArgs "-h" `shouldBe` ArgTree Qry "help" 0 "" [] (ArgOpts False)
+    it "worktime +tag +tag2" $ do
+      parseArgs "worktime +tag +tag2" `shouldBe` emptyArgTree
+        { _type = Qry
+        , _cmd  = "worktime"
+        , _tags = ["tag", "tag2"]
+        }
+
+    it "worktime +tag +tag2 --json" $ do
+      parseArgs "worktime +tag +tag2 --json" `shouldBe` emptyArgTree
+        { _type = Qry
+        , _cmd  = "worktime"
+        , _tags = ["tag", "tag2"]
+        , _opts = ArgOpts True
+        }
+
+    it "wtime <01234" $ do
+      parseArgs "worktime <10" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _minDate = ArgDate 10 0 0 0 0
+        }
+
+    it "wtime <:20" $ do
+      parseArgs "worktime <:20" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _minDate = ArgDate 0 0 0 20 0
+        }
+
+    it "wtime <10:20" $ do
+      parseArgs "worktime <10:20" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _minDate = ArgDate 10 0 0 20 0
+        }
+
+    it "help" $ do
+      parseArgs "help" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
+      parseArgs "h" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
+      parseArgs "--help" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
+      parseArgs "-h" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }

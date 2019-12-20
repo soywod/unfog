@@ -3,7 +3,9 @@
 module Parsec where
 
 import           Prelude                 hiding ( Word )
-import           Control.Applicative     hiding ( many )
+import           Control.Applicative     hiding ( many
+                                                , optional
+                                                )
 import           Data.Char
 import           Data.List
 import           System.Environment
@@ -14,28 +16,39 @@ data Arg
   | SetId Int
   | AddTag String
   | DelTag String
+  | SetMinDate ArgDate
   | AddWord String
   | AddOpt String
   deriving Show
 
 data ArgType = Cmd | Qry deriving (Show, Eq)
+
 data ArgOpts = ArgOpts { _json :: Bool } deriving (Show, Eq)
+
+data ArgDate = ArgDate { _days :: Int
+                       , _months :: Int
+                       , _years :: Int
+                       , _hours :: Int
+                       , _mins :: Int
+                       } deriving (Show, Eq)
+
 data ArgTree = ArgTree { _type :: ArgType
                        , _cmd :: String
                        , _id :: Int
                        , _desc :: String
                        , _tags :: [String]
+                       , _minDate :: ArgDate
                        , _opts :: ArgOpts
                        } deriving (Show, Eq)
 
-
 emptyArgTree :: ArgTree
-emptyArgTree = ArgTree { _id   = 0
-                       , _type = Cmd
-                       , _cmd  = ""
-                       , _desc = ""
-                       , _tags = []
-                       , _opts = ArgOpts False
+emptyArgTree = ArgTree { _id      = 0
+                       , _type    = Cmd
+                       , _cmd     = ""
+                       , _desc    = ""
+                       , _tags    = []
+                       , _minDate = ArgDate 0 0 0 0 0
+                       , _opts    = ArgOpts False
                        }
 
 queries = ["list", "show", "worktime", "help", "version"]
@@ -142,7 +155,11 @@ worktimeExpr = do
   skipSpaces
   cmd <- SetCmd <$> cmdAliasExpr ["worktime", "wtime"]
   skipSpaces
-  rest <- sepBySpaces $ (AddTag <$> addTagExpr) <|> (AddOpt <$> optExpr)
+  rest <-
+    sepBySpaces
+    $   (AddTag <$> addTagExpr)
+    <|> (SetMinDate <$> minDateExpr)
+    <|> (AddOpt <$> optExpr)
   skipSpaces
   return $ cmd : rest
 
@@ -206,6 +223,33 @@ delTagExpr = do
   tag <- munch1 isAlphaNum'
   return tag
 
+numbers :: Int -> ReadP Int
+numbers c = do
+  n <- count c (satisfy isDigit)
+  return $ if null n then 0 else read n
+
+minDateExpr :: ReadP ArgDate
+minDateExpr = dateWithTimeExpr <|> dateWithoutTimeExpr
+
+dateWithTimeExpr :: ReadP ArgDate
+dateWithTimeExpr = do
+  char '<'
+  days   <- numbers 0 <|> numbers 1 <|> numbers 2
+  months <- numbers 0 <|> numbers 1 <|> numbers 2
+  years  <- numbers 0 <|> numbers 1 <|> numbers 2
+  char ':'
+  hours <- numbers 0 <|> numbers 1 <|> numbers 2
+  mins  <- numbers 0 <|> numbers 1 <|> numbers 2
+  return $ ArgDate days months years hours mins
+
+dateWithoutTimeExpr :: ReadP ArgDate
+dateWithoutTimeExpr = do
+  char '<'
+  days   <- numbers 1 <|> numbers 2
+  months <- numbers 0 <|> numbers 1 <|> numbers 2
+  years  <- numbers 0 <|> numbers 1 <|> numbers 2
+  return $ ArgDate days months years 0 0
+
 optExpr :: ReadP String
 optExpr = do
   string "--"
@@ -253,7 +297,8 @@ eval tree arg = case arg of
   DelTag  tag  -> tree { _tags = _tags tree \\ [tag] }
   AddWord desc -> tree { _desc = desc' }
     where desc' = if null (_desc tree) then desc else _desc tree ++ " " ++ desc
-  AddOpt opt -> tree { _opts = opts }
+  SetMinDate _minDate -> tree { _minDate }
+  AddOpt     opt      -> tree { _opts = opts }
    where
     opts = case opt of
       "json" -> (_opts tree) { _json = True }
