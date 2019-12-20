@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Hyphen issue in desc [#12]
+
 ## [0.2.1] - 2019-12-08
 
 ### Added
@@ -90,3 +94,4 @@ First release :tada:
 [#5]: https://github.com/unfog-io/unfog-cli/issues/5
 [#6]: https://github.com/unfog-io/unfog-cli/issues/6
 [#8]: https://github.com/unfog-io/unfog-cli/issues/8
+[#12]: https://github.com/unfog-io/unfog-cli/issues/12

@@ -60,10 +60,11 @@ createExpr = do
   cmd <- SetCmd <$> cmdAliasExpr ["create", "add"]
   skipSpaces
   rest <-
-    many1
-    $   (AddTag <$> addTagExpr)
-    <|> (AddWord <$> wordExpr)
+    sepBySpaces1
+    $   (AddWord <$> wordExpr)
+    <|> (AddTag <$> addTagExpr)
     <|> (AddOpt <$> optExpr)
+  skipSpaces
   return $ cmd : rest
 
 updateExpr :: ReadP [Arg]
@@ -74,11 +75,12 @@ updateExpr = do
   id <- SetId <$> idExpr
   skipSpaces
   rest <-
-    many1
-    $   (AddTag <$> addTagExpr)
+    sepBySpaces1
+    $   (AddWord <$> wordExpr)
+    <|> (AddTag <$> addTagExpr)
     <|> (DelTag <$> delTagExpr)
-    <|> (AddWord <$> wordExpr)
     <|> (AddOpt <$> optExpr)
+  skipSpaces
   return $ cmd : id : rest
 
 replaceExpr :: ReadP [Arg]
@@ -89,10 +91,11 @@ replaceExpr = do
   id <- SetId <$> idExpr
   skipSpaces
   rest <-
-    many1
-    $   (AddTag <$> addTagExpr)
-    <|> (AddWord <$> wordExpr)
+    sepBySpaces1
+    $   (AddWord <$> wordExpr)
+    <|> (AddTag <$> addTagExpr)
     <|> (AddOpt <$> optExpr)
+  skipSpaces
   return $ cmd : id : rest
 
 startExpr :: ReadP [Arg]
@@ -118,7 +121,8 @@ contextExpr = do
   skipSpaces
   cmd <- SetCmd <$> cmdAliasExpr ["context", "ctx"]
   skipSpaces
-  rest <- many $ (AddTag <$> addTagExpr) <|> (AddOpt <$> optExpr)
+  rest <- sepBySpaces $ (AddTag <$> addTagExpr) <|> (AddOpt <$> optExpr)
+  skipSpaces
   return $ cmd : rest
 
 listExpr :: ReadP [Arg]
@@ -126,7 +130,8 @@ listExpr = do
   skipSpaces
   cmd <- SetCmd <$> cmdAliasExpr ["list"]
   skipSpaces
-  rest <- many $ (AddOpt <$> optExpr)
+  rest <- sepBySpaces $ (AddOpt <$> optExpr)
+  skipSpaces
   return $ cmd : rest
 
 showExpr :: ReadP [Arg]
@@ -137,7 +142,8 @@ worktimeExpr = do
   skipSpaces
   cmd <- SetCmd <$> cmdAliasExpr ["worktime", "wtime"]
   skipSpaces
-  rest <- many $ (AddTag <$> addTagExpr) <|> (AddOpt <$> optExpr)
+  rest <- sepBySpaces $ (AddTag <$> addTagExpr) <|> (AddOpt <$> optExpr)
+  skipSpaces
   return $ cmd : rest
 
 helpExpr :: ReadP [Arg]
@@ -152,10 +158,17 @@ versionExpr = do
   skipSpaces
   cmd <- SetCmd <$> cmdAliasExpr ["version", "v", "--version", "-v"]
   skipSpaces
-  rest <- many $ AddOpt <$> optExpr
+  rest <- sepBySpaces $ AddOpt <$> optExpr
+  skipSpaces
   return $ cmd : rest
 
 -- Composite exprs
+
+sepBySpaces :: ReadP Arg -> ReadP [Arg]
+sepBySpaces args = args `sepBy` skipSpaces
+
+sepBySpaces1 :: ReadP Arg -> ReadP [Arg]
+sepBySpaces1 args = args `sepBy1` skipSpaces
 
 cmdWithIdExpr :: [String] -> ReadP [Arg]
 cmdWithIdExpr aliases = do
@@ -169,48 +182,45 @@ cmdWithIdExpr aliases = do
 
 cmdAliasExpr :: [String] -> ReadP String
 cmdAliasExpr aliases = do
+  skipSpaces
   cmd <- choice $ map string aliases
+  skipSpaces
   return $ head aliases
 
 idExpr :: ReadP Int
 idExpr = do
+  skipSpaces
   id <- munch1 isDigit
+  skipSpaces
   return (read id :: Int)
 
 addTagExpr :: ReadP String
 addTagExpr = do
-  satisfy (== '+')
-  tag <- munch1 isAlphaNumOrDash
-  skipSpaces
+  string "+"
+  tag <- munch1 isAlphaNum'
   return tag
 
 delTagExpr :: ReadP String
 delTagExpr = do
-  satisfy (== '-')
-  tag <- munch1 isAlphaNumOrDash
-  skipSpaces
+  string "-"
+  tag <- munch1 isAlphaNum'
   return tag
-
-wordExpr :: ReadP String
-wordExpr = do
-  fchar <- satisfy $ not . flip elem "+-"
-  word  <- munch (/= ' ')
-  skipSpaces
-  return $ fchar : word
 
 optExpr :: ReadP String
 optExpr = do
   string "--"
   opt <- choice $ map string ["json"]
-  skipSpaces
   return opt
+
+wordExpr :: ReadP String
+wordExpr = munch1 isAlphaNum'
 
 -- Helper
 
-isAlphaNumOrDash :: Char -> Bool
-isAlphaNumOrDash c | isAlphaNum c  = True
-                   | c `elem` "-_" = True
-                   | otherwise     = False
+isAlphaNum' :: Char -> Bool
+isAlphaNum' c | isAlphaNum c  = True
+              | c `elem` "-_" = True
+              | otherwise     = False
 
 -- Parser
 

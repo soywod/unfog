@@ -28,7 +28,9 @@ spec = parallel $ do
       parseArgs "add desc +tag --json"
         `shouldBe` ArgTree Cmd "create" 0 "desc" ["tag"] (ArgOpts True)
       parseArgs "add desc --bad-arg"
-        `shouldBe` ArgTree Cmd "create" 0 "desc" [] (ArgOpts False)
+        `shouldBe` ArgTree Cmd "create" 0 "desc --bad-arg" [] (ArgOpts False)
+      parseArgs "add desc - hypen"
+        `shouldBe` ArgTree Cmd "create" 0 "desc - hypen" [] (ArgOpts False)
 
     it "should parse update args" $ do
       parseArgs "update" `shouldBe` emptyArgTree
