@@ -209,24 +209,24 @@ spec = parallel $ do
         }
 
     it "wtime <01234" $ do
-      parseArgs "worktime <10" `shouldBe` emptyArgTree
+      parseArgs "worktime [10" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
-        , _minDate = ArgDate 10 0 0 0 0
+        , _minDate = Just $ ArgDate 10 0 0 0 0
         }
 
     it "wtime <:20" $ do
-      parseArgs "worktime <:20" `shouldBe` emptyArgTree
+      parseArgs "worktime [:20" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
-        , _minDate = ArgDate 0 0 0 20 0
+        , _minDate = Just $ ArgDate 0 0 0 20 0
         }
 
     it "wtime <10:20" $ do
-      parseArgs "worktime <10:20" `shouldBe` emptyArgTree
+      parseArgs "worktime [10:20" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
-        , _minDate = ArgDate 10 0 0 20 0
+        , _minDate = Just $ ArgDate 10 0 0 20 0
         }
 
     it "help" $ do

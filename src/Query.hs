@@ -78,10 +78,12 @@ execute args state events query = do
 
     ShowWtime args -> do
       now <- getCurrentTime
-      let tags  = Parsec._tags args `union` _ctx state
+      let tags = Parsec._tags args `union` _ctx state
+      let min  = Parsec.parseMinDate now args
+      print min
       let ids   = map _id $ filterByTags tags $ _tasks state
-      let tasks = filterByIds ids $ mapWithWtime now $ _tasks state
-      let wtime = getWtimePerDay now tasks
+      let tasks = filterByIds ids $ _tasks state
+      let wtime = getWtimePerDay now min tasks
       let ctx = if null tags then "global" else "for [" ++ unwords tags ++ "]"
       printWtime rtype ("unfog: wtime " ++ ctx) wtime
 

@@ -34,6 +34,7 @@ data Task =
        , _wtime :: Duration
        , _starts :: [UTCTime]
        , _stops :: [UTCTime]
+       , _createdAt :: UTCTime
        } deriving (Show, Read, Eq)
 
 newtype TimeRecord = TimeRecord {toTimeRecord :: Duration}
@@ -53,33 +54,36 @@ instance ToJSON DurationRecord where
     ]
 
 instance ToJSON Task where
-  toJSON (Task id ref pos desc tags due active done wtime _ _) = object
-    [ "id" .= id
-    , "ref" .= ref
-    , "pos" .= pos
-    , "desc" .= desc
-    , "tags" .= tags
-    , "active" .= TimeRecord active
-    , "done" .= if done then 1 else 0 :: Int
-    , "wtime" .= DurationRecord wtime
-    ]
+  toJSON (Task id ref pos desc tags due active done wtime _ _ createdAt) =
+    object
+      [ "id" .= id
+      , "ref" .= ref
+      , "pos" .= pos
+      , "desc" .= desc
+      , "tags" .= tags
+      , "active" .= TimeRecord active
+      , "done" .= if done then 1 else 0 :: Int
+      , "wtime" .= DurationRecord wtime
+      , "createdAt" .= createdAt
+      ]
 
 instance ToJSON DailyWtimeRecord where
   toJSON (DailyWtimeRecord (date, wtime)) =
     object ["date" .= date, "wtime" .= DurationRecord wtime]
 
 emptyTask :: Task
-emptyTask = Task { _id     = 0
-                 , _ref    = 0
-                 , _pos    = -1
-                 , _desc   = ""
-                 , _tags   = []
-                 , _due    = Nothing
-                 , _active = 0
-                 , _done   = False
-                 , _wtime  = 0
-                 , _starts = []
-                 , _stops  = []
+emptyTask = Task { _id        = 0
+                 , _ref       = 0
+                 , _pos       = -1
+                 , _desc      = ""
+                 , _tags      = []
+                 , _due       = Nothing
+                 , _active    = 0
+                 , _done      = False
+                 , _wtime     = 0
+                 , _starts    = []
+                 , _stops     = []
+                 , _createdAt = read "0000-00-00 00:00:00" :: UTCTime
                  }
 
 generateId :: [Task] -> Id
@@ -113,6 +117,11 @@ filterByTags tags tasks = filteredTasks
   filteredTasks = if null tags' then tasks else filter byTags tasks
   byTags        = not . null . intersect tags' . _tags
 
+filterByMinDate :: Maybe UTCTime -> [UTCTime] -> [UTCTime]
+filterByMinDate maybeDate dates = case maybeDate of
+  Nothing   -> dates
+  Just date -> filter (date <) dates
+
 mapWithWtime :: UTCTime -> [Task] -> [Task]
 mapWithWtime now = map withWtime
   where withWtime task = task { _wtime = getTotalWtime now task }
@@ -123,12 +132,14 @@ getTotalWtime now task = realToFrac $ sum $ zipWith diffUTCTime stops starts
   starts = _starts task
   stops  = _stops task ++ [ now | _active task > 0 ]
 
-getWtimePerDay :: UTCTime -> [Task] -> [DailyWtime]
-getWtimePerDay now tasks = foldl fWtimePerDay [] $ zip starts stops
+getWtimePerDay :: UTCTime -> Maybe UTCTime -> [Task] -> [DailyWtime]
+getWtimePerDay now min tasks = foldl fWtimePerDay [] $ zip starts stops
  where
-  (starts, stops) = foldl fByStartsAndStops ([], []) tasks
-  fByStartsAndStops (starts, stops) t =
-    (starts ++ _starts t, stops ++ _stops t ++ [ now | _active t > 0 ])
+  (starts, stops) = foldl byStartsAndStops ([], []) tasks
+  byStartsAndStops (starts, stops) t =
+    ( starts ++ filterByMinDate min (_starts t)
+    , stops ++ filterByMinDate min (_stops t ++ [ now | _active t > 0 ])
+    )
 
 type DailyWtime = (String, Duration)
 newtype DailyWtimeRecord = DailyWtimeRecord {toDailyWtimeRecord :: DailyWtime}

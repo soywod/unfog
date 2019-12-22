@@ -7,9 +7,12 @@ import           Control.Applicative     hiding ( many
                                                 , optional
                                                 )
 import           Data.Char
+import           Data.Time
+import           Data.Time.Clock
 import           Data.List
 import           System.Environment
 import           Text.ParserCombinators.ReadP
+import           Text.Printf
 
 data Arg
   = SetCmd String
@@ -37,7 +40,7 @@ data ArgTree = ArgTree { _type :: ArgType
                        , _id :: Int
                        , _desc :: String
                        , _tags :: [String]
-                       , _minDate :: ArgDate
+                       , _minDate :: Maybe ArgDate
                        , _opts :: ArgOpts
                        } deriving (Show, Eq)
 
@@ -47,7 +50,7 @@ emptyArgTree = ArgTree { _id      = 0
                        , _cmd     = ""
                        , _desc    = ""
                        , _tags    = []
-                       , _minDate = ArgDate 0 0 0 0 0
+                       , _minDate = Nothing
                        , _opts    = ArgOpts False
                        }
 
@@ -213,13 +216,13 @@ idExpr = do
 
 addTagExpr :: ReadP String
 addTagExpr = do
-  string "+"
+  char '+'
   tag <- munch1 isAlphaNum'
   return tag
 
 delTagExpr :: ReadP String
 delTagExpr = do
-  string "-"
+  char '-'
   tag <- munch1 isAlphaNum'
   return tag
 
@@ -233,10 +236,10 @@ minDateExpr = dateWithTimeExpr <|> dateWithoutTimeExpr
 
 dateWithTimeExpr :: ReadP ArgDate
 dateWithTimeExpr = do
-  char '<'
+  char '['
   days   <- numbers 0 <|> numbers 1 <|> numbers 2
   months <- numbers 0 <|> numbers 1 <|> numbers 2
-  years  <- numbers 0 <|> numbers 1 <|> numbers 2
+  years  <- numbers 0 <|> numbers 2
   char ':'
   hours <- numbers 0 <|> numbers 1 <|> numbers 2
   mins  <- numbers 0 <|> numbers 1 <|> numbers 2
@@ -244,10 +247,10 @@ dateWithTimeExpr = do
 
 dateWithoutTimeExpr :: ReadP ArgDate
 dateWithoutTimeExpr = do
-  char '<'
+  char '['
   days   <- numbers 1 <|> numbers 2
   months <- numbers 0 <|> numbers 1 <|> numbers 2
-  years  <- numbers 0 <|> numbers 1 <|> numbers 2
+  years  <- numbers 0 <|> numbers 2
   return $ ArgDate days months years 0 0
 
 optExpr :: ReadP String
@@ -297,8 +300,8 @@ eval tree arg = case arg of
   DelTag  tag  -> tree { _tags = _tags tree \\ [tag] }
   AddWord desc -> tree { _desc = desc' }
     where desc' = if null (_desc tree) then desc else _desc tree ++ " " ++ desc
-  SetMinDate _minDate -> tree { _minDate }
-  AddOpt     opt      -> tree { _opts = opts }
+  SetMinDate min -> tree { _minDate = Just min }
+  AddOpt     opt -> tree { _opts = opts }
    where
     opts = case opt of
       "json" -> (_opts tree) { _json = True }
@@ -311,3 +314,22 @@ runParser p s  = case readP_to_S p s of
 
 parseArgs :: String -> ArgTree
 parseArgs = runParser parser
+
+parseMinDate :: UTCTime -> ArgTree -> Maybe UTCTime
+parseMinDate now args = fmap byMinDate $ _minDate args
+ where
+  byMinDate minDate =
+    let
+      (y, mo, d)              = toGregorian $ utctDay now
+      ArgDate d' mo' y' h' m' = minDate
+      mins                    = if m' > 0 then m' else 0
+      hours                   = if h' > 0 then h' else 0
+      days                    = if d' > 0 then d' else d
+      months                  = if mo' > 0 then mo' else mo
+      years                   = if y' == 0
+        then fromInteger y
+        else if y' < 100 then y' + truncate (realToFrac y / 100) * 100 else y'
+      minDate' =
+        printf "%.4d-%.2d-%.2d %.2d:%.2d:00" years months days hours mins
+    in
+      read minDate' :: UTCTime
