@@ -6,36 +6,51 @@ import           Prelude                 hiding ( Word )
 import           Control.Applicative     hiding ( many )
 import           Data.Char
 import           Data.List
-import           System.Environment
+import           Data.Time
 import           Text.ParserCombinators.ReadP
+import           Text.Printf
 
 data Arg
   = SetCmd String
   | SetId Int
   | AddTag String
   | DelTag String
+  | SetMinDate ArgDate
+  | SetMaxDate ArgDate
   | AddWord String
   | AddOpt String
   deriving Show
 
 data ArgType = Cmd | Qry deriving (Show, Eq)
+
 data ArgOpts = ArgOpts { _json :: Bool } deriving (Show, Eq)
+
+data ArgDate = ArgDate { _days :: Int
+                       , _months :: Int
+                       , _years :: Int
+                       , _hours :: Int
+                       , _mins :: Int
+                       } deriving (Show, Eq)
+
 data ArgTree = ArgTree { _type :: ArgType
                        , _cmd :: String
                        , _id :: Int
                        , _desc :: String
                        , _tags :: [String]
+                       , _minDate :: Maybe ArgDate
+                       , _maxDate :: Maybe ArgDate
                        , _opts :: ArgOpts
                        } deriving (Show, Eq)
 
-
 emptyArgTree :: ArgTree
-emptyArgTree = ArgTree { _id   = 0
-                       , _type = Cmd
-                       , _cmd  = ""
-                       , _desc = ""
-                       , _tags = []
-                       , _opts = ArgOpts False
+emptyArgTree = ArgTree { _id      = 0
+                       , _type    = Cmd
+                       , _cmd     = ""
+                       , _desc    = ""
+                       , _tags    = []
+                       , _minDate = Nothing
+                       , _maxDate = Nothing
+                       , _opts    = ArgOpts False
                        }
 
 queries = ["list", "show", "worktime", "help", "version"]
@@ -142,7 +157,12 @@ worktimeExpr = do
   skipSpaces
   cmd <- SetCmd <$> cmdAliasExpr ["worktime", "wtime"]
   skipSpaces
-  rest <- sepBySpaces $ (AddTag <$> addTagExpr) <|> (AddOpt <$> optExpr)
+  rest <-
+    sepBySpaces
+    $   (AddTag <$> addTagExpr)
+    <|> (SetMinDate <$> minDateExpr)
+    <|> (SetMaxDate <$> maxDateExpr)
+    <|> (AddOpt <$> optExpr)
   skipSpaces
   return $ cmd : rest
 
@@ -196,15 +216,45 @@ idExpr = do
 
 addTagExpr :: ReadP String
 addTagExpr = do
-  string "+"
+  char '+'
   tag <- munch1 isAlphaNum'
   return tag
 
 delTagExpr :: ReadP String
 delTagExpr = do
-  string "-"
+  char '-'
   tag <- munch1 isAlphaNum'
   return tag
+
+numbers :: Int -> ReadP Int
+numbers c = do
+  n <- count c (satisfy isDigit)
+  return $ if null n then 0 else read n
+
+minDateExpr :: ReadP ArgDate
+minDateExpr = dateWithTimeExpr '[' <|> dateWithoutTimeExpr '['
+
+maxDateExpr :: ReadP ArgDate
+maxDateExpr = dateWithTimeExpr ']' <|> dateWithoutTimeExpr ']'
+
+dateWithTimeExpr :: Char -> ReadP ArgDate
+dateWithTimeExpr ord = do
+  char ord
+  days   <- numbers 0 <|> numbers 1 <|> numbers 2
+  months <- numbers 0 <|> numbers 1 <|> numbers 2
+  years  <- numbers 0 <|> numbers 2
+  char ':'
+  hours <- numbers 0 <|> numbers 1 <|> numbers 2
+  mins  <- numbers 0 <|> numbers 1 <|> numbers 2
+  return $ ArgDate days months years hours mins
+
+dateWithoutTimeExpr :: Char -> ReadP ArgDate
+dateWithoutTimeExpr ord = do
+  char ord
+  days   <- numbers 1 <|> numbers 2
+  months <- numbers 0 <|> numbers 1 <|> numbers 2
+  years  <- numbers 0 <|> numbers 2
+  return $ ArgDate days months years 0 0
 
 optExpr :: ReadP String
 optExpr = do
@@ -253,7 +303,9 @@ eval tree arg = case arg of
   DelTag  tag  -> tree { _tags = _tags tree \\ [tag] }
   AddWord desc -> tree { _desc = desc' }
     where desc' = if null (_desc tree) then desc else _desc tree ++ " " ++ desc
-  AddOpt opt -> tree { _opts = opts }
+  SetMinDate min -> tree { _minDate = Just min }
+  SetMaxDate max -> tree { _maxDate = Just max }
+  AddOpt     opt -> tree { _opts = opts }
    where
     opts = case opt of
       "json" -> (_opts tree) { _json = True }
@@ -266,3 +318,28 @@ runParser p s  = case readP_to_S p s of
 
 parseArgs :: String -> ArgTree
 parseArgs = runParser parser
+
+parseDate :: Int -> Int -> Int -> UTCTime -> ArgTree -> Maybe UTCTime
+parseDate defHours defMins defSecs now args = parse <$> _minDate args
+ where
+  parse date =
+    let
+      (y, mo, d)              = toGregorian $ utctDay now
+      ArgDate d' mo' y' h' m' = date
+      mins                    = if m' > 0 then m' else defMins
+      hours                   = if h' > 0 then h' else defHours
+      days                    = if d' > 0 then d' else d
+      months                  = if mo' > 0 then mo' else mo
+      years                   = if y' == 0
+        then fromInteger y
+        else if y' < 100 then y' + truncate (realToFrac y / 100) * 100 else y'
+      dateStr = printf "%.4d-%.2d-%.2d" years months days
+      timeStr = printf "%.2d:%.2d:%.2d" hours mins defSecs
+    in
+      read $ unwords [dateStr, timeStr] :: UTCTime
+
+parseMinDate :: UTCTime -> ArgTree -> Maybe UTCTime
+parseMinDate = parseDate 0 0 0
+
+parseMaxDate :: UTCTime -> ArgTree -> Maybe UTCTime
+parseMaxDate = parseDate 23 59 99

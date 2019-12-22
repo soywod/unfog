@@ -2,21 +2,21 @@ module Query where
 
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Control.Exception
-import           Data.Maybe
-import           Text.Read
-import           Data.Time.Clock
+import           Data.Aeson
 import           Data.Duration
 import           Data.Fixed
 import           Data.List
+import           Data.Maybe
+import           Data.Time
 import           Text.PrettyPrint.Boxes
-import           Data.Aeson
+import           Text.Read
 
-import           Store
-import           State
-import           Task
-import           Utils
 import           Event
 import           Response
+import           State
+import           Store
+import           Task
+import           Utils
 import qualified Parsec
 
 data Query
@@ -78,9 +78,11 @@ execute args state events query = do
     ShowWtime args -> do
       now <- getCurrentTime
       let tags  = Parsec._tags args `union` _ctx state
+      let min   = Parsec.parseMinDate now args
+      let max   = Parsec.parseMaxDate now args
       let ids   = map _id $ filterByTags tags $ _tasks state
-      let tasks = filterByIds ids $ mapWithWtime now $ _tasks state
-      let wtime = getWtimePerDay now tasks
+      let tasks = filterByIds ids $ _tasks state
+      let wtime = getWtimePerDay now min max tasks
       let ctx = if null tags then "global" else "for [" ++ unwords tags ++ "]"
       printWtime rtype ("unfog: wtime " ++ ctx) wtime
 

@@ -49,4 +49,6 @@ executables:
 tests:
   spec:
     defaults: hspec/hspec@master
-    dependencies: unfog
+    dependencies:
+      - unfog
+      - time

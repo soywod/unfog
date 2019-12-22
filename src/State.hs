@@ -1,8 +1,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module State where
 
-import           Data.Maybe
 import           Data.List
+import           Data.Maybe
 import           Data.Time
 
 import           Event

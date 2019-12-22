@@ -5,11 +5,12 @@ module Task where
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Control.Exception
 import           Data.Aeson
-import           Data.List
-import           Data.Time
 import           Data.Duration
-import           Text.PrettyPrint.Boxes
 import           Data.Fixed
+import           Data.List
+import           Data.Maybe
+import           Data.Time
+import           Text.PrettyPrint.Boxes
 
 import           Utils
 
@@ -123,12 +124,24 @@ getTotalWtime now task = realToFrac $ sum $ zipWith diffUTCTime stops starts
   starts = _starts task
   stops  = _stops task ++ [ now | _active task > 0 ]
 
-getWtimePerDay :: UTCTime -> [Task] -> [DailyWtime]
-getWtimePerDay now tasks = foldl fWtimePerDay [] $ zip starts stops
+getWtimePerDay
+  :: UTCTime -> Maybe UTCTime -> Maybe UTCTime -> [Task] -> [DailyWtime]
+getWtimePerDay now min max tasks = withoutEmpty $ wtime
  where
-  (starts, stops) = foldl fByStartsAndStops ([], []) tasks
-  fByStartsAndStops (starts, stops) t =
-    (starts ++ _starts t, stops ++ _stops t ++ [ now | _active t > 0 ])
+  wtime           = foldl fWtimePerDay [] $ zip starts stops
+  withoutEmpty    = filter $ (\(_, d) -> d > 0)
+  (starts, stops) = foldl byStartsAndStops ([], []) tasks
+  byStartsAndStops (starts, stops) t =
+    ( starts ++ withMinMax min max (_starts t)
+    , stops ++ withMinMax min max (_stops t ++ [ now | _active t > 0 ])
+    )
+
+withMinMax :: Maybe UTCTime -> Maybe UTCTime -> [UTCTime] -> [UTCTime]
+withMinMax maybeMin maybeMax = map withMinMax'
+ where
+  withMinMax' date =
+    let max = minimum $ [fromMaybe date maybeMax, date]
+    in  maximum $ [fromMaybe max maybeMin, max]
 
 type DailyWtime = (String, Duration)
 newtype DailyWtimeRecord = DailyWtimeRecord {toDailyWtimeRecord :: DailyWtime}
