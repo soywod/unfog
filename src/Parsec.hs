@@ -319,27 +319,24 @@ runParser p s  = case readP_to_S p s of
 parseArgs :: String -> ArgTree
 parseArgs = runParser parser
 
-parseDate :: Int -> Int -> Int -> UTCTime -> ArgTree -> Maybe UTCTime
-parseDate defHours defMins defSecs now args = parse <$> _minDate args
+parseDate :: UTCTime -> Int -> Int -> Int -> ArgDate -> Maybe UTCTime
+parseDate now defHours defMins defSecs (ArgDate 0 0  0 0 0) = Nothing
+parseDate now defHours defMins defSecs (ArgDate d mo y h m) = Just
+  (read $ unwords [dateStr, timeStr] :: UTCTime)
  where
-  parse date =
-    let
-      (y, mo, d)              = toGregorian $ utctDay now
-      ArgDate d' mo' y' h' m' = date
-      mins                    = if m' > 0 then m' else defMins
-      hours                   = if h' > 0 then h' else defHours
-      days                    = if d' > 0 then d' else d
-      months                  = if mo' > 0 then mo' else mo
-      years                   = if y' == 0
-        then fromInteger y
-        else if y' < 100 then y' + truncate (realToFrac y / 100) * 100 else y'
-      dateStr = printf "%.4d-%.2d-%.2d" years months days
-      timeStr = printf "%.2d:%.2d:%.2d" hours mins defSecs
-    in
-      read $ unwords [dateStr, timeStr] :: UTCTime
+  (y', mo', d') = toGregorian $ utctDay now
+  mins          = if m > 0 then m else defMins
+  hours         = if h > 0 then h else defHours
+  days          = if d > 0 then d else d'
+  months        = if mo > 0 then mo else mo'
+  years         = if y == 0
+    then fromInteger y'
+    else if y < 100 then y + truncate (realToFrac y' / 100) * 100 else y
+  dateStr = printf "%.4d-%.2d-%.2d" years months days
+  timeStr = printf "%.2d:%.2d:%.2d" hours mins defSecs
 
 parseMinDate :: UTCTime -> ArgTree -> Maybe UTCTime
-parseMinDate = parseDate 0 0 0
+parseMinDate now args = _minDate args >>= parseDate now 0 0 0
 
 parseMaxDate :: UTCTime -> ArgTree -> Maybe UTCTime
-parseMaxDate = parseDate 23 59 99
+parseMaxDate now args = _maxDate args >>= parseDate now 23 59 99

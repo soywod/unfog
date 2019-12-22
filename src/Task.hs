@@ -107,6 +107,9 @@ filterByDone showDone tasks = filteredTasks
 filterByIds :: [Id] -> [Task] -> [Task]
 filterByIds ids = filter (flip elem ids . _id)
 
+filterByRefs :: [Ref] -> [Task] -> [Task]
+filterByRefs refs = filter (flip elem refs . _ref)
+
 filterByTags :: [Tag] -> [Task] -> [Task]
 filterByTags tags tasks = filteredTasks
  where

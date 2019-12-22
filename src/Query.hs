@@ -80,9 +80,13 @@ execute args state events query = do
       let tags  = Parsec._tags args `union` _ctx state
       let min   = Parsec.parseMinDate now args
       let max   = Parsec.parseMaxDate now args
-      let ids   = map _id $ filterByTags tags $ _tasks state
-      let tasks = filterByIds ids $ _tasks state
+      let refs  = map _ref $ filterByTags tags $ _tasks state
+      let tasks = filterByRefs refs $ _tasks state
       let wtime = getWtimePerDay now min max tasks
+      print now
+      print min
+      print max
+      print tasks
       let ctx = if null tags then "global" else "for [" ++ unwords tags ++ "]"
       printWtime rtype ("unfog: wtime " ++ ctx) wtime
 
@@ -100,6 +104,6 @@ execute args state events query = do
       putStrLn "unfog <help|h>"
       putStrLn "unfog <version|v>"
 
-    ShowVersion                 -> printVersion rtype "0.2.1"
+    ShowVersion                 -> printVersion rtype "0.2.2"
 
     Query.Error command message -> printErr rtype $ command ++ ": " ++ message

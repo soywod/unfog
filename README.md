@@ -146,11 +146,22 @@ unfog context +done
 ### Worktime
 
 Shows the total worktime spent on tasks belonging to the given context, grouped
-by days. An empty context will show the worktime of all your tasks:
+by days. An empty context will show the worktime of all your tasks.
 
+You can also filter them with a date range. Min date starts by `[`, and max
+date by `]`. The date range should follow the format `DDMMYY:HHMM`, where
+almost everything is optional. Default fields are based on the current date.
+Here some use cases (given now = `2019/12/22 10:00`):
+
+| Given arg | Result |
+| --- | --- |
+| `[21` | Starting at 2019/12/21 00:00 |
+| `[18:8` | Starting at 2019/12/18 08:00 |
+| `]:12` | Ending at 2019/12/22 12:00 |
+| `[1010 ]1510` | Between 2019/10/10 00:00 and 2019/10/15 23:59 |
 
 ```bash
-unfog wtime <+tag1> <+tag2> ...
+unfog wtime <+tag1> <+tag2> <[min> <]max> ...
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/69493775-2ae7f180-0eb3-11ea-88a3-a59eb088830e.png)
