@@ -5,12 +5,12 @@ module Task where
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Control.Exception
 import           Data.Aeson
-import           Data.List
-import           Data.Time
 import           Data.Duration
-import           Text.PrettyPrint.Boxes
 import           Data.Fixed
+import           Data.List
 import           Data.Maybe
+import           Data.Time
+import           Text.PrettyPrint.Boxes
 
 import           Utils
 
@@ -35,7 +35,7 @@ data Task =
        , _wtime :: Duration
        , _starts :: [UTCTime]
        , _stops :: [UTCTime]
-       } deriving (Show, Read, Eq, Ord)
+       } deriving (Show, Read, Eq)
 
 newtype TimeRecord = TimeRecord {toTimeRecord :: Duration}
 instance ToJSON TimeRecord where

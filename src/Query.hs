@@ -2,22 +2,21 @@ module Query where
 
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Control.Exception
-import           Data.Maybe
-import           Text.Read
-import           Data.Time
-import           Data.Time.Clock
+import           Data.Aeson
 import           Data.Duration
 import           Data.Fixed
 import           Data.List
+import           Data.Maybe
+import           Data.Time
 import           Text.PrettyPrint.Boxes
-import           Data.Aeson
+import           Text.Read
 
-import           Store
-import           State
-import           Task
-import           Utils
 import           Event
 import           Response
+import           State
+import           Store
+import           Task
+import           Utils
 import qualified Parsec
 
 data Query
@@ -104,4 +103,3 @@ execute args state events query = do
     ShowVersion                 -> printVersion rtype "0.2.1"
 
     Query.Error command message -> printErr rtype $ command ++ ": " ++ message
-

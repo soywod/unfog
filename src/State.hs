@@ -1,8 +1,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module State where
 
-import           Data.Maybe
 import           Data.List
+import           Data.Maybe
 import           Data.Time
 
 import           Event
@@ -19,7 +19,7 @@ applyEvents now = foldl (apply now) emptyState
 
 apply :: UTCTime -> State -> Event -> State
 apply now state event = case event of
-  TaskCreated t _ref _id _pos _desc _tags due -> state { _tasks = nextTasks }
+  TaskCreated _ _ref _id _pos _desc _tags due -> state { _tasks = nextTasks }
    where
     newTask   = emptyTask { _ref, _id, _pos, _desc, _tags, _due = due }
     nextTasks = _tasks state ++ [newTask]

@@ -1,19 +1,19 @@
 module Command where
 
+import qualified Data.ByteString.Lazy.Char8    as BL
+import           Data.Aeson              hiding ( Error )
 import           Data.List
 import           Data.Time
-import           Text.Read
 import           Data.Time.Clock.POSIX
-import           Data.Aeson              hiding ( Error )
-import qualified Data.ByteString.Lazy.Char8    as BL
 import           Text.PrettyPrint.Boxes
+import           Text.Read
 
-import           Store
-import           State
-import           Task
 import           Event
-import           Utils
 import           Response
+import           State
+import           Store
+import           Task
+import           Utils
 import qualified Parsec
 
 data Command

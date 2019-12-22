@@ -3,14 +3,10 @@
 module Parsec where
 
 import           Prelude                 hiding ( Word )
-import           Control.Applicative     hiding ( many
-                                                , optional
-                                                )
+import           Control.Applicative     hiding ( many )
 import           Data.Char
-import           Data.Time
-import           Data.Time.Clock
 import           Data.List
-import           System.Environment
+import           Data.Time
 import           Text.ParserCombinators.ReadP
 import           Text.Printf
 
@@ -242,8 +238,8 @@ maxDateExpr :: ReadP ArgDate
 maxDateExpr = dateWithTimeExpr ']' <|> dateWithoutTimeExpr ']'
 
 dateWithTimeExpr :: Char -> ReadP ArgDate
-dateWithTimeExpr start = do
-  char start
+dateWithTimeExpr ord = do
+  char ord
   days   <- numbers 0 <|> numbers 1 <|> numbers 2
   months <- numbers 0 <|> numbers 1 <|> numbers 2
   years  <- numbers 0 <|> numbers 2
@@ -253,8 +249,8 @@ dateWithTimeExpr start = do
   return $ ArgDate days months years hours mins
 
 dateWithoutTimeExpr :: Char -> ReadP ArgDate
-dateWithoutTimeExpr start = do
-  char start
+dateWithoutTimeExpr ord = do
+  char ord
   days   <- numbers 1 <|> numbers 2
   months <- numbers 0 <|> numbers 1 <|> numbers 2
   years  <- numbers 0 <|> numbers 2
@@ -323,40 +319,27 @@ runParser p s  = case readP_to_S p s of
 parseArgs :: String -> ArgTree
 parseArgs = runParser parser
 
-parseMinDate :: UTCTime -> ArgTree -> Maybe UTCTime
-parseMinDate now args = fmap byMinDate $ _minDate args
+parseDate :: Int -> Int -> Int -> UTCTime -> ArgTree -> Maybe UTCTime
+parseDate defHours defMins defSecs now args = parse <$> _minDate args
  where
-  byMinDate minDate =
+  parse date =
     let
       (y, mo, d)              = toGregorian $ utctDay now
-      ArgDate d' mo' y' h' m' = minDate
-      mins                    = if m' > 0 then m' else 0
-      hours                   = if h' > 0 then h' else 0
+      ArgDate d' mo' y' h' m' = date
+      mins                    = if m' > 0 then m' else defMins
+      hours                   = if h' > 0 then h' else defHours
       days                    = if d' > 0 then d' else d
       months                  = if mo' > 0 then mo' else mo
       years                   = if y' == 0
         then fromInteger y
         else if y' < 100 then y' + truncate (realToFrac y / 100) * 100 else y'
-      minDate' =
-        printf "%.4d-%.2d-%.2d %.2d:%.2d:00" years months days hours mins
+      dateStr = printf "%.4d-%.2d-%.2d" years months days
+      timeStr = printf "%.2d:%.2d:%.2d" hours mins defSecs
     in
-      read minDate' :: UTCTime
+      read $ unwords [dateStr, timeStr] :: UTCTime
+
+parseMinDate :: UTCTime -> ArgTree -> Maybe UTCTime
+parseMinDate = parseDate 0 0 0
 
 parseMaxDate :: UTCTime -> ArgTree -> Maybe UTCTime
-parseMaxDate now args = fmap byMaxDate $ _maxDate args
- where
-  byMaxDate maxDate =
-    let
-      (y, mo, d)              = toGregorian $ utctDay now
-      ArgDate d' mo' y' h' m' = maxDate
-      mins                    = if m' > 0 then m' else 23
-      hours                   = if h' > 0 then h' else 59
-      days                    = if d' > 0 then d' else d
-      months                  = if mo' > 0 then mo' else mo
-      years                   = if y' == 0
-        then fromInteger y
-        else if y' < 100 then y' + truncate (realToFrac y / 100) * 100 else y'
-      minDate' =
-        printf "%.4d-%.2d-%.2d %.2d:%.2d:99" years months days hours mins
-    in
-      read minDate' :: UTCTime
+parseMaxDate = parseDate 23 59 99

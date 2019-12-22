@@ -4,9 +4,9 @@ module Store
   )
 where
 
+import           Control.Exception
 import           System.Directory
 import           System.Environment             ( lookupEnv )
-import           Control.Exception
 import           System.IO.Error
 
 import           Event

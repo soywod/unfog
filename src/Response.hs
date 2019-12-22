@@ -2,9 +2,9 @@
 
 module Response where
 
+import qualified Data.ByteString.Lazy.Char8    as BL
 import           Data.Aeson
 import           Data.List
-import qualified Data.ByteString.Lazy.Char8    as BL
 
 import           Task
 
