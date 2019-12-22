@@ -208,25 +208,46 @@ spec = parallel $ do
         , _opts = ArgOpts True
         }
 
-    it "wtime <01234" $ do
+    it "wtime [10" $ do
       parseArgs "worktime [10" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
         , _minDate = Just $ ArgDate 10 0 0 0 0
         }
 
-    it "wtime <:20" $ do
+    it "wtime [:20" $ do
       parseArgs "worktime [:20" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
         , _minDate = Just $ ArgDate 0 0 0 20 0
         }
 
-    it "wtime <10:20" $ do
+    it "wtime [10:20" $ do
       parseArgs "worktime [10:20" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
         , _minDate = Just $ ArgDate 10 0 0 20 0
+        }
+
+    it "wtime ]10" $ do
+      parseArgs "worktime ]10" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _maxDate = Just $ ArgDate 10 0 0 0 0
+        }
+
+    it "wtime ]:20" $ do
+      parseArgs "worktime ]:20" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _maxDate = Just $ ArgDate 0 0 0 20 0
+        }
+
+    it "wtime ]10:20" $ do
+      parseArgs "worktime ]10:20" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _maxDate = Just $ ArgDate 10 0 0 20 0
         }
 
     it "help" $ do

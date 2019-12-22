@@ -117,11 +117,6 @@ filterByTags tags tasks = filteredTasks
   filteredTasks = if null tags' then tasks else filter byTags tasks
   byTags        = not . null . intersect tags' . _tags
 
-filterByMinDate :: Maybe UTCTime -> [UTCTime] -> [UTCTime]
-filterByMinDate maybeDate dates = case maybeDate of
-  Nothing   -> dates
-  Just date -> filter (date <) dates
-
 mapWithWtime :: UTCTime -> [Task] -> [Task]
 mapWithWtime now = map withWtime
   where withWtime task = task { _wtime = getTotalWtime now task }
@@ -132,14 +127,22 @@ getTotalWtime now task = realToFrac $ sum $ zipWith diffUTCTime stops starts
   starts = _starts task
   stops  = _stops task ++ [ now | _active task > 0 ]
 
-getWtimePerDay :: UTCTime -> Maybe UTCTime -> [Task] -> [DailyWtime]
-getWtimePerDay now min tasks = foldl fWtimePerDay [] $ zip starts stops
+getWtimePerDay
+  :: UTCTime -> Maybe UTCTime -> Maybe UTCTime -> [Task] -> [DailyWtime]
+getWtimePerDay now min max tasks = foldl fWtimePerDay [] $ zip starts stops
  where
   (starts, stops) = foldl byStartsAndStops ([], []) tasks
   byStartsAndStops (starts, stops) t =
-    ( starts ++ filterByMinDate min (_starts t)
-    , stops ++ filterByMinDate min (_stops t ++ [ now | _active t > 0 ])
+    ( starts ++ filterByMinMax min max (_starts t)
+    , stops ++ filterByMinMax min max (_stops t ++ [ now | _active t > 0 ])
     )
+
+filterByMinMax :: Maybe UTCTime -> Maybe UTCTime -> [UTCTime] -> [UTCTime]
+filterByMinMax maybeMin maybeMax dates =
+  filterBy (>) maybeMax $ filterBy (<) maybeMin $ dates
+ where
+  filterBy _   Nothing     dates = dates
+  filterBy ord (Just date) dates = filter (ord date) dates
 
 type DailyWtime = (String, Duration)
 newtype DailyWtimeRecord = DailyWtimeRecord {toDailyWtimeRecord :: DailyWtime}

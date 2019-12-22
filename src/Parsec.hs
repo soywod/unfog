@@ -20,6 +20,7 @@ data Arg
   | AddTag String
   | DelTag String
   | SetMinDate ArgDate
+  | SetMaxDate ArgDate
   | AddWord String
   | AddOpt String
   deriving Show
@@ -41,6 +42,7 @@ data ArgTree = ArgTree { _type :: ArgType
                        , _desc :: String
                        , _tags :: [String]
                        , _minDate :: Maybe ArgDate
+                       , _maxDate :: Maybe ArgDate
                        , _opts :: ArgOpts
                        } deriving (Show, Eq)
 
@@ -51,6 +53,7 @@ emptyArgTree = ArgTree { _id      = 0
                        , _desc    = ""
                        , _tags    = []
                        , _minDate = Nothing
+                       , _maxDate = Nothing
                        , _opts    = ArgOpts False
                        }
 
@@ -162,6 +165,7 @@ worktimeExpr = do
     sepBySpaces
     $   (AddTag <$> addTagExpr)
     <|> (SetMinDate <$> minDateExpr)
+    <|> (SetMaxDate <$> maxDateExpr)
     <|> (AddOpt <$> optExpr)
   skipSpaces
   return $ cmd : rest
@@ -232,11 +236,14 @@ numbers c = do
   return $ if null n then 0 else read n
 
 minDateExpr :: ReadP ArgDate
-minDateExpr = dateWithTimeExpr <|> dateWithoutTimeExpr
+minDateExpr = dateWithTimeExpr '[' <|> dateWithoutTimeExpr '['
 
-dateWithTimeExpr :: ReadP ArgDate
-dateWithTimeExpr = do
-  char '['
+maxDateExpr :: ReadP ArgDate
+maxDateExpr = dateWithTimeExpr ']' <|> dateWithoutTimeExpr ']'
+
+dateWithTimeExpr :: Char -> ReadP ArgDate
+dateWithTimeExpr start = do
+  char start
   days   <- numbers 0 <|> numbers 1 <|> numbers 2
   months <- numbers 0 <|> numbers 1 <|> numbers 2
   years  <- numbers 0 <|> numbers 2
@@ -245,9 +252,9 @@ dateWithTimeExpr = do
   mins  <- numbers 0 <|> numbers 1 <|> numbers 2
   return $ ArgDate days months years hours mins
 
-dateWithoutTimeExpr :: ReadP ArgDate
-dateWithoutTimeExpr = do
-  char '['
+dateWithoutTimeExpr :: Char -> ReadP ArgDate
+dateWithoutTimeExpr start = do
+  char start
   days   <- numbers 1 <|> numbers 2
   months <- numbers 0 <|> numbers 1 <|> numbers 2
   years  <- numbers 0 <|> numbers 2
@@ -301,6 +308,7 @@ eval tree arg = case arg of
   AddWord desc -> tree { _desc = desc' }
     where desc' = if null (_desc tree) then desc else _desc tree ++ " " ++ desc
   SetMinDate min -> tree { _minDate = Just min }
+  SetMaxDate max -> tree { _maxDate = Just max }
   AddOpt     opt -> tree { _opts = opts }
    where
     opts = case opt of
@@ -331,5 +339,24 @@ parseMinDate now args = fmap byMinDate $ _minDate args
         else if y' < 100 then y' + truncate (realToFrac y / 100) * 100 else y'
       minDate' =
         printf "%.4d-%.2d-%.2d %.2d:%.2d:00" years months days hours mins
+    in
+      read minDate' :: UTCTime
+
+parseMaxDate :: UTCTime -> ArgTree -> Maybe UTCTime
+parseMaxDate now args = fmap byMaxDate $ _maxDate args
+ where
+  byMaxDate maxDate =
+    let
+      (y, mo, d)              = toGregorian $ utctDay now
+      ArgDate d' mo' y' h' m' = maxDate
+      mins                    = if m' > 0 then m' else 23
+      hours                   = if h' > 0 then h' else 59
+      days                    = if d' > 0 then d' else d
+      months                  = if mo' > 0 then mo' else mo
+      years                   = if y' == 0
+        then fromInteger y
+        else if y' < 100 then y' + truncate (realToFrac y / 100) * 100 else y'
+      minDate' =
+        printf "%.4d-%.2d-%.2d %.2d:%.2d:99" years months days hours mins
     in
       read minDate' :: UTCTime
