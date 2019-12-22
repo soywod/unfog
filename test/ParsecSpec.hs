@@ -250,6 +250,14 @@ spec = parallel $ do
         , _maxDate = Just $ ArgDate 10 0 0 20 0
         }
 
+    it "wtime [10:20 ]14" $ do
+      parseArgs "wtime [10:20 ]14" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _minDate = Just $ ArgDate 10 0 0 20 0
+        , _maxDate = Just $ ArgDate 14 0 0 0 0
+        }
+
     it "help" $ do
       parseArgs "help" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
       parseArgs "h" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }

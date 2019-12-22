@@ -21,9 +21,8 @@ apply :: UTCTime -> State -> Event -> State
 apply now state event = case event of
   TaskCreated t _ref _id _pos _desc _tags due -> state { _tasks = nextTasks }
    where
+    newTask   = emptyTask { _ref, _id, _pos, _desc, _tags, _due = due }
     nextTasks = _tasks state ++ [newTask]
-    newTask =
-      emptyTask { _ref, _id, _pos, _desc, _tags, _due = due, _createdAt = t }
 
   TaskUpdated _ ref _ _pos _desc _tags due -> state { _tasks = nextTasks }
    where
