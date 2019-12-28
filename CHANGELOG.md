@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Make `+` optional in `context` and `worktime` commands [#16]
+
 ## [0.2.2] - 2019-12-22
 
 ### Added
@@ -103,3 +107,4 @@ First release :tada:
 [#8]: https://github.com/unfog-io/unfog-cli/issues/8
 [#9]: https://github.com/unfog-io/unfog-cli/issues/9
 [#12]: https://github.com/unfog-io/unfog-cli/issues/12
+[#16]: https://github.com/unfog-io/unfog-cli/issues/16

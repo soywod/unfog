@@ -18,17 +18,18 @@ spec = parallel $ do
     it "invalid create" $ do
       parseArgs "create" `shouldBe` emptyArgTree
 
-    it "create desc with - hyphen" $ do
-      parseArgs "create desc with - hyphen" `shouldBe` emptyArgTree
-        { _cmd  = "create"
-        , _desc = "desc with - hyphen"
-        }
-
     it "create +tag desc +tag2 desc2" $ do
       parseArgs "create +tag desc +tag2 desc2" `shouldBe` emptyArgTree
         { _cmd  = "create"
         , _desc = "desc desc2"
         , _tags = ["tag", "tag2"]
+        }
+
+    it "create desc +tag desc2 - [desc +" $ do
+      parseArgs "create desc +tag desc2 - [desc +" `shouldBe` emptyArgTree
+        { _cmd  = "create"
+        , _desc = "desc desc2 - [desc +"
+        , _tags = ["tag"]
         }
 
     it "add +tag desc --json +tag2 desc2 --bad-arg" $ do
@@ -58,11 +59,11 @@ spec = parallel $ do
         }
 
     it "edit 2 +tag desc +tag2 desc2 -tag" $ do
-      parseArgs "edit 2 +tag desc +tag2 desc2 -tag" `shouldBe` emptyArgTree
+      parseArgs "edit 2 +tag desc +tag2 desc2" `shouldBe` emptyArgTree
         { _cmd  = "update"
         , _id   = 2
         , _desc = "desc desc2"
-        , _tags = ["tag2"]
+        , _tags = ["tag", "tag2"]
         }
 
     it "invalid replace" $ do
@@ -159,14 +160,15 @@ spec = parallel $ do
 
     it "clear context" $ do
       parseArgs "context" `shouldBe` emptyArgTree { _cmd = "context" }
-      parseArgs "context bad-tag" `shouldBe` emptyArgTree { _cmd = "context" }
 
-    it "context +tag" $ do
-      parseArgs "context +tag +tag2"
-        `shouldBe` emptyArgTree { _cmd = "context", _tags = ["tag", "tag2"] }
+    it "context +tag +tag2 tag3" $ do
+      parseArgs "context +tag +tag2 tag3" `shouldBe` emptyArgTree
+        { _cmd  = "context"
+        , _tags = ["tag", "tag2", "tag3"]
+        }
 
-    it "ctx +tag +tag2 --json" $ do
-      parseArgs "ctx +tag +tag2"
+    it "ctx +tag tag2 --json" $ do
+      parseArgs "ctx +tag tag2"
         `shouldBe` emptyArgTree { _cmd = "context", _tags = ["tag", "tag2"] }
 
     it "list" $ do
@@ -193,67 +195,74 @@ spec = parallel $ do
       parseArgs "worktime"
         `shouldBe` emptyArgTree { _type = Qry, _cmd = "worktime" }
 
-    it "worktime +tag +tag2" $ do
-      parseArgs "worktime +tag +tag2" `shouldBe` emptyArgTree
+    it "worktime tag +tag2" $ do
+      parseArgs "worktime tag +tag2" `shouldBe` emptyArgTree
         { _type = Qry
         , _cmd  = "worktime"
         , _tags = ["tag", "tag2"]
         }
 
-    it "worktime +tag +tag2 --json" $ do
-      parseArgs "worktime +tag +tag2 --json" `shouldBe` emptyArgTree
+    it "worktime +tag tag2 --json" $ do
+      parseArgs "worktime +tag tag2 --json" `shouldBe` emptyArgTree
         { _type = Qry
         , _cmd  = "worktime"
         , _tags = ["tag", "tag2"]
         , _opts = ArgOpts True
         }
 
-    it "wtime [10" $ do
-      parseArgs "worktime [10" `shouldBe` emptyArgTree
+    it "wtime [10 tag" $ do
+      parseArgs "worktime [10 tag" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
+        , _tags    = ["tag"]
         , _minDate = Just $ ArgDate 10 0 0 0 0
         }
 
-    it "wtime [:20" $ do
-      parseArgs "worktime [:20" `shouldBe` emptyArgTree
+    it "wtime tag [:20" $ do
+      parseArgs "worktime tag [:20" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
+        , _tags    = ["tag"]
         , _minDate = Just $ ArgDate 0 0 0 20 0
         }
 
-    it "wtime [10:20" $ do
-      parseArgs "worktime [10:20" `shouldBe` emptyArgTree
+    it "wtime [10:20 tag" $ do
+      parseArgs "worktime [10:20 tag" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
+        , _tags    = ["tag"]
         , _minDate = Just $ ArgDate 10 0 0 20 0
         }
 
-    it "wtime ]10" $ do
-      parseArgs "worktime ]10" `shouldBe` emptyArgTree
+    it "wtime tag ]10" $ do
+      parseArgs "worktime tag ]10" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
+        , _tags    = ["tag"]
         , _maxDate = Just $ ArgDate 10 0 0 0 0
         }
 
-    it "wtime ]:20" $ do
-      parseArgs "worktime ]:20" `shouldBe` emptyArgTree
+    it "wtime ]:20 tag" $ do
+      parseArgs "worktime ]:20 tag" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
+        , _tags    = ["tag"]
         , _maxDate = Just $ ArgDate 0 0 0 20 0
         }
 
-    it "wtime ]10:20" $ do
-      parseArgs "worktime ]10:20" `shouldBe` emptyArgTree
+    it "wtime tag ]10:20" $ do
+      parseArgs "worktime tag ]10:20" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
+        , _tags    = ["tag"]
         , _maxDate = Just $ ArgDate 10 0 0 20 0
         }
 
-    it "wtime [10:20 ]14" $ do
-      parseArgs "wtime [10:20 ]14" `shouldBe` emptyArgTree
+    it "wtime [10:20 ]14 tag" $ do
+      parseArgs "wtime [10:20 ]14 tag" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
+        , _tags    = ["tag"]
         , _minDate = Just $ ArgDate 10 0 0 20 0
         , _maxDate = Just $ ArgDate 14 0 0 0 0
         }

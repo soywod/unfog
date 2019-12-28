@@ -3,7 +3,9 @@
 module Parsec where
 
 import           Prelude                 hiding ( Word )
-import           Control.Applicative     hiding ( many )
+import           Control.Applicative     hiding ( many
+                                                , optional
+                                                )
 import           Data.Char
 import           Data.List
 import           Data.Time
@@ -75,7 +77,7 @@ createExpr = do
   cmd <- SetCmd <$> cmdAliasExpr ["create", "add"]
   skipSpaces
   rest <-
-    sepBySpaces1
+    many1
     $   (AddWord <$> wordExpr)
     <|> (AddTag <$> addTagExpr)
     <|> (AddOpt <$> optExpr)
@@ -90,7 +92,7 @@ updateExpr = do
   id <- SetId <$> idExpr
   skipSpaces
   rest <-
-    sepBySpaces1
+    many1
     $   (AddWord <$> wordExpr)
     <|> (AddTag <$> addTagExpr)
     <|> (DelTag <$> delTagExpr)
@@ -106,7 +108,7 @@ replaceExpr = do
   id <- SetId <$> idExpr
   skipSpaces
   rest <-
-    sepBySpaces1
+    many1
     $   (AddWord <$> wordExpr)
     <|> (AddTag <$> addTagExpr)
     <|> (AddOpt <$> optExpr)
@@ -123,7 +125,7 @@ toggleExpr :: ReadP [Arg]
 toggleExpr = cmdWithIdExpr ["toggle"]
 
 doneExpr :: ReadP [Arg]
-doneExpr = cmdWithIdExpr ["done"]
+doneExpr = cmdWithIdExpr ["done", "d"]
 
 deleteExpr :: ReadP [Arg]
 deleteExpr = cmdWithIdExpr ["delete"]
@@ -136,7 +138,7 @@ contextExpr = do
   skipSpaces
   cmd <- SetCmd <$> cmdAliasExpr ["context", "ctx"]
   skipSpaces
-  rest <- sepBySpaces $ (AddTag <$> addTagExpr) <|> (AddOpt <$> optExpr)
+  rest <- many $ (AddTag <$> addCtxTagExpr) <|> (AddOpt <$> optExpr)
   skipSpaces
   return $ cmd : rest
 
@@ -145,7 +147,7 @@ listExpr = do
   skipSpaces
   cmd <- SetCmd <$> cmdAliasExpr ["list"]
   skipSpaces
-  rest <- sepBySpaces $ (AddOpt <$> optExpr)
+  rest <- many $ (AddOpt <$> optExpr)
   skipSpaces
   return $ cmd : rest
 
@@ -158,10 +160,10 @@ worktimeExpr = do
   cmd <- SetCmd <$> cmdAliasExpr ["worktime", "wtime"]
   skipSpaces
   rest <-
-    sepBySpaces
-    $   (AddTag <$> addTagExpr)
-    <|> (SetMinDate <$> minDateExpr)
+    many
+    $   (SetMinDate <$> minDateExpr)
     <|> (SetMaxDate <$> maxDateExpr)
+    <|> (AddTag <$> addCtxTagExpr)
     <|> (AddOpt <$> optExpr)
   skipSpaces
   return $ cmd : rest
@@ -178,17 +180,11 @@ versionExpr = do
   skipSpaces
   cmd <- SetCmd <$> cmdAliasExpr ["version", "v", "--version", "-v"]
   skipSpaces
-  rest <- sepBySpaces $ AddOpt <$> optExpr
+  rest <- many $ AddOpt <$> optExpr
   skipSpaces
   return $ cmd : rest
 
 -- Composite exprs
-
-sepBySpaces :: ReadP Arg -> ReadP [Arg]
-sepBySpaces args = args `sepBy` skipSpaces
-
-sepBySpaces1 :: ReadP Arg -> ReadP [Arg]
-sepBySpaces1 args = args `sepBy1` skipSpaces
 
 cmdWithIdExpr :: [String] -> ReadP [Arg]
 cmdWithIdExpr aliases = do
@@ -198,6 +194,7 @@ cmdWithIdExpr aliases = do
   id <- SetId <$> idExpr
   skipSpaces
   rest <- many $ AddOpt <$> optExpr
+  skipSpaces
   return $ cmd : id : rest
 
 cmdAliasExpr :: [String] -> ReadP String
@@ -216,19 +213,36 @@ idExpr = do
 
 addTagExpr :: ReadP String
 addTagExpr = do
+  skipSpaces
   char '+'
-  tag <- munch1 isAlphaNum'
-  return tag
+  fchar <- satisfy isAlpha
+  tag   <- munch isTag
+  skipSpaces
+  return $ fchar : tag
+
+addCtxTagExpr :: ReadP String
+addCtxTagExpr = do
+  skipSpaces
+  optional $ char '+'
+  fchar <- satisfy isAlpha
+  tag   <- munch1 isTag
+  skipSpaces
+  return $ fchar : tag
 
 delTagExpr :: ReadP String
 delTagExpr = do
+  skipSpaces
   char '-'
-  tag <- munch1 isAlphaNum'
-  return tag
+  fchar <- satisfy isAlpha
+  tag   <- munch1 isTag
+  skipSpaces
+  return $ fchar : tag
 
 numbers :: Int -> ReadP Int
 numbers c = do
+  skipSpaces
   n <- count c (satisfy isDigit)
+  skipSpaces
   return $ if null n then 0 else read n
 
 minDateExpr :: ReadP ArgDate
@@ -258,19 +272,26 @@ dateWithoutTimeExpr ord = do
 
 optExpr :: ReadP String
 optExpr = do
+  skipSpaces
   string "--"
   opt <- choice $ map string ["json"]
+  skipSpaces
   return opt
 
 wordExpr :: ReadP String
-wordExpr = munch1 isAlphaNum'
+wordExpr = do
+  skipSpaces
+  fchar <- get
+  rest  <- munch (/= ' ')
+  skipSpaces
+  return $ fchar : rest
 
 -- Helper
 
-isAlphaNum' :: Char -> Bool
-isAlphaNum' c | isAlphaNum c  = True
-              | c `elem` "-_" = True
-              | otherwise     = False
+isTag :: Char -> Bool
+isTag c | isAlphaNum c  = True
+        | c `elem` "-_" = True
+        | otherwise     = False
 
 -- Parser
 
