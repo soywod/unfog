@@ -17,8 +17,8 @@ import           Utils
 import qualified Parsec
 
 data Command
-  = CreateTask UTCTime Ref Id Pos Desc [Tag] (Maybe Duration)
-  | UpdateTask UTCTime Ref Id Pos Desc [Tag] (Maybe Duration)
+  = CreateTask UTCTime Ref Id Pos Desc [Tag] (Maybe UTCTime)
+  | UpdateTask UTCTime Ref Id Pos Desc [Tag] (Maybe UTCTime)
   | StartTask UTCTime Ref Id
   | StopTask UTCTime Ref Id
   | MarkAsDoneTask UTCTime Ref Id Id
@@ -74,7 +74,7 @@ createTask t args state = CreateTask t ref id pos desc tags due
   pos  = -1
   desc = Parsec._desc args
   tags = Parsec._tags args `union` _ctx state
-  due  = Nothing
+  due  = Parsec.parseDue t args
 
 updateTask :: UTCTime -> Parsec.ArgTree -> State -> Command
 updateTask t args state = case Parsec._id args of

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2019-12-28
+
+### Added
+
+- Due time [#9]
+
 ### Changed
 
 - Make `+` optional in `context` and `worktime` commands [#16]
@@ -20,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Worktime date range [#9]
+- Due time [#9]
 
 ### Fixed
 
@@ -93,7 +100,8 @@ First release :tada:
 
 - Linux binaries
 
-[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.2.2...HEAD
+[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.3.0...HEAD
+[0.2.2]: https://github.com/unfog-io/unfog-cli/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/unfog-io/unfog-cli/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/unfog-io/unfog-cli/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/unfog-io/unfog-cli/compare/v0.1.4...v0.2.0

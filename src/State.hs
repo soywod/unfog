@@ -21,12 +21,14 @@ apply :: UTCTime -> State -> Event -> State
 apply now state event = case event of
   TaskCreated _ _ref _id _pos _desc _tags due -> state { _tasks = nextTasks }
    where
-    newTask   = emptyTask { _ref, _id, _pos, _desc, _tags, _due = due }
+    due'      = realToFrac <$> flip diffUTCTime now <$> due
+    newTask   = emptyTask { _ref, _id, _pos, _desc, _tags, _due = due' }
     nextTasks = _tasks state ++ [newTask]
 
   TaskUpdated _ ref _ _pos _desc _tags due -> state { _tasks = nextTasks }
    where
-    update task = task { _pos, _desc, _tags, _due = due }
+    due' = realToFrac <$> diffUTCTime now <$> due
+    update task = task { _pos, _desc, _tags, _due = due' }
     nextTasks = getNextTasks ref update
 
   TaskStarted start ref _ -> state { _tasks = getNextTasks ref update }

@@ -6,25 +6,25 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
 
 ## Table of contents
 
-  * [Installation](#installation)
-    * [From binaries](#from-binaries)
-    * [From sources](#from-sources)
-  * [Usage](#usage)
-    * [Create](#create)
-    * [Show](#read)
-    * [List](#list)
-    * [Update](#update)
-    * [Toggle](#toggle)
-    * [Done](#done)
-    * [Delete](#delete)
-    * [Remove](#remove)
-    * [Context](#context)
-    * [Worktime](#worktime)
-  * [Options](#options)
-    * [JSON](#json)
-  * [Contributing](#contributing)
-  * [Changelog](https://github.com/unfog-io/unfog-cli/blob/master/CHANGELOG.md#changelog)
-  * [Credits](#credits)
+* [Installation](#installation)
+  * [From binaries](#from-binaries)
+  * [From sources](#from-sources)
+* [Usage](#usage)
+  * [Create](#create)
+  * [Show](#read)
+  * [List](#list)
+  * [Update](#update)
+  * [Toggle](#toggle)
+  * [Done](#done)
+  * [Delete](#delete)
+  * [Remove](#remove)
+  * [Context](#context)
+  * [Worktime](#worktime)
+* [Options](#options)
+  * [JSON](#json)
+* [Contributing](#contributing)
+* [Changelog](https://github.com/unfog-io/unfog-cli/blob/master/CHANGELOG.md#changelog)
+* [Credits](#credits)
 
 ## Installation
 ### From binaries
@@ -57,16 +57,28 @@ stack install
 
 To create a task, you need:
 
-  - A description
-  - A list of tags *(optional)*
+- A description
+- A list of tags *(optional)*
+- A due time *(optional)*
 
 ```bash
-unfog create <desc> <+tag1> <+tag2> ...
+unfog create <desc> <+tag1> <+tag2> <:due:time>...
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/69493623-1145aa80-0eb1-11ea-8e34-f14bb3c831bc.png)
 
-*Note: a tag should always start by `+`.*
+A tag should start by `+` and should be composed of alpha numeral chars.
+
+A due time should follow the format `:DDMMYY:HHMM`, where almost everything is
+optional. Each omitted field is replaced by the current date one. Here some
+use cases (given now = `2019/12/22 10:00`):
+
+| Given arg | Due time |
+| --- | --- |
+| `:21` | 2019/12/21 00:00 |
+| `:18:8` | 2019/12/18 08:00 |
+| `::12` | 2019/12/22 12:00 |
+| `:1010` | 2019/10/10 00:00 |
 
 ### Show
 
@@ -87,7 +99,7 @@ unfog list
 ### Update
 
 ```bash
-unfog update <id> <desc> <+tag1> <-tag2> ...
+unfog update <id> <desc> <+tag1> <-tag2> <:due:time>...
 ```
 
 ### Toggle
@@ -135,6 +147,8 @@ unfog context <+tag1> <+tag2> ...
 
 The special context `+done` allows you to see done tasks:
 
+*Note: the `+` can be omitted.*
+
 ```bash
 unfog context +done
 ```
@@ -149,22 +163,15 @@ Shows the total worktime spent on tasks belonging to the given context, grouped
 by days. An empty context will show the worktime of all your tasks.
 
 You can also filter them with a date range. Min date starts by `[`, and max
-date by `]`. The date range should follow the format `DDMMYY:HHMM`, where
-almost everything is optional. Default fields are based on the current date.
-Here some use cases (given now = `2019/12/22 10:00`):
-
-| Given arg | Result |
-| --- | --- |
-| `[21` | Starting at 2019/12/21 00:00 |
-| `[18:8` | Starting at 2019/12/18 08:00 |
-| `]:12` | Ending at 2019/12/22 12:00 |
-| `[1010 ]1510` | Between 2019/10/10 00:00 and 2019/10/15 23:59 |
+date by `]`. The date range should follow the due time format (see [#create]).
 
 ```bash
-unfog wtime <+tag1> <+tag2> <[min> <]max> ...
+unfog wtime <+tag1> <+tag2> <[min:range> <]max:range> ...
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/69493775-2ae7f180-0eb3-11ea-88a3-a59eb088830e.png)
+
+*Note: the `+` can be omitted.*
 
 ## Options
 ### JSON
@@ -185,20 +192,19 @@ Task {
   pos: Int
   desc: String
   tags: [String]
-  active: 0 | 1
+  active: TimeRecord
+  due: TimeRecord
   done: 0 | 1
-  wtime: WtimeRecord
+  wtime: {
+    total: TimeRecord,
+    wtimes: [{
+      date: String (day)
+      wtime: TimeRecord,
+    }]
+  }
 }
 
-Worktime {
-  total: WtimeRecord,
-  wtimes: [{
-    date: String (day)
-    wtime: WtimeRecord,
-  }]
-}
-
-WtimeRecord {
+TimeRecord {
   approx: String (worktime approximation)
   human: String (full worktime)
   micro: Int (worktime in micro seconds)
@@ -209,7 +215,7 @@ WtimeRecord {
 
 This is useful to create user interafaces. Here the list of current implementations:
 
-  - [Unfog.vim](https://github.com/unfog-io/unfog-vim) for Vim/Neovim
+- [Unfog.vim](https://github.com/unfog-io/unfog-vim) for Vim/Neovim
 
 ## Contributing
 

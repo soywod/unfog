@@ -17,6 +17,7 @@ data Arg
   | SetId Int
   | AddTag String
   | DelTag String
+  | SetDue ArgDate
   | SetMinDate ArgDate
   | SetMaxDate ArgDate
   | AddWord String
@@ -39,6 +40,7 @@ data ArgTree = ArgTree { _type :: ArgType
                        , _id :: Int
                        , _desc :: String
                        , _tags :: [String]
+                       , _due :: Maybe ArgDate
                        , _minDate :: Maybe ArgDate
                        , _maxDate :: Maybe ArgDate
                        , _opts :: ArgOpts
@@ -50,6 +52,7 @@ emptyArgTree = ArgTree { _id      = 0
                        , _cmd     = ""
                        , _desc    = ""
                        , _tags    = []
+                       , _due     = Nothing
                        , _minDate = Nothing
                        , _maxDate = Nothing
                        , _opts    = ArgOpts False
@@ -80,6 +83,7 @@ createExpr = do
     many1
     $   (AddWord <$> wordExpr)
     <|> (AddTag <$> addTagExpr)
+    <|> (SetDue <$> dueExpr)
     <|> (AddOpt <$> optExpr)
   skipSpaces
   return $ cmd : rest
@@ -161,9 +165,9 @@ worktimeExpr = do
   skipSpaces
   rest <-
     many
-    $   (SetMinDate <$> minDateExpr)
+    $   (AddTag <$> addCtxTagExpr)
+    <|> (SetMinDate <$> minDateExpr)
     <|> (SetMaxDate <$> maxDateExpr)
-    <|> (AddTag <$> addCtxTagExpr)
     <|> (AddOpt <$> optExpr)
   skipSpaces
   return $ cmd : rest
@@ -240,19 +244,21 @@ delTagExpr = do
 
 numbers :: Int -> ReadP Int
 numbers c = do
-  skipSpaces
   n <- count c (satisfy isDigit)
-  skipSpaces
   return $ if null n then 0 else read n
 
+dueExpr :: ReadP ArgDate
+dueExpr = dateTimeExpr ':' <|> dateWithoutTimeExpr ':'
+
 minDateExpr :: ReadP ArgDate
-minDateExpr = dateWithTimeExpr '[' <|> dateWithoutTimeExpr '['
+minDateExpr = dateTimeExpr '[' <|> dateWithoutTimeExpr '['
 
 maxDateExpr :: ReadP ArgDate
-maxDateExpr = dateWithTimeExpr ']' <|> dateWithoutTimeExpr ']'
+maxDateExpr = dateTimeExpr ']' <|> dateWithoutTimeExpr ']'
 
-dateWithTimeExpr :: Char -> ReadP ArgDate
-dateWithTimeExpr ord = do
+dateTimeExpr :: Char -> ReadP ArgDate
+dateTimeExpr ord = do
+  skipSpaces
   char ord
   days   <- numbers 0 <|> numbers 1 <|> numbers 2
   months <- numbers 0 <|> numbers 1 <|> numbers 2
@@ -260,14 +266,17 @@ dateWithTimeExpr ord = do
   char ':'
   hours <- numbers 0 <|> numbers 1 <|> numbers 2
   mins  <- numbers 0 <|> numbers 1 <|> numbers 2
+  eof <|> (munch1 (== ' ') >> return ())
   return $ ArgDate days months years hours mins
 
 dateWithoutTimeExpr :: Char -> ReadP ArgDate
 dateWithoutTimeExpr ord = do
+  skipSpaces
   char ord
   days   <- numbers 1 <|> numbers 2
   months <- numbers 0 <|> numbers 1 <|> numbers 2
   years  <- numbers 0 <|> numbers 2
+  eof <|> (munch1 (== ' ') >> return ())
   return $ ArgDate days months years 0 0
 
 optExpr :: ReadP String
@@ -324,6 +333,7 @@ eval tree arg = case arg of
   DelTag  tag  -> tree { _tags = _tags tree \\ [tag] }
   AddWord desc -> tree { _desc = desc' }
     where desc' = if null (_desc tree) then desc else _desc tree ++ " " ++ desc
+  SetDue     due -> tree { _due = Just due }
   SetMinDate min -> tree { _minDate = Just min }
   SetMaxDate max -> tree { _maxDate = Just max }
   AddOpt     opt -> tree { _opts = opts }
@@ -355,6 +365,9 @@ parseDate now defHours defMins defSecs (ArgDate d mo y h m) = Just
     else if y < 100 then y + truncate (realToFrac y' / 100) * 100 else y
   dateStr = printf "%.4d-%.2d-%.2d" years months days
   timeStr = printf "%.2d:%.2d:%.2d" hours mins defSecs
+
+parseDue :: UTCTime -> ArgTree -> Maybe UTCTime
+parseDue now args = _due args >>= parseDate now 0 0 0
 
 parseMinDate :: UTCTime -> ArgTree -> Maybe UTCTime
 parseMinDate now args = _minDate args >>= parseDate now 0 0 0

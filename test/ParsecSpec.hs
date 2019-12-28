@@ -40,6 +40,21 @@ spec = parallel $ do
                                 , _opts = ArgOpts True
                                 }
 
+    it "add +tag desc :10:20" $ do
+      parseArgs "add +tag desc :10:20" `shouldBe` emptyArgTree
+        { _cmd  = "create"
+        , _desc = "desc"
+        , _tags = ["tag"]
+        , _due  = Just $ ArgDate 10 0 0 20 0
+        }
+
+    it "add ::20 +tag" $ do
+      parseArgs "add ::20 +tag" `shouldBe` emptyArgTree
+        { _cmd  = "create"
+        , _tags = ["tag"]
+        , _due  = Just $ ArgDate 0 0 0 20 0
+        }
+
     it "invalid update" $ do
       parseArgs "update" `shouldBe` emptyArgTree
       parseArgs "update bad-id" `shouldBe` emptyArgTree
@@ -211,7 +226,7 @@ spec = parallel $ do
         }
 
     it "wtime [10 tag" $ do
-      parseArgs "worktime [10 tag" `shouldBe` emptyArgTree
+      parseArgs "wtime [10 tag" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
@@ -219,7 +234,7 @@ spec = parallel $ do
         }
 
     it "wtime tag [:20" $ do
-      parseArgs "worktime tag [:20" `shouldBe` emptyArgTree
+      parseArgs "wtime tag [:20" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
@@ -227,7 +242,7 @@ spec = parallel $ do
         }
 
     it "wtime [10:20 tag" $ do
-      parseArgs "worktime [10:20 tag" `shouldBe` emptyArgTree
+      parseArgs "wtime [10:20 tag" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
@@ -235,7 +250,7 @@ spec = parallel $ do
         }
 
     it "wtime tag ]10" $ do
-      parseArgs "worktime tag ]10" `shouldBe` emptyArgTree
+      parseArgs "wtime tag ]10" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
@@ -243,7 +258,7 @@ spec = parallel $ do
         }
 
     it "wtime ]:20 tag" $ do
-      parseArgs "worktime ]:20 tag" `shouldBe` emptyArgTree
+      parseArgs "wtime ]:20 tag" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
@@ -251,7 +266,7 @@ spec = parallel $ do
         }
 
     it "wtime tag ]10:20" $ do
-      parseArgs "worktime tag ]10:20" `shouldBe` emptyArgTree
+      parseArgs "wtime tag ]10:20" `shouldBe` emptyArgTree
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]

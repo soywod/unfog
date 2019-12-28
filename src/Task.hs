@@ -37,12 +37,12 @@ data Task =
        , _stops :: [UTCTime]
        } deriving (Show, Read, Eq)
 
-newtype TimeRecord = TimeRecord {toTimeRecord :: Duration}
+newtype TimeRecord = TimeRecord {toTimeRecord :: Maybe Duration}
 instance ToJSON TimeRecord where
   toJSON (TimeRecord time) = object
-    [ "approx" .= (approximativeDuration time ++ " ago")
-    , "human" .= (humanReadableDuration time ++ " ago")
-    , "micro" .= time
+    [ "approx" .= (printApproxTime time)
+    , "human" .= (printHumanTime time)
+    , "micro" .= fromMaybe 0 time
     ]
 
 newtype DurationRecord = DurationRecord {toWtimeRecord :: Duration}
@@ -60,7 +60,8 @@ instance ToJSON Task where
     , "pos" .= pos
     , "desc" .= desc
     , "tags" .= tags
-    , "active" .= TimeRecord active
+    , "active" .= TimeRecord (Just active)
+    , "due" .= (TimeRecord due)
     , "done" .= if done then 1 else 0 :: Int
     , "wtime" .= DurationRecord wtime
     ]
@@ -169,15 +170,28 @@ prettyPrintTasks :: [Task] -> IO ()
 prettyPrintTasks tasks =
   putStrLn $ render $ table $ header : map prettyPrint tasks
  where
-  header = ["ID", "DESC", "TAGS", "ACTIVE"]
+  header = ["ID", "DESC", "TAGS", "ACTIVE", "DUE"]
   prettyPrint task =
     [ show $ _id task
     , _desc task
     , unwords $ _tags task
-    , if _active task > 0
-      then approximativeDuration (_active task) ++ " ago"
-      else ""
+    , printActive $ _active task
+    , printApproxTime $ _due task
     ]
+
+printActive :: Micro -> String
+printActive active | active > 0 = approximativeDuration active ++ " ago"
+                   | otherwise  = ""
+
+printApproxTime :: Maybe Duration -> String
+printApproxTime Nothing    = ""
+printApproxTime (Just due) = if due > 0 then "in " ++ due' else due' ++ " ago"
+  where due' = approximativeDuration $ abs due
+
+printHumanTime :: Maybe Duration -> String
+printHumanTime Nothing    = ""
+printHumanTime (Just due) = if due > 0 then "in " ++ due' else due' ++ " ago"
+  where due' = humanReadableDuration $ abs due
 
 prettyPrintWtime :: [DailyWtime] -> IO ()
 prettyPrintWtime wtime =
