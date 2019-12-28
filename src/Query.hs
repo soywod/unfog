@@ -100,6 +100,6 @@ execute args state events query = do
       putStrLn "unfog <help|h>"
       putStrLn "unfog <version|v>"
 
-    ShowVersion                 -> printVersion rtype "0.3.0"
+    ShowVersion                 -> printVersion rtype "0.3.1"
 
     Query.Error command message -> printErr rtype $ command ++ ": " ++ message

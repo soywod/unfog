@@ -60,7 +60,7 @@ instance ToJSON Task where
     , "pos" .= pos
     , "desc" .= desc
     , "tags" .= tags
-    , "active" .= TimeRecord (Just active)
+    , "active" .= TimeRecord (Just (-active))
     , "due" .= (TimeRecord due)
     , "done" .= if done then 1 else 0 :: Int
     , "wtime" .= DurationRecord wtime
