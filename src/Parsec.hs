@@ -79,7 +79,7 @@ commands =
 createExpr :: ReadP [Arg]
 createExpr = do
   cmd  <- cmdAliasExpr ["create", "add"]
-  args <- many1 $ (addTagExpr <|> dueExpr <|> optExpr) <++ wordExpr
+  args <- many1 $ optExpr <++ addTagExpr <++ dueExpr <++ wordExpr
   guard $ isJust $ find (not . isOpt) args
   return $ cmd : args
 
@@ -87,15 +87,14 @@ updateExpr :: ReadP [Arg]
 updateExpr = do
   cmd  <- cmdAliasExpr ["update", "edit"]
   id   <- idExpr
-  args <-
-    many1 $ (addTagExpr <|> delTagExpr <|> dueExpr <|> optExpr) <++ wordExpr
+  args <- many1 $ optExpr <++ addTagExpr <++ delTagExpr <++ dueExpr <++ wordExpr
   return $ cmd : id : args
 
 replaceExpr :: ReadP [Arg]
 replaceExpr = do
   cmd  <- cmdAliasExpr ["replace", "set"]
   id   <- idExpr
-  args <- many1 $ (addTagExpr <|> dueExpr <|> optExpr) <++ wordExpr
+  args <- many1 $ optExpr <++ addTagExpr <++ dueExpr <++ wordExpr
   guard $ isJust $ find (not . isOpt) args
   return $ cmd : id : args
 
@@ -117,23 +116,17 @@ deleteExpr = cmdWithIdExpr ["delete"]
 removeExpr :: ReadP [Arg]
 removeExpr = cmdWithIdExpr ["remove"]
 
-contextExpr :: ReadP [Arg]
-contextExpr = do
-  skipSpaces
-  cmd <- cmdAliasExpr ["context", "ctx"]
-  skipSpaces
-  rest <- many $ (AddTag <$> addCtxTagExpr) <|> (optExpr)
-  skipSpaces
-  return $ cmd : rest
+ctxExpr :: ReadP [Arg]
+ctxExpr = do
+  cmd  <- cmdAliasExpr ["context", "ctx"]
+  args <- many $ optExpr <++ addCtxTagExpr
+  return $ cmd : args
 
 listExpr :: ReadP [Arg]
 listExpr = do
-  skipSpaces
-  cmd <- cmdAliasExpr ["list"]
-  skipSpaces
-  rest <- many $ (optExpr)
-  skipSpaces
-  return $ cmd : rest
+  cmd  <- cmdAliasExpr ["list"]
+  args <- many optExpr
+  return $ cmd : args
 
 showExpr :: ReadP [Arg]
 showExpr = cmdWithIdExpr ["show"]
@@ -145,7 +138,7 @@ worktimeExpr = do
   skipSpaces
   rest <-
     many
-    $   (AddTag <$> addCtxTagExpr)
+    $   (addCtxTagExpr)
     <|> (SetMinDate <$> minDateExpr)
     <|> (SetMaxDate <$> maxDateExpr)
     <|> (optExpr)
@@ -200,14 +193,12 @@ addTagExpr = do
   tag <- munch1 isTag
   return $ AddTag tag
 
-addCtxTagExpr :: ReadP String
+addCtxTagExpr :: ReadP Arg
 addCtxTagExpr = do
   skipSpaces
   optional $ char '+'
-  fchar <- satisfy isAlpha
-  tag   <- munch1 isTag
-  skipSpaces
-  return $ fchar : tag
+  tag <- munch1 isTag
+  return $ AddTag tag
 
 delTagExpr :: ReadP Arg
 delTagExpr = do
@@ -293,7 +284,7 @@ parser =
     <|> doneExpr
     <|> deleteExpr
     <|> removeExpr
-    <|> contextExpr
+    <|> ctxExpr
     <|> listExpr
     <|> showExpr
     <|> worktimeExpr

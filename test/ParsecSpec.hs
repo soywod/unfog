@@ -199,25 +199,30 @@ spec = parallel $ do
                                                           , _opts = ArgOpts True
                                                           }
 
-  it "clear context" $ do
-    parseArgs "context" `shouldBe` emptyArgTree { _cmd = "context" }
+  describe "context expr" $ do
+    it "clear context" $ do
+      parseArgs "context" `shouldBe` emptyArgTree { _cmd = "context" }
 
-  it "context +tag +tag2 tag3" $ do
-    parseArgs "context +tag +tag2 tag3" `shouldBe` emptyArgTree
-      { _cmd  = "context"
-      , _tags = ["tag", "tag2", "tag3"]
-      }
+    it "with tags" $ do
+      parseArgs "context +tag1 +tag2 tag3" `shouldBe` emptyArgTree
+        { _cmd  = "context"
+        , _tags = ["tag1", "tag2", "tag3"]
+        }
 
-  it "ctx +tag tag2 --json" $ do
-    parseArgs "ctx +tag tag2"
-      `shouldBe` emptyArgTree { _cmd = "context", _tags = ["tag", "tag2"] }
+    it "with opt" $ do
+      parseArgs "ctx +tag1 tag2 --json" `shouldBe` emptyArgTree
+        { _cmd  = "context"
+        , _tags = ["tag1", "tag2"]
+        , _opts = ArgOpts True
+        }
 
-  it "list" $ do
-    parseArgs "list" `shouldBe` emptyArgTree { _type = Qry, _cmd = "list" }
-    parseArgs "list --json" `shouldBe` emptyArgTree { _type = Qry
-                                                    , _cmd  = "list"
-                                                    , _opts = ArgOpts True
-                                                    }
+  describe "list expr" $ do
+    it "with opt" $ do
+      parseArgs "list  " `shouldBe` emptyArgTree { _type = Qry, _cmd = "list" }
+      parseArgs "list   --json" `shouldBe` emptyArgTree { _type = Qry
+                                                        , _cmd  = "list"
+                                                        , _opts = ArgOpts True
+                                                        }
 
   it "invalid show" $ do
     parseArgs "show" `shouldBe` emptyArgTree
