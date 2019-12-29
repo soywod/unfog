@@ -127,67 +127,77 @@ spec = parallel $ do
         , _opts = ArgOpts True
         }
 
-  it "invalid start" $ do
-    parseArgs "start" `shouldBe` emptyArgTree
-    parseArgs "start bad-id" `shouldBe` emptyArgTree
+  describe "start expr" $ do
+    it "invalid args" $ do
+      parseArgs "start" `shouldBe` emptyArgTree
+      parseArgs "start bad-id" `shouldBe` emptyArgTree
 
-  it "start 1" $ do
-    parseArgs "start 1" `shouldBe` emptyArgTree { _cmd = "start", _id = 1 }
-    parseArgs "start 1 --json" `shouldBe` emptyArgTree { _cmd  = "start"
-                                                       , _id   = 1
-                                                       , _opts = ArgOpts True
-                                                       }
+    it "with id" $ do
+      parseArgs "start 1" `shouldBe` emptyArgTree { _cmd = "start", _id = 1 }
+      parseArgs "start 1 --json" `shouldBe` emptyArgTree { _cmd  = "start"
+                                                         , _id   = 1
+                                                         , _opts = ArgOpts True
+                                                         }
 
-  it "invalid stop" $ do
-    parseArgs "stop" `shouldBe` emptyArgTree
-    parseArgs "stop bad-id" `shouldBe` emptyArgTree
+  describe "stop expr" $ do
+    it "invalid args" $ do
+      parseArgs "stop" `shouldBe` emptyArgTree
+      parseArgs "stop bad-id" `shouldBe` emptyArgTree
 
-  it "stop 1" $ do
-    parseArgs "stop 1" `shouldBe` emptyArgTree { _cmd = "stop", _id = 1 }
-    parseArgs "stop 1 --json"
-      `shouldBe` emptyArgTree { _cmd = "stop", _id = 1, _opts = ArgOpts True }
-
-  it "invalid toggle" $ do
-    parseArgs "toggle" `shouldBe` emptyArgTree
-    parseArgs "toggle bad-id" `shouldBe` emptyArgTree
-
-  it "toggle 1" $ do
-    parseArgs "toggle 1" `shouldBe` emptyArgTree { _cmd = "toggle", _id = 1 }
-    parseArgs "toggle 1 --json" `shouldBe` emptyArgTree { _cmd  = "toggle"
+    it "with id" $ do
+      parseArgs "stop 1" `shouldBe` emptyArgTree { _cmd = "stop", _id = 1 }
+      parseArgs "stop 1 --json" `shouldBe` emptyArgTree { _cmd  = "stop"
                                                         , _id   = 1
                                                         , _opts = ArgOpts True
                                                         }
 
-  it "invalid done" $ do
-    parseArgs "done" `shouldBe` emptyArgTree
-    parseArgs "done bad-id" `shouldBe` emptyArgTree
+  describe "toggle expr" $ do
+    it "invalid args" $ do
+      parseArgs "toggle" `shouldBe` emptyArgTree
+      parseArgs "toggle bad-id" `shouldBe` emptyArgTree
 
-  it "done 1" $ do
-    parseArgs "done 1" `shouldBe` emptyArgTree { _cmd = "done", _id = 1 }
-    parseArgs "done 1 --json"
-      `shouldBe` emptyArgTree { _cmd = "done", _id = 1, _opts = ArgOpts True }
+    it "with id" $ do
+      parseArgs "toggle 1" `shouldBe` emptyArgTree { _cmd = "toggle", _id = 1 }
+      parseArgs "toggle 1 --json" `shouldBe` emptyArgTree { _cmd  = "toggle"
+                                                          , _id   = 1
+                                                          , _opts = ArgOpts True
+                                                          }
 
-  it "invalid delete" $ do
-    parseArgs "delete" `shouldBe` emptyArgTree
-    parseArgs "delete bad-id" `shouldBe` emptyArgTree
+  describe "done expr" $ do
+    it "invalid args" $ do
+      parseArgs "done" `shouldBe` emptyArgTree
+      parseArgs "done bad-id" `shouldBe` emptyArgTree
 
-  it "delete 1" $ do
-    parseArgs "delete 1" `shouldBe` emptyArgTree { _cmd = "delete", _id = 1 }
-    parseArgs "delete 1 --json" `shouldBe` emptyArgTree { _cmd  = "delete"
+    it "with id" $ do
+      parseArgs "done 1" `shouldBe` emptyArgTree { _cmd = "done", _id = 1 }
+      parseArgs "done 1 --json" `shouldBe` emptyArgTree { _cmd  = "done"
                                                         , _id   = 1
                                                         , _opts = ArgOpts True
                                                         }
 
-  it "invalid remove" $ do
-    parseArgs "remove" `shouldBe` emptyArgTree
-    parseArgs "remove bad-id" `shouldBe` emptyArgTree
+  describe "delete expr" $ do
+    it "invalid args" $ do
+      parseArgs "delete" `shouldBe` emptyArgTree
+      parseArgs "delete bad-id" `shouldBe` emptyArgTree
 
-  it "remove 1" $ do
-    parseArgs "remove 1" `shouldBe` emptyArgTree { _cmd = "remove", _id = 1 }
-    parseArgs "remove 1 --json" `shouldBe` emptyArgTree { _cmd  = "remove"
-                                                        , _id   = 1
-                                                        , _opts = ArgOpts True
-                                                        }
+    it "with id" $ do
+      parseArgs "delete 1" `shouldBe` emptyArgTree { _cmd = "delete", _id = 1 }
+      parseArgs "delete 1 --json" `shouldBe` emptyArgTree { _cmd  = "delete"
+                                                          , _id   = 1
+                                                          , _opts = ArgOpts True
+                                                          }
+
+  describe "remove expr" $ do
+    it "invalid args" $ do
+      parseArgs "remove" `shouldBe` emptyArgTree
+      parseArgs "remove bad-id" `shouldBe` emptyArgTree
+
+    it "with id" $ do
+      parseArgs "remove 1" `shouldBe` emptyArgTree { _cmd = "remove", _id = 1 }
+      parseArgs "remove 1 --json" `shouldBe` emptyArgTree { _cmd  = "remove"
+                                                          , _id   = 1
+                                                          , _opts = ArgOpts True
+                                                          }
 
   it "clear context" $ do
     parseArgs "context" `shouldBe` emptyArgTree { _cmd = "context" }
