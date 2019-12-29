@@ -131,48 +131,31 @@ listExpr = do
 showExpr :: ReadP [Arg]
 showExpr = cmdWithIdExpr ["show"]
 
-worktimeExpr :: ReadP [Arg]
-worktimeExpr = do
-  skipSpaces
-  cmd <- cmdAliasExpr ["worktime", "wtime"]
-  skipSpaces
-  rest <-
-    many
-    $   (addCtxTagExpr)
-    <|> (SetMinDate <$> minDateExpr)
-    <|> (SetMaxDate <$> maxDateExpr)
-    <|> (optExpr)
-  skipSpaces
-  return $ cmd : rest
+wtimeExpr :: ReadP [Arg]
+wtimeExpr = do
+  cmd  <- cmdAliasExpr ["worktime", "wtime"]
+  args <- many $ optExpr <++ addCtxTagExpr <++ minDateExpr <++ maxDateExpr
+  return $ cmd : args
 
 helpExpr :: ReadP [Arg]
 helpExpr = do
-  skipSpaces
   cmd <- cmdAliasExpr ["help", "h", "--help", "-h"]
-  skipSpaces
   return [cmd]
 
 versionExpr :: ReadP [Arg]
 versionExpr = do
-  skipSpaces
-  cmd <- cmdAliasExpr ["version", "v", "--version", "-v"]
-  skipSpaces
+  cmd  <- cmdAliasExpr ["version", "v", "--version", "-v"]
   rest <- many optExpr
-  skipSpaces
   return $ cmd : rest
 
 -- Composite exprs
 
 cmdWithIdExpr :: [String] -> ReadP [Arg]
 cmdWithIdExpr aliases = do
-  skipSpaces
-  cmd <- cmdAliasExpr aliases
-  skipSpaces
-  id <- idExpr
-  skipSpaces
-  rest <- many optExpr
-  skipSpaces
-  return $ cmd : id : rest
+  cmd  <- cmdAliasExpr aliases
+  id   <- idExpr
+  args <- many optExpr
+  return $ cmd : id : args
 
 cmdAliasExpr :: [String] -> ReadP Arg
 cmdAliasExpr aliases = do
@@ -207,41 +190,41 @@ delTagExpr = do
   tag <- munch1 isTag
   return $ DelTag tag
 
-numbers :: Int -> ReadP Int
-numbers c = do
+int :: Int -> ReadP Int
+int c = do
   n <- count c (satisfy isDigit)
   return $ if null n then 0 else read n
 
 dueExpr :: ReadP Arg
-dueExpr = SetDue <$> dateTimeExpr ':' <++ dateWithoutTimeExpr ':'
+dueExpr = SetDue <$> (dateTimeExpr ':' <|> dateExpr ':')
 
-minDateExpr :: ReadP ArgDate
-minDateExpr = dateTimeExpr '[' <|> dateWithoutTimeExpr '['
+minDateExpr :: ReadP Arg
+minDateExpr = SetMinDate <$> (dateTimeExpr '[' <|> dateExpr '[')
 
-maxDateExpr :: ReadP ArgDate
-maxDateExpr = dateTimeExpr ']' <|> dateWithoutTimeExpr ']'
+maxDateExpr :: ReadP Arg
+maxDateExpr = SetMaxDate <$> (dateTimeExpr ']' <|> dateExpr ']')
 
 dateTimeExpr :: Char -> ReadP ArgDate
 dateTimeExpr ord = do
   skipSpaces
   char ord
-  days   <- numbers 2 <++ numbers 1 <++ numbers 0
-  months <- numbers 2 <++ numbers 1 <++ numbers 0
-  years  <- numbers 2 <++ numbers 0
+  days   <- int 2 <++ int 1 <++ int 0
+  months <- int 2 <++ int 1 <++ int 0
+  years  <- int 2 <++ int 0
   char ':'
-  hours <- numbers 2 <++ numbers 1 <++ numbers 0
-  mins  <- numbers 2 <++ numbers 1 <++ numbers 0
-  eof <++ (munch1 (== ' ') >> return ())
+  hours <- int 2 <++ int 1 <++ int 0
+  mins  <- int 2 <++ int 1 <++ int 0
+  eof <|> (munch1 (== ' ') >> return ())
   return $ ArgDate days months years hours mins
 
-dateWithoutTimeExpr :: Char -> ReadP ArgDate
-dateWithoutTimeExpr ord = do
+dateExpr :: Char -> ReadP ArgDate
+dateExpr ord = do
   skipSpaces
   char ord
-  days   <- numbers 2 <++ numbers 1
-  months <- numbers 2 <++ numbers 1 <++ numbers 0
-  years  <- numbers 2 <++ numbers 0
-  eof <++ (munch1 (== ' ') >> return ())
+  days   <- int 2 <++ int 1
+  months <- int 2 <++ int 1 <++ int 0
+  years  <- int 2 <++ int 0
+  eof <|> (munch1 (== ' ') >> return ())
   return $ ArgDate days months years 0 0
 
 optExpr :: ReadP Arg
@@ -249,7 +232,7 @@ optExpr = do
   skipSpaces
   string "--"
   opt <- choice $ map string ["json"]
-  eof <++ (munch1 (== ' ') >> return ())
+  eof <|> (munch1 (== ' ') >> return ())
   return $ AddOpt opt
 
 wordExpr :: ReadP Arg
@@ -257,7 +240,7 @@ wordExpr = do
   skipSpaces
   fchar <- get
   rest  <- munch (/= ' ')
-  eof <++ (munch1 (== ' ') >> return ())
+  eof <|> (munch1 (== ' ') >> return ())
   return $ AddWord $ fchar : rest
 
 -- Helper
@@ -287,7 +270,7 @@ parser =
     <|> ctxExpr
     <|> listExpr
     <|> showExpr
-    <|> worktimeExpr
+    <|> wtimeExpr
     <|> helpExpr
     <|> versionExpr
 

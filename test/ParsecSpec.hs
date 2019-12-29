@@ -224,97 +224,100 @@ spec = parallel $ do
                                                         , _opts = ArgOpts True
                                                         }
 
-  it "invalid show" $ do
-    parseArgs "show" `shouldBe` emptyArgTree
-    parseArgs "show bad-id" `shouldBe` emptyArgTree
+  describe "show expr" $ do
+    it "invalid args" $ do
+      parseArgs "show" `shouldBe` emptyArgTree
+      parseArgs "show bad-id" `shouldBe` emptyArgTree
 
-  it "show 1" $ do
-    parseArgs "show 1"
-      `shouldBe` emptyArgTree { _type = Qry, _cmd = "show", _id = 1 }
-    parseArgs "show 1 --json" `shouldBe` emptyArgTree { _type = Qry
-                                                      , _cmd  = "show"
-                                                      , _id   = 1
-                                                      , _opts = ArgOpts True
-                                                      }
+    it "with id" $ do
+      parseArgs "show 1"
+        `shouldBe` emptyArgTree { _type = Qry, _cmd = "show", _id = 1 }
+      parseArgs "show 1   --json" `shouldBe` emptyArgTree { _type = Qry
+                                                          , _cmd  = "show"
+                                                          , _id   = 1
+                                                          , _opts = ArgOpts True
+                                                          }
 
-  it "worktime" $ do
-    parseArgs "worktime"
-      `shouldBe` emptyArgTree { _type = Qry, _cmd = "worktime" }
+  describe "worktime expr" $ do
+    it "global" $ do
+      parseArgs "worktime"
+        `shouldBe` emptyArgTree { _type = Qry, _cmd = "worktime" }
 
-  it "worktime tag +tag2" $ do
-    parseArgs "worktime tag +tag2" `shouldBe` emptyArgTree
-      { _type = Qry
-      , _cmd  = "worktime"
-      , _tags = ["tag", "tag2"]
-      }
+    it "with tags" $ do
+      parseArgs "worktime tag +tag2" `shouldBe` emptyArgTree
+        { _type = Qry
+        , _cmd  = "worktime"
+        , _tags = ["tag", "tag2"]
+        }
 
-  it "worktime +tag tag2 --json" $ do
-    parseArgs "worktime +tag tag2 --json" `shouldBe` emptyArgTree
-      { _type = Qry
-      , _cmd  = "worktime"
-      , _tags = ["tag", "tag2"]
-      , _opts = ArgOpts True
-      }
+    it "with opts" $ do
+      parseArgs "worktime +tag tag2 --json" `shouldBe` emptyArgTree
+        { _type = Qry
+        , _cmd  = "worktime"
+        , _tags = ["tag", "tag2"]
+        , _opts = ArgOpts True
+        }
 
-  it "wtime [10 tag" $ do
-    parseArgs "wtime [10 tag" `shouldBe` emptyArgTree
-      { _type    = Qry
-      , _cmd     = "worktime"
-      , _tags    = ["tag"]
-      , _minDate = Just $ ArgDate 10 0 0 0 0
-      }
+    it "with min date" $ do
+      parseArgs "wtime [10 tag" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _tags    = ["tag"]
+        , _minDate = Just $ ArgDate 10 0 0 0 0
+        }
 
-  it "wtime tag [:20" $ do
-    parseArgs "wtime tag [:20" `shouldBe` emptyArgTree
-      { _type    = Qry
-      , _cmd     = "worktime"
-      , _tags    = ["tag"]
-      , _minDate = Just $ ArgDate 0 0 0 20 0
-      }
+    it "with min time" $ do
+      parseArgs "wtime tag [:20" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _tags    = ["tag"]
+        , _minDate = Just $ ArgDate 0 0 0 20 0
+        }
 
-  it "wtime [10:20 tag" $ do
-    parseArgs "wtime [10:20 tag" `shouldBe` emptyArgTree
-      { _type    = Qry
-      , _cmd     = "worktime"
-      , _tags    = ["tag"]
-      , _minDate = Just $ ArgDate 10 0 0 20 0
-      }
+    it "with min datetime" $ do
+      parseArgs "wtime [10:20 tag" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _tags    = ["tag"]
+        , _minDate = Just $ ArgDate 10 0 0 20 0
+        }
 
-  it "wtime tag ]10" $ do
-    parseArgs "wtime tag ]10" `shouldBe` emptyArgTree
-      { _type    = Qry
-      , _cmd     = "worktime"
-      , _tags    = ["tag"]
-      , _maxDate = Just $ ArgDate 10 0 0 0 0
-      }
+    it "with max date" $ do
+      parseArgs "wtime tag ]10" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _tags    = ["tag"]
+        , _maxDate = Just $ ArgDate 10 0 0 0 0
+        }
 
-  it "wtime ]:20 tag" $ do
-    parseArgs "wtime ]:20 tag" `shouldBe` emptyArgTree
-      { _type    = Qry
-      , _cmd     = "worktime"
-      , _tags    = ["tag"]
-      , _maxDate = Just $ ArgDate 0 0 0 20 0
-      }
+    it "with max time" $ do
+      parseArgs "wtime ]:20 tag" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _tags    = ["tag"]
+        , _maxDate = Just $ ArgDate 0 0 0 20 0
+        }
 
-  it "wtime tag ]10:20" $ do
-    parseArgs "wtime tag ]10:20" `shouldBe` emptyArgTree
-      { _type    = Qry
-      , _cmd     = "worktime"
-      , _tags    = ["tag"]
-      , _maxDate = Just $ ArgDate 10 0 0 20 0
-      }
+    it "with max datetime" $ do
+      parseArgs "wtime tag ]10:20" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _tags    = ["tag"]
+        , _maxDate = Just $ ArgDate 10 0 0 20 0
+        }
 
-  it "wtime [10:20 ]14 tag" $ do
-    parseArgs "wtime [10:20 ]14 tag" `shouldBe` emptyArgTree
-      { _type    = Qry
-      , _cmd     = "worktime"
-      , _tags    = ["tag"]
-      , _minDate = Just $ ArgDate 10 0 0 20 0
-      , _maxDate = Just $ ArgDate 14 0 0 0 0
-      }
+    it "with min and max datetimes" $ do
+      parseArgs "wtime [10:20 ]14 tag" `shouldBe` emptyArgTree
+        { _type    = Qry
+        , _cmd     = "worktime"
+        , _tags    = ["tag"]
+        , _minDate = Just $ ArgDate 10 0 0 20 0
+        , _maxDate = Just $ ArgDate 14 0 0 0 0
+        }
 
-  it "help" $ do
-    parseArgs "help" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
-    parseArgs "h" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
-    parseArgs "--help" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
-    parseArgs "-h" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
+  describe "help expr" $ do
+    it "with aliases" $ do
+      parseArgs "help" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
+      parseArgs "h" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
+      parseArgs "--help" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
+      parseArgs "-h" `shouldBe` emptyArgTree { _type = Qry, _cmd = "help" }
