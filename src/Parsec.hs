@@ -3,6 +3,8 @@
 module Parsec where
 
 import           Prelude                 hiding ( Word )
+import           Control.Monad
+import           Data.Maybe
 import           Control.Applicative     hiding ( many
                                                 , optional
                                                 )
@@ -76,17 +78,14 @@ commands =
 
 createExpr :: ReadP [Arg]
 createExpr = do
-  skipSpaces
-  cmd <- SetCmd <$> cmdAliasExpr ["create", "add"]
-  skipSpaces
-  rest <-
-    many1
-    $   (AddWord <$> wordExpr)
-    <|> (AddTag <$> addTagExpr)
-    <|> (SetDue <$> dueExpr)
-    <|> (AddOpt <$> optExpr)
-  skipSpaces
-  return $ cmd : rest
+  cmd  <- skipSpaces >> SetCmd <$> cmdAliasExpr ["create", "add"]
+  args <- skipSpaces >> many1 (parseTagDueOpt <++ parseWord)
+  guard $ isJust $ find (not . isOpt) args
+  return $ cmd : args
+ where
+  parseWord = (AddWord <$> wordExpr)
+  parseTagDueOpt =
+    (AddTag <$> addTagExpr) <|> (SetDue <$> dueExpr) <|> (AddOpt <$> optExpr)
 
 updateExpr :: ReadP [Arg]
 updateExpr = do
@@ -219,10 +218,8 @@ addTagExpr :: ReadP String
 addTagExpr = do
   skipSpaces
   char '+'
-  fchar <- satisfy isAlpha
-  tag   <- munch isTag
-  skipSpaces
-  return $ fchar : tag
+  tag <- munch1 isTag
+  return tag
 
 addCtxTagExpr :: ReadP String
 addCtxTagExpr = do
@@ -248,7 +245,7 @@ numbers c = do
   return $ if null n then 0 else read n
 
 dueExpr :: ReadP ArgDate
-dueExpr = dateTimeExpr ':' <|> dateWithoutTimeExpr ':'
+dueExpr = dateTimeExpr ':' <++ dateWithoutTimeExpr ':'
 
 minDateExpr :: ReadP ArgDate
 minDateExpr = dateTimeExpr '[' <|> dateWithoutTimeExpr '['
@@ -260,23 +257,23 @@ dateTimeExpr :: Char -> ReadP ArgDate
 dateTimeExpr ord = do
   skipSpaces
   char ord
-  days   <- numbers 0 <|> numbers 1 <|> numbers 2
-  months <- numbers 0 <|> numbers 1 <|> numbers 2
-  years  <- numbers 0 <|> numbers 2
+  days   <- numbers 2 <++ numbers 1 <++ numbers 0
+  months <- numbers 2 <++ numbers 1 <++ numbers 0
+  years  <- numbers 2 <++ numbers 0
   char ':'
-  hours <- numbers 0 <|> numbers 1 <|> numbers 2
-  mins  <- numbers 0 <|> numbers 1 <|> numbers 2
-  eof <|> (munch1 (== ' ') >> return ())
+  hours <- numbers 2 <++ numbers 1 <++ numbers 0
+  mins  <- numbers 2 <++ numbers 1 <++ numbers 0
+  eof <++ (munch1 (== ' ') >> return ())
   return $ ArgDate days months years hours mins
 
 dateWithoutTimeExpr :: Char -> ReadP ArgDate
 dateWithoutTimeExpr ord = do
   skipSpaces
   char ord
-  days   <- numbers 1 <|> numbers 2
-  months <- numbers 0 <|> numbers 1 <|> numbers 2
-  years  <- numbers 0 <|> numbers 2
-  eof <|> (munch1 (== ' ') >> return ())
+  days   <- numbers 2 <++ numbers 1
+  months <- numbers 2 <++ numbers 1 <++ numbers 0
+  years  <- numbers 2 <++ numbers 0
+  eof <++ (munch1 (== ' ') >> return ())
   return $ ArgDate days months years 0 0
 
 optExpr :: ReadP String
@@ -284,7 +281,7 @@ optExpr = do
   skipSpaces
   string "--"
   opt <- choice $ map string ["json"]
-  skipSpaces
+  eof <++ (munch1 (== ' ') >> return ())
   return opt
 
 wordExpr :: ReadP String
@@ -292,10 +289,14 @@ wordExpr = do
   skipSpaces
   fchar <- get
   rest  <- munch (/= ' ')
-  skipSpaces
+  eof <++ (munch1 (== ' ') >> return ())
   return $ fchar : rest
 
 -- Helper
+
+isOpt :: Arg -> Bool
+isOpt (AddOpt _) = True
+isOpt _          = False
 
 isTag :: Char -> Bool
 isTag c | isAlphaNum c  = True
