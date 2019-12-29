@@ -19,11 +19,11 @@ spec = parallel $ do
       parseArgs "create --json" `shouldBe` emptyArgTree
 
     it "with desc" $ do
-      parseArgs "create desc1 desc2 desc3" `shouldBe` emptyArgTree
+      parseArgs "create desc1 desc2    desc3" `shouldBe` emptyArgTree
         { _cmd  = "create"
         , _desc = "desc1 desc2 desc3"
         }
-      parseArgs "create + :desc [desc desc{}" `shouldBe` emptyArgTree
+      parseArgs "add + :desc [desc desc{}" `shouldBe` emptyArgTree
         { _cmd  = "create"
         , _desc = "+ :desc [desc desc{}"
         }
@@ -31,18 +31,18 @@ spec = parallel $ do
     it "with tags" $ do
       parseArgs "create +tag1 +tag2"
         `shouldBe` emptyArgTree { _cmd = "create", _tags = ["tag1", "tag2"] }
-      parseArgs "create +tag1 -tag1 +tag2" `shouldBe` emptyArgTree
+      parseArgs "add +tag1   -tag1  +tag2" `shouldBe` emptyArgTree
         { _cmd  = "create"
         , _desc = "-tag1"
         , _tags = ["tag1", "tag2"]
         }
 
     it "with due" $ do
-      parseArgs "create :10:20" `shouldBe` emptyArgTree
+      parseArgs "create  :10:20   " `shouldBe` emptyArgTree
         { _cmd = "create"
         , _due = Just $ ArgDate 10 0 0 20 0
         }
-      parseArgs "create ::20" `shouldBe` emptyArgTree
+      parseArgs "add    ::20" `shouldBe` emptyArgTree
         { _cmd = "create"
         , _due = Just $ ArgDate 0 0 0 20 0
         }
@@ -54,61 +54,78 @@ spec = parallel $ do
                                       , _due  = Just $ ArgDate 0 0 0 20 0
                                       , _opts = ArgOpts { _json = True }
                                       }
-      parseArgs "create desc +tag ::20 --json" `shouldBe` expectedTree
-      parseArgs "create +tag desc --json ::20" `shouldBe` expectedTree
-      parseArgs "create ::20 --json desc +tag" `shouldBe` expectedTree
+      parseArgs "create   desc +tag ::20 --json" `shouldBe` expectedTree
+      parseArgs "create +tag   desc --json ::20" `shouldBe` expectedTree
+      parseArgs "add ::20 --json   desc +tag" `shouldBe` expectedTree
 
-  it "invalid update" $ do
-    parseArgs "update" `shouldBe` emptyArgTree
-    parseArgs "update bad-id" `shouldBe` emptyArgTree
-    parseArgs "update 1" `shouldBe` emptyArgTree
+  describe "update expr" $ do
+    it "invalid args" $ do
+      parseArgs "update" `shouldBe` emptyArgTree
+      parseArgs "update bad-id" `shouldBe` emptyArgTree
+      parseArgs "update 1" `shouldBe` emptyArgTree
 
-  it "update 1 desc" $ do
-    parseArgs "update 1 desc"
-      `shouldBe` emptyArgTree { _cmd = "update", _id = 1, _desc = "desc" }
+    it "with desc" $ do
+      parseArgs "update 1 desc"
+        `shouldBe` emptyArgTree { _cmd = "update", _id = 1, _desc = "desc" }
 
-  it "update 2 +tag desc +tag2 desc2 --json" $ do
-    parseArgs "update 2 +tag desc +tag2 desc2 --json" `shouldBe` emptyArgTree
-      { _cmd  = "update"
-      , _id   = 2
-      , _desc = "desc desc2"
-      , _tags = ["tag", "tag2"]
-      , _opts = ArgOpts True
-      }
+    it "with tags" $ do
+      parseArgs "update  1   +tag"
+        `shouldBe` emptyArgTree { _cmd = "update", _id = 1, _tags = ["tag"] }
+      parseArgs "edit 2   +tag -tag   +tag2"
+        `shouldBe` emptyArgTree { _cmd = "update", _id = 2, _tags = ["tag2"] }
 
-  it "edit 2 +tag desc +tag2 desc2 -tag" $ do
-    parseArgs "edit 2 +tag desc +tag2 desc2" `shouldBe` emptyArgTree
-      { _cmd  = "update"
-      , _id   = 2
-      , _desc = "desc desc2"
-      , _tags = ["tag", "tag2"]
-      }
+    it "with due" $ do
+      parseArgs "edit   2 :10:20 " `shouldBe` emptyArgTree
+        { _cmd = "update"
+        , _id  = 2
+        , _due = Just $ ArgDate 10 0 0 20 0
+        }
 
-  it "invalid replace" $ do
-    parseArgs "replace" `shouldBe` emptyArgTree
-    parseArgs "replace bad-id" `shouldBe` emptyArgTree
-    parseArgs "replace 1" `shouldBe` emptyArgTree
+    it "with opt" $ do
+      parseArgs "update 1 desc +tag --json" `shouldBe` emptyArgTree
+        { _cmd  = "update"
+        , _desc = "desc"
+        , _tags = ["tag"]
+        , _id   = 1
+        , _opts = ArgOpts True
+        }
 
-  it "replace 1 desc" $ do
-    parseArgs "replace 1 desc"
-      `shouldBe` emptyArgTree { _cmd = "replace", _id = 1, _desc = "desc" }
+  describe "replace expr" $ do
+    it "invalid args" $ do
+      parseArgs "replace" `shouldBe` emptyArgTree
+      parseArgs "replace bad-id" `shouldBe` emptyArgTree
+      parseArgs "replace 1" `shouldBe` emptyArgTree
+      parseArgs "replace 1 --json" `shouldBe` emptyArgTree
 
-  it "replace 2 +tag desc +tag2 desc2 --json" $ do
-    parseArgs "replace 2 +tag desc +tag2 desc2 --json" `shouldBe` emptyArgTree
-      { _cmd  = "replace"
-      , _id   = 2
-      , _desc = "desc desc2"
-      , _tags = ["tag", "tag2"]
-      , _opts = ArgOpts True
-      }
+    it "with desc" $ do
+      parseArgs "replace 1 desc"
+        `shouldBe` emptyArgTree { _cmd = "replace", _id = 1, _desc = "desc" }
 
-  it "set 2 +tag desc +tag2 desc2 -tag" $ do
-    parseArgs "set 2 +tag desc +tag2 desc2 -tag" `shouldBe` emptyArgTree
-      { _cmd  = "replace"
-      , _id   = 2
-      , _desc = "desc desc2 -tag"
-      , _tags = ["tag", "tag2"]
-      }
+    it "with tags" $ do
+      parseArgs "replace  1   +tag"
+        `shouldBe` emptyArgTree { _cmd = "replace", _id = 1, _tags = ["tag"] }
+      parseArgs "set 2   +tag -tag   +tag2" `shouldBe` emptyArgTree
+        { _cmd  = "replace"
+        , _id   = 2
+        , _desc = "-tag"
+        , _tags = ["tag", "tag2"]
+        }
+
+    it "with due" $ do
+      parseArgs "set   2 :10:20 " `shouldBe` emptyArgTree
+        { _cmd = "replace"
+        , _id  = 2
+        , _due = Just $ ArgDate 10 0 0 20 0
+        }
+
+    it "with opt" $ do
+      parseArgs "replace 1 desc +tag --json" `shouldBe` emptyArgTree
+        { _cmd  = "replace"
+        , _desc = "desc"
+        , _tags = ["tag"]
+        , _id   = 1
+        , _opts = ArgOpts True
+        }
 
   it "invalid start" $ do
     parseArgs "start" `shouldBe` emptyArgTree

@@ -78,45 +78,26 @@ commands =
 
 createExpr :: ReadP [Arg]
 createExpr = do
-  cmd  <- skipSpaces >> SetCmd <$> cmdAliasExpr ["create", "add"]
-  args <- skipSpaces >> many1 (parseTagDueOpt <++ parseWord)
+  cmd  <- cmdAliasExpr ["create", "add"]
+  args <- many1 $ (addTagExpr <|> dueExpr <|> optExpr) <++ wordExpr
   guard $ isJust $ find (not . isOpt) args
   return $ cmd : args
- where
-  parseWord = (AddWord <$> wordExpr)
-  parseTagDueOpt =
-    (AddTag <$> addTagExpr) <|> (SetDue <$> dueExpr) <|> (AddOpt <$> optExpr)
 
 updateExpr :: ReadP [Arg]
 updateExpr = do
-  skipSpaces
-  cmd <- SetCmd <$> cmdAliasExpr ["update", "edit"]
-  skipSpaces
-  id <- SetId <$> idExpr
-  skipSpaces
-  rest <-
-    many1
-    $   (AddWord <$> wordExpr)
-    <|> (AddTag <$> addTagExpr)
-    <|> (DelTag <$> delTagExpr)
-    <|> (AddOpt <$> optExpr)
-  skipSpaces
-  return $ cmd : id : rest
+  cmd  <- cmdAliasExpr ["update", "edit"]
+  id   <- idExpr
+  args <-
+    many1 $ (addTagExpr <|> delTagExpr <|> dueExpr <|> optExpr) <++ wordExpr
+  return $ cmd : id : args
 
 replaceExpr :: ReadP [Arg]
 replaceExpr = do
-  skipSpaces
-  cmd <- SetCmd <$> cmdAliasExpr ["replace", "set"]
-  skipSpaces
-  id <- SetId <$> idExpr
-  skipSpaces
-  rest <-
-    many1
-    $   (AddWord <$> wordExpr)
-    <|> (AddTag <$> addTagExpr)
-    <|> (AddOpt <$> optExpr)
-  skipSpaces
-  return $ cmd : id : rest
+  cmd  <- cmdAliasExpr ["replace", "set"]
+  id   <- idExpr
+  args <- many1 $ (addTagExpr <|> dueExpr <|> optExpr) <++ wordExpr
+  guard $ isJust $ find (not . isOpt) args
+  return $ cmd : id : args
 
 startExpr :: ReadP [Arg]
 startExpr = cmdWithIdExpr ["start"]
@@ -128,7 +109,7 @@ toggleExpr :: ReadP [Arg]
 toggleExpr = cmdWithIdExpr ["toggle"]
 
 doneExpr :: ReadP [Arg]
-doneExpr = cmdWithIdExpr ["done", "d"]
+doneExpr = cmdWithIdExpr ["done"]
 
 deleteExpr :: ReadP [Arg]
 deleteExpr = cmdWithIdExpr ["delete"]
@@ -139,18 +120,18 @@ removeExpr = cmdWithIdExpr ["remove"]
 contextExpr :: ReadP [Arg]
 contextExpr = do
   skipSpaces
-  cmd <- SetCmd <$> cmdAliasExpr ["context", "ctx"]
+  cmd <- cmdAliasExpr ["context", "ctx"]
   skipSpaces
-  rest <- many $ (AddTag <$> addCtxTagExpr) <|> (AddOpt <$> optExpr)
+  rest <- many $ (AddTag <$> addCtxTagExpr) <|> (optExpr)
   skipSpaces
   return $ cmd : rest
 
 listExpr :: ReadP [Arg]
 listExpr = do
   skipSpaces
-  cmd <- SetCmd <$> cmdAliasExpr ["list"]
+  cmd <- cmdAliasExpr ["list"]
   skipSpaces
-  rest <- many $ (AddOpt <$> optExpr)
+  rest <- many $ (optExpr)
   skipSpaces
   return $ cmd : rest
 
@@ -160,30 +141,30 @@ showExpr = cmdWithIdExpr ["show"]
 worktimeExpr :: ReadP [Arg]
 worktimeExpr = do
   skipSpaces
-  cmd <- SetCmd <$> cmdAliasExpr ["worktime", "wtime"]
+  cmd <- cmdAliasExpr ["worktime", "wtime"]
   skipSpaces
   rest <-
     many
     $   (AddTag <$> addCtxTagExpr)
     <|> (SetMinDate <$> minDateExpr)
     <|> (SetMaxDate <$> maxDateExpr)
-    <|> (AddOpt <$> optExpr)
+    <|> (optExpr)
   skipSpaces
   return $ cmd : rest
 
 helpExpr :: ReadP [Arg]
 helpExpr = do
   skipSpaces
-  cmd <- SetCmd <$> cmdAliasExpr ["help", "h", "--help", "-h"]
+  cmd <- cmdAliasExpr ["help", "h", "--help", "-h"]
   skipSpaces
   return [cmd]
 
 versionExpr :: ReadP [Arg]
 versionExpr = do
   skipSpaces
-  cmd <- SetCmd <$> cmdAliasExpr ["version", "v", "--version", "-v"]
+  cmd <- cmdAliasExpr ["version", "v", "--version", "-v"]
   skipSpaces
-  rest <- many $ AddOpt <$> optExpr
+  rest <- many optExpr
   skipSpaces
   return $ cmd : rest
 
@@ -192,34 +173,32 @@ versionExpr = do
 cmdWithIdExpr :: [String] -> ReadP [Arg]
 cmdWithIdExpr aliases = do
   skipSpaces
-  cmd <- SetCmd <$> cmdAliasExpr aliases
+  cmd <- cmdAliasExpr aliases
   skipSpaces
-  id <- SetId <$> idExpr
+  id <- idExpr
   skipSpaces
-  rest <- many $ AddOpt <$> optExpr
+  rest <- many optExpr
   skipSpaces
   return $ cmd : id : rest
 
-cmdAliasExpr :: [String] -> ReadP String
+cmdAliasExpr :: [String] -> ReadP Arg
 cmdAliasExpr aliases = do
   skipSpaces
   cmd <- choice $ map string aliases
-  skipSpaces
-  return $ head aliases
+  return $ SetCmd $ head aliases
 
-idExpr :: ReadP Int
+idExpr :: ReadP Arg
 idExpr = do
   skipSpaces
   id <- munch1 isDigit
-  skipSpaces
-  return (read id :: Int)
+  return $ SetId (read id :: Int)
 
-addTagExpr :: ReadP String
+addTagExpr :: ReadP Arg
 addTagExpr = do
   skipSpaces
   char '+'
   tag <- munch1 isTag
-  return tag
+  return $ AddTag tag
 
 addCtxTagExpr :: ReadP String
 addCtxTagExpr = do
@@ -230,22 +209,20 @@ addCtxTagExpr = do
   skipSpaces
   return $ fchar : tag
 
-delTagExpr :: ReadP String
+delTagExpr :: ReadP Arg
 delTagExpr = do
   skipSpaces
   char '-'
-  fchar <- satisfy isAlpha
-  tag   <- munch1 isTag
-  skipSpaces
-  return $ fchar : tag
+  tag <- munch1 isTag
+  return $ DelTag tag
 
 numbers :: Int -> ReadP Int
 numbers c = do
   n <- count c (satisfy isDigit)
   return $ if null n then 0 else read n
 
-dueExpr :: ReadP ArgDate
-dueExpr = dateTimeExpr ':' <++ dateWithoutTimeExpr ':'
+dueExpr :: ReadP Arg
+dueExpr = SetDue <$> dateTimeExpr ':' <++ dateWithoutTimeExpr ':'
 
 minDateExpr :: ReadP ArgDate
 minDateExpr = dateTimeExpr '[' <|> dateWithoutTimeExpr '['
@@ -276,21 +253,21 @@ dateWithoutTimeExpr ord = do
   eof <++ (munch1 (== ' ') >> return ())
   return $ ArgDate days months years 0 0
 
-optExpr :: ReadP String
+optExpr :: ReadP Arg
 optExpr = do
   skipSpaces
   string "--"
   opt <- choice $ map string ["json"]
   eof <++ (munch1 (== ' ') >> return ())
-  return opt
+  return $ AddOpt opt
 
-wordExpr :: ReadP String
+wordExpr :: ReadP Arg
 wordExpr = do
   skipSpaces
   fchar <- get
   rest  <- munch (/= ' ')
   eof <++ (munch1 (== ' ') >> return ())
-  return $ fchar : rest
+  return $ AddWord $ fchar : rest
 
 -- Helper
 
