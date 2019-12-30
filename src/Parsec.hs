@@ -16,7 +16,7 @@ import           Text.Printf
 
 data Arg
   = SetCmd String
-  | SetId Int
+  | AddId Int
   | AddTag String
   | DelTag String
   | SetDue ArgDate
@@ -39,7 +39,7 @@ data ArgDate = ArgDate { _days :: Int
 
 data ArgTree = ArgTree { _type :: ArgType
                        , _cmd :: String
-                       , _id :: Int
+                       , _ids :: [Int]
                        , _desc :: String
                        , _tags :: [String]
                        , _due :: Maybe ArgDate
@@ -49,7 +49,7 @@ data ArgTree = ArgTree { _type :: ArgType
                        } deriving (Show, Eq)
 
 emptyArgTree :: ArgTree
-emptyArgTree = ArgTree { _id      = 0
+emptyArgTree = ArgTree { _ids     = []
                        , _type    = Cmd
                        , _cmd     = ""
                        , _desc    = ""
@@ -86,17 +86,17 @@ createExpr = do
 updateExpr :: ReadP [Arg]
 updateExpr = do
   cmd  <- cmdAliasExpr ["update", "edit"]
-  id   <- idExpr
+  ids  <- many1 idExpr
   args <- many1 $ optExpr <++ addTagExpr <++ delTagExpr <++ dueExpr <++ wordExpr
-  return $ cmd : id : args
+  return $ cmd : ids ++ args
 
 replaceExpr :: ReadP [Arg]
 replaceExpr = do
   cmd  <- cmdAliasExpr ["replace", "set"]
-  id   <- idExpr
+  ids  <- many1 idExpr
   args <- many1 $ optExpr <++ addTagExpr <++ dueExpr <++ wordExpr
   guard $ isJust $ find (not . isOpt) args
-  return $ cmd : id : args
+  return $ cmd : ids ++ args
 
 startExpr :: ReadP [Arg]
 startExpr = cmdWithIdExpr ["start"]
@@ -129,7 +129,11 @@ listExpr = do
   return $ cmd : args
 
 showExpr :: ReadP [Arg]
-showExpr = cmdWithIdExpr ["show"]
+showExpr = do
+  cmd  <- cmdAliasExpr ["show"]
+  id   <- idExpr
+  args <- many optExpr
+  return $ cmd : id : args
 
 wtimeExpr :: ReadP [Arg]
 wtimeExpr = do
@@ -153,9 +157,9 @@ versionExpr = do
 cmdWithIdExpr :: [String] -> ReadP [Arg]
 cmdWithIdExpr aliases = do
   cmd  <- cmdAliasExpr aliases
-  id   <- idExpr
+  ids  <- many1 idExpr
   args <- many optExpr
-  return $ cmd : id : args
+  return $ cmd : ids ++ args
 
 cmdAliasExpr :: [String] -> ReadP Arg
 cmdAliasExpr aliases = do
@@ -167,7 +171,7 @@ idExpr :: ReadP Arg
 idExpr = do
   skipSpaces
   id <- munch1 isDigit
-  return $ SetId (read id :: Int)
+  return $ AddId (read id :: Int)
 
 addTagExpr :: ReadP Arg
 addTagExpr = do
@@ -280,7 +284,7 @@ eval tree arg = case arg of
    where
     _type | _cmd `elem` commands = Cmd
           | _cmd `elem` queries  = Qry
-  SetId   _id  -> tree { _id }
+  AddId   id   -> tree { _ids = _ids tree ++ [id] }
   AddTag  tag  -> tree { _tags = _tags tree ++ [tag] }
   DelTag  tag  -> tree { _tags = _tags tree \\ [tag] }
   AddWord desc -> tree { _desc = desc' }

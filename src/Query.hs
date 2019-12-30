@@ -2,7 +2,7 @@ module Query where
 
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Control.Exception
-import           Data.Aeson
+import           Data.Aeson              hiding ( Error )
 import           Data.Duration
 import           Data.Fixed
 import           Data.List
@@ -42,9 +42,9 @@ getQuery args = case Parsec._cmd args of
   "worktime" -> ShowWtime args
   "help"     -> ShowHelp
   "version"  -> ShowVersion
-  "show"     -> case Parsec._id args of
-    0  -> Query.Error "show" "invalid arguments"
-    id -> ShowTask args
+  "show"     -> case Parsec._ids args of
+    []     -> Error "show" "invalid arguments"
+    id : _ -> ShowTask args
 
 execute :: Parsec.ArgTree -> State -> [Event] -> Query -> IO ()
 execute args state events query = do
@@ -67,12 +67,13 @@ execute args state events query = do
     ShowTask args -> do
       now <- getCurrentTime
       let ctx       = _ctx state
+      let id        = head $ Parsec._ids args
       let fByTags   = filterByTags $ _ctx state
       let fByDone   = filterByDone $ "done" `elem` ctx
-      let fByNumber = findById $ Parsec._id args
+      let fByNumber = findById id
       let maybeTask = fByNumber . fByTags . fByDone $ _tasks state
       case maybeTask of
-        Nothing   -> printErr rtype "show: task not found"
+        Nothing   -> printErr rtype $ "show: task [" ++ show id ++ "] not found"
         Just task -> printTask rtype $ task { _wtime = getTotalWtime now task }
 
     ShowWtime args -> do
@@ -87,19 +88,23 @@ execute args state events query = do
       printWtime rtype ("unfog: wtime " ++ ctx) wtime
 
     ShowHelp -> do
-      putStrLn "Usage: unfog <cmd> [args...] [opts...]"
-      putStrLn "unfog <create|add> <desc> [+tag...] [--json]"
-      putStrLn "unfog <update|edit> <id> [desc] [+tag...] [-tag...] [--json]"
-      putStrLn "unfog <replace|set> <id> <desc> [+tag...] [--json]"
-      putStrLn "unfog <start|stop|toggle> <id> [--json]"
-      putStrLn "unfog <done|delete|remove> <id> [--json]"
-      putStrLn "unfog <context|ctx> [+tag...] [--json]"
-      putStrLn "unfog <list> [--json]"
-      putStrLn "unfog <show> <id> [--json]"
-      putStrLn "unfog <worktime|wtime> [+tag...] [--json]"
-      putStrLn "unfog <help|h>"
-      putStrLn "unfog <version|v>"
+      putStrLn "Usage: unfog cmd (args...)"
+      putStrLn "unfog create desc (+tags) (:due:time) (--json)"
+      putStrLn "unfog update ids (desc) (+tags) (-tags) (:due:time) (--json)"
+      putStrLn "replace ids desc (+tags) (:due:time) (--json)"
+      putStrLn "start ids (--json)"
+      putStrLn "stop ids (--json)"
+      putStrLn "toggle ids (--json)"
+      putStrLn "done ids (--json)"
+      putStrLn "delete ids (--json)"
+      putStrLn "remove ids (--json)"
+      putStrLn "context (+tags) (--json)"
+      putStrLn "list (--json)"
+      putStrLn "show id (--json)"
+      putStrLn "worktime (+tags) ([min:time) (]max:time) (--json)"
+      putStrLn "help"
+      putStrLn "version"
 
-    ShowVersion                 -> printVersion rtype "0.3.1"
+    ShowVersion           -> printVersion rtype "0.3.2"
 
-    Query.Error command message -> printErr rtype $ command ++ ": " ++ message
+    Error command message -> printErr rtype $ command ++ ": " ++ message

@@ -14,6 +14,7 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
   * [Show](#read)
   * [List](#list)
   * [Update](#update)
+  * [Replace](#replace)
   * [Toggle](#toggle)
   * [Done](#done)
   * [Delete](#delete)
@@ -62,7 +63,7 @@ To create a task, you need:
 - A due time *(optional)*
 
 ```bash
-unfog create <desc> <+tag1> <+tag2> <:due:time>...
+unfog create desc (+tags) (:due:time) # alias: add
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/69493623-1145aa80-0eb1-11ea-8e34-f14bb3c831bc.png)
@@ -83,7 +84,7 @@ use cases (given now = `2019/12/22 10:00`):
 ### Show
 
 ```bash
-unfog show <id>
+unfog show id
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/69493650-6ed9f700-0eb1-11ea-99f7-77bee937ec3c.png)
@@ -98,16 +99,29 @@ unfog list
 
 ### Update
 
+Update a task. Desc and due are replaced, but tags are kept. You can add one
+with `+tag` and remove one with `-tag`.
+
 ```bash
-unfog update <id> <desc> <+tag1> <-tag2> <:due:time>...
+unfog update ids (desc) (+tags) (-tags) (:due:time) # alias: edit
+```
+
+### Replace
+
+Replace a task (nothing is kept).
+
+```bash
+unfog replace ids desc (+tags) (:due:time) # alias: set
 ```
 
 ### Toggle
 
+Starts a task if stopped, or stops a task if started.
+
 ```bash
-unfog start <id>
-unfog stop <id>
-unfog toggle <id>
+unfog start ids
+unfog stop ids
+unfog toggle ids
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/69493665-b2346580-0eb1-11ea-8cd4-46f3df331f5a.png)
@@ -117,7 +131,7 @@ unfog toggle <id>
 Mark as done a task will remove it from the main list by adding a special tag `done`:
 
 ```bash
-unfog done <id>
+unfog done ids
 ```
 
 *Note: done tasks can be listed by enabling the [`done` context](#context).*
@@ -125,7 +139,7 @@ unfog done <id>
 ### Delete
 
 ```bash
-unfog delete <id>
+unfog delete ids
 ```
 
 ### Remove
@@ -142,16 +156,16 @@ Filters tasks by the given tags. Once set up:
   to it
 
 ```bash
-unfog context <+tag1> <+tag2> ...
+unfog context +tags # alias: ctx
 ```
 
 The special context `+done` allows you to see done tasks:
 
-*Note: the `+` can be omitted.*
-
 ```bash
 unfog context +done
 ```
+
+*Note: the `+` is optional.*
 
 ![image](https://user-images.githubusercontent.com/10437171/69493746-c88ef100-0eb2-11ea-9dc2-c17dc7b4b8e4.png)
 
@@ -166,12 +180,12 @@ You can also filter them with a date range. Min date starts by `[`, and max
 date by `]`. The date range should follow the due time format (see [#create]).
 
 ```bash
-unfog wtime <+tag1> <+tag2> <[min:range> <]max:range> ...
+unfog worktime +tags ([min:range) (]max:range) # alias: wtime
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/69493775-2ae7f180-0eb3-11ea-88a3-a59eb088830e.png)
 
-*Note: the `+` can be omitted.*
+*Note: the `+` is optional.*
 
 ## Options
 ### JSON

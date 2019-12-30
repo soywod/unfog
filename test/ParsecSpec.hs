@@ -65,19 +65,26 @@ spec = parallel $ do
       parseArgs "update 1" `shouldBe` emptyArgTree
 
     it "with desc" $ do
-      parseArgs "update 1 desc"
-        `shouldBe` emptyArgTree { _cmd = "update", _id = 1, _desc = "desc" }
+      parseArgs "update 1 desc" `shouldBe` emptyArgTree { _cmd  = "update"
+                                                        , _ids  = [1]
+                                                        , _desc = "desc"
+                                                        }
 
     it "with tags" $ do
-      parseArgs "update  1   +tag"
-        `shouldBe` emptyArgTree { _cmd = "update", _id = 1, _tags = ["tag"] }
-      parseArgs "edit 2   +tag -tag   +tag2"
-        `shouldBe` emptyArgTree { _cmd = "update", _id = 2, _tags = ["tag2"] }
+      parseArgs "update  1   +tag" `shouldBe` emptyArgTree { _cmd  = "update"
+                                                           , _ids  = [1]
+                                                           , _tags = ["tag"]
+                                                           }
+      parseArgs "edit 2   +tag -tag   +tag2" `shouldBe` emptyArgTree
+        { _cmd  = "update"
+        , _ids  = [2]
+        , _tags = ["tag2"]
+        }
 
     it "with due" $ do
       parseArgs "edit   2 :10:20 " `shouldBe` emptyArgTree
         { _cmd = "update"
-        , _id  = 2
+        , _ids = [2]
         , _due = Just $ ArgDate 10 0 0 20 0
         }
 
@@ -86,7 +93,7 @@ spec = parallel $ do
         { _cmd  = "update"
         , _desc = "desc"
         , _tags = ["tag"]
-        , _id   = 1
+        , _ids  = [1]
         , _opts = ArgOpts True
         }
 
@@ -98,15 +105,19 @@ spec = parallel $ do
       parseArgs "replace 1 --json" `shouldBe` emptyArgTree
 
     it "with desc" $ do
-      parseArgs "replace 1 desc"
-        `shouldBe` emptyArgTree { _cmd = "replace", _id = 1, _desc = "desc" }
+      parseArgs "replace 1 desc" `shouldBe` emptyArgTree { _cmd  = "replace"
+                                                         , _ids  = [1]
+                                                         , _desc = "desc"
+                                                         }
 
     it "with tags" $ do
-      parseArgs "replace  1   +tag"
-        `shouldBe` emptyArgTree { _cmd = "replace", _id = 1, _tags = ["tag"] }
+      parseArgs "replace  1   +tag" `shouldBe` emptyArgTree { _cmd  = "replace"
+                                                            , _ids  = [1]
+                                                            , _tags = ["tag"]
+                                                            }
       parseArgs "set 2   +tag -tag   +tag2" `shouldBe` emptyArgTree
         { _cmd  = "replace"
-        , _id   = 2
+        , _ids  = [2]
         , _desc = "-tag"
         , _tags = ["tag", "tag2"]
         }
@@ -114,7 +125,7 @@ spec = parallel $ do
     it "with due" $ do
       parseArgs "set   2 :10:20 " `shouldBe` emptyArgTree
         { _cmd = "replace"
-        , _id  = 2
+        , _ids = [2]
         , _due = Just $ ArgDate 10 0 0 20 0
         }
 
@@ -123,7 +134,7 @@ spec = parallel $ do
         { _cmd  = "replace"
         , _desc = "desc"
         , _tags = ["tag"]
-        , _id   = 1
+        , _ids  = [1]
         , _opts = ArgOpts True
         }
 
@@ -133,9 +144,11 @@ spec = parallel $ do
       parseArgs "start bad-id" `shouldBe` emptyArgTree
 
     it "with id" $ do
-      parseArgs "start 1" `shouldBe` emptyArgTree { _cmd = "start", _id = 1 }
+      parseArgs "start 1" `shouldBe` emptyArgTree { _cmd = "start", _ids = [1] }
+      parseArgs "start 1 2"
+        `shouldBe` emptyArgTree { _cmd = "start", _ids = [1, 2] }
       parseArgs "start 1 --json" `shouldBe` emptyArgTree { _cmd  = "start"
-                                                         , _id   = 1
+                                                         , _ids  = [1]
                                                          , _opts = ArgOpts True
                                                          }
 
@@ -145,9 +158,9 @@ spec = parallel $ do
       parseArgs "stop bad-id" `shouldBe` emptyArgTree
 
     it "with id" $ do
-      parseArgs "stop 1" `shouldBe` emptyArgTree { _cmd = "stop", _id = 1 }
+      parseArgs "stop 1" `shouldBe` emptyArgTree { _cmd = "stop", _ids = [1] }
       parseArgs "stop 1 --json" `shouldBe` emptyArgTree { _cmd  = "stop"
-                                                        , _id   = 1
+                                                        , _ids  = [1]
                                                         , _opts = ArgOpts True
                                                         }
 
@@ -157,9 +170,10 @@ spec = parallel $ do
       parseArgs "toggle bad-id" `shouldBe` emptyArgTree
 
     it "with id" $ do
-      parseArgs "toggle 1" `shouldBe` emptyArgTree { _cmd = "toggle", _id = 1 }
+      parseArgs "toggle 1"
+        `shouldBe` emptyArgTree { _cmd = "toggle", _ids = [1] }
       parseArgs "toggle 1 --json" `shouldBe` emptyArgTree { _cmd  = "toggle"
-                                                          , _id   = 1
+                                                          , _ids  = [1]
                                                           , _opts = ArgOpts True
                                                           }
 
@@ -169,9 +183,9 @@ spec = parallel $ do
       parseArgs "done bad-id" `shouldBe` emptyArgTree
 
     it "with id" $ do
-      parseArgs "done 1" `shouldBe` emptyArgTree { _cmd = "done", _id = 1 }
+      parseArgs "done 1" `shouldBe` emptyArgTree { _cmd = "done", _ids = [1] }
       parseArgs "done 1 --json" `shouldBe` emptyArgTree { _cmd  = "done"
-                                                        , _id   = 1
+                                                        , _ids  = [1]
                                                         , _opts = ArgOpts True
                                                         }
 
@@ -181,9 +195,10 @@ spec = parallel $ do
       parseArgs "delete bad-id" `shouldBe` emptyArgTree
 
     it "with id" $ do
-      parseArgs "delete 1" `shouldBe` emptyArgTree { _cmd = "delete", _id = 1 }
+      parseArgs "delete 1"
+        `shouldBe` emptyArgTree { _cmd = "delete", _ids = [1] }
       parseArgs "delete 1 --json" `shouldBe` emptyArgTree { _cmd  = "delete"
-                                                          , _id   = 1
+                                                          , _ids  = [1]
                                                           , _opts = ArgOpts True
                                                           }
 
@@ -193,9 +208,10 @@ spec = parallel $ do
       parseArgs "remove bad-id" `shouldBe` emptyArgTree
 
     it "with id" $ do
-      parseArgs "remove 1" `shouldBe` emptyArgTree { _cmd = "remove", _id = 1 }
+      parseArgs "remove 1"
+        `shouldBe` emptyArgTree { _cmd = "remove", _ids = [1] }
       parseArgs "remove 1 --json" `shouldBe` emptyArgTree { _cmd  = "remove"
-                                                          , _id   = 1
+                                                          , _ids  = [1]
                                                           , _opts = ArgOpts True
                                                           }
 
@@ -231,10 +247,10 @@ spec = parallel $ do
 
     it "with id" $ do
       parseArgs "show 1"
-        `shouldBe` emptyArgTree { _type = Qry, _cmd = "show", _id = 1 }
+        `shouldBe` emptyArgTree { _type = Qry, _cmd = "show", _ids = [1] }
       parseArgs "show 1   --json" `shouldBe` emptyArgTree { _type = Qry
                                                           , _cmd  = "show"
-                                                          , _id   = 1
+                                                          , _ids  = [1]
                                                           , _opts = ArgOpts True
                                                           }
 

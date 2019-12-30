@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2019-12-30
+
+### Added
+
+- Refactor parsec exprs with `(<++)`
+- Allow for batch processing of tasks [#13]
+
 ## [0.3.1] - 2019-12-28
 
 ### Fixed
@@ -106,7 +113,8 @@ First release :tada:
 
 - Linux binaries
 
-[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.3.1...HEAD
+[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/unfog-io/unfog-cli/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/unfog-io/unfog-cli/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/unfog-io/unfog-cli/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/unfog-io/unfog-cli/compare/v0.2.1...v0.2.2
@@ -126,5 +134,6 @@ First release :tada:
 [#8]: https://github.com/unfog-io/unfog-cli/issues/8
 [#9]: https://github.com/unfog-io/unfog-cli/issues/9
 [#12]: https://github.com/unfog-io/unfog-cli/issues/12
+[#13]: https://github.com/unfog-io/unfog-cli/issues/13
 [#15]: https://github.com/unfog-io/unfog-cli/issues/15
 [#16]: https://github.com/unfog-io/unfog-cli/issues/16
