@@ -25,13 +25,17 @@ dependencies:
 library:
   source-dirs: src
   dependencies:
-  - directory
-  - time
-  - boxes
-  - human-readable-duration
   - aeson
-  - bytestring
   - base-compat
+  - boxes
+  - bytestring
+  - containers
+  - directory
+  - human-readable-duration
+  - rainbow
+  - rainbox
+  - text
+  - time
 
 executables:
   unfog:

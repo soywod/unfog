@@ -37,6 +37,7 @@ printWtime rtype msg wtime = case rtype of
   JSON -> BL.putStr $ encode $ ResponseWtime wtime
   Text -> do
     putStrLn msg
+    putStrLn ""
     prettyPrintWtime wtime
 
 printVersion :: ResponseType -> String -> IO ()

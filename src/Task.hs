@@ -2,15 +2,28 @@
 
 module Task where
 
-import qualified Data.ByteString.Lazy.Char8    as BL
+import           Prelude                 hiding ( splitAt )
 import           Control.Exception
+import           Control.Monad                  ( join )
 import           Data.Aeson
 import           Data.Duration
+import           Data.List               hiding ( splitAt )
 import           Data.Fixed
-import           Data.List
+import           Data.Foldable                  ( toList )
 import           Data.Maybe
+import           Data.Sequence                  ( Seq
+                                                , (|>)
+                                                , (><)
+                                                , splitAt
+                                                )
+import           Data.Text                      ( Text
+                                                , pack
+                                                )
 import           Data.Time
-import           Text.PrettyPrint.Boxes
+import           Rainbow
+import           Rainbox.Core            hiding ( intersperse )
+import qualified Data.ByteString.Lazy.Char8    as BL
+import qualified Data.Sequence                 as Seq
 
 import           Utils
 
@@ -166,19 +179,6 @@ fWtimePerDay acc (start, stop) = case lookup key acc of
       , fWtimePerDay acc (nextDay, stop)
       )
 
-prettyPrintTasks :: [Task] -> IO ()
-prettyPrintTasks tasks =
-  putStrLn $ render $ table $ header : map prettyPrint tasks
- where
-  header = ["ID", "DESC", "TAGS", "ACTIVE", "DUE"]
-  prettyPrint task =
-    [ show $ _id task
-    , _desc task
-    , unwords $ _tags task
-    , printActive $ _active task
-    , printApproxTime $ _due task
-    ]
-
 printActive :: Micro -> String
 printActive active | active > 0 = approximativeDuration active ++ " ago"
                    | otherwise  = ""
@@ -193,15 +193,88 @@ printHumanTime Nothing    = ""
 printHumanTime (Just due) = if due > 0 then "in " ++ due' else due' ++ " ago"
   where due' = humanReadableDuration $ abs due
 
-prettyPrintWtime :: [DailyWtime] -> IO ()
-prettyPrintWtime wtime =
-  putStrLn
-    $  render
-    $  table
-    $  [header]
-    ++ map prettyPrint wtime
-    ++ [["TOTAL", humanReadableDuration total]]
+strToCell :: (Chunk Text -> Chunk Text) -> String -> Seq (Seq (Chunk Text))
+strToCell style = Seq.singleton . Seq.singleton . style . chunk . pack
+
+withSeparator :: Cell
+withSeparator = mconcat [space, bar]
  where
-  header = ["DATE", "WORKTIME"]
+  space = separator mempty 1
+  bar   = Cell (strToCell (fore grey) "|") top left mempty
+
+prettyPrintTasks :: [Task] -> IO ()
+prettyPrintTasks = mapM_ putChunk . toList . render' . tableTasks
+
+tableTasks :: [Task] -> Box Vertical
+tableTasks tasks = tableByRows . Seq.fromList . fmap Seq.fromList $ head : body
+ where
+  head = tableTaskHead
+  body = map tableTaskRow tasks
+
+tableTaskHead :: [Cell]
+tableTaskHead = intersperse withSeparator
+  $ map toCell ["ID", "DESC", "TAGS", "ACTIVE", "DUE"]
+  where toCell str = Cell (strToCell (underline . bold) str) top left mempty
+
+tableTaskRow :: Task -> [Cell]
+tableTaskRow task = cells
+ where
+  [id, desc, tags, active, due] = taskToStrings task
+  cells                         = intersperse
+    withSeparator
+    [ Cell (strToCell (fore red) id)       center left mempty
+    , Cell (strToCell (fore white) desc)   center left mempty
+    , Cell (strToCell (fore blue) tags)    center left mempty
+    , Cell (strToCell (fore green) active) center left mempty
+    , Cell (strToCell (fore yellow) due)   center left mempty
+    ]
+
+taskToStrings :: Task -> [String]
+taskToStrings task =
+  [ show $ _id task
+  , _desc task
+  , unwords $ _tags task
+  , printActive $ _active task
+  , printApproxTime $ _due task
+  ]
+
+prettyPrintWtime :: [DailyWtime] -> IO ()
+prettyPrintWtime = mapM_ putChunk . toList . render' . tableWtime
+
+tableWtime :: [DailyWtime] -> Box Vertical
+tableWtime wtime =
+  tableByRows . Seq.fromList . fmap Seq.fromList $ head : body ++ foot
+ where
   prettyPrint (date, wtime) = [date, humanReadableDuration $ realToFrac wtime]
-  total = foldl (\acc (_, x) -> acc + x) 0 wtime
+  head = tableWtimeHead
+  body = map tableWtimeRow wtime
+  foot = [tableWtimeFoot $ foldl (\acc (_, x) -> acc + x) 0 wtime]
+
+tableWtimeHead :: [Cell]
+tableWtimeHead = intersperse withSeparator $ map toCell ["DATE", "WORKTIME"]
+  where toCell str = Cell (strToCell (underline . bold) str) top left mempty
+
+tableWtimeRow :: DailyWtime -> [Cell]
+tableWtimeRow wtime = cells
+ where
+  [date, total] = wtimeToStrings wtime
+  cells         = intersperse
+    withSeparator
+    [ Cell (strToCell (fore grey) date)    center left mempty
+    , Cell (strToCell (fore yellow) total) center left mempty
+    ]
+
+tableWtimeFoot :: Duration -> [Cell]
+tableWtimeFoot total = intersperse
+  withSeparator
+  [ Cell (strToCell bold "TOTAL")    center left mempty
+  , Cell (strToCell bold humanTotal) center left mempty
+  ]
+  where humanTotal = humanReadableDuration total
+
+wtimeToStrings :: DailyWtime -> [String]
+wtimeToStrings (date, wtime) = [date, humanReadableDuration $ realToFrac wtime]
+
+render' :: Orientation a => Box a -> Seq (Chunk Text)
+render' box = join $ (fmap (fmap underline) fseq) >< seqs
+  where (fseq, seqs) = splitAt 1 . chunksFromRodRows . rodRows $ box

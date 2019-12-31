@@ -62,7 +62,9 @@ execute args state events query = do
           putStrLn $ "unfog: list" ++ if null ctx
             then ""
             else " [" ++ unwords ctx ++ "]"
+          putStrLn ""
           printTasks Text tasks
+          putStrLn ""
 
     ShowTask args -> do
       now <- getCurrentTime
