@@ -54,15 +54,8 @@ execute args state events query = do
       let fByTags = filterByTags ctx
       let fByDone = filterByDone $ "done" `elem` ctx
       let tasks = mapWithWtime now . fByTags . fByDone $ _tasks state
-      case rtype of
-        JSON -> printTasks JSON tasks
-        Text -> do
-          putStrLn $ "unfog: list" ++ if null ctx
-            then ""
-            else " [" ++ unwords ctx ++ "]"
-          putStrLn ""
-          printTasks Text tasks
-          putStrLn ""
+      let ctxStr = if null ctx then "" else " [" ++ unwords ctx ++ "]"
+      printTasks rtype ("unfog: list " ++ ctxStr) tasks
 
     ShowTask args -> do
       now <- getCurrentTime
@@ -74,7 +67,7 @@ execute args state events query = do
       let maybeTask = fByNumber . fByTags . fByDone $ _tasks state
       case maybeTask of
         Nothing   -> printErr rtype $ "show: task [" ++ show id ++ "] not found"
-        Just task -> printTask rtype $ task { _wtime = getTotalWtime now task }
+        Just task -> printTask rtype task { _wtime = getTotalWtime now task }
 
     ShowWtime args -> do
       now <- getCurrentTime
@@ -105,6 +98,6 @@ execute args state events query = do
       putStrLn "help"
       putStrLn "version"
 
-    ShowVersion           -> printVersion rtype "0.3.2"
+    ShowVersion           -> printVersion rtype "0.3.3"
 
     Error command message -> printErr rtype $ command ++ ": " ++ message

@@ -22,15 +22,19 @@ printMsg rtype msg = case rtype of
   JSON -> BL.putStr $ encode $ ResponseMsg msg
   Text -> putStrLn $ "unfog: " ++ msg
 
+printTasks :: ResponseType -> String -> [Task] -> IO ()
+printTasks rtype msg tasks = case rtype of
+  JSON -> BL.putStr $ encode $ ResponseTasks tasks
+  Text -> do
+    putStrLn msg
+    putStrLn ""
+    prettyPrintTasks tasks
+    putStrLn ""
+
 printTask :: ResponseType -> Task -> IO ()
 printTask rtype task = case rtype of
   JSON -> BL.putStr $ encode $ ResponseTask task
   Text -> prettyPrintTasks [task]
-
-printTasks :: ResponseType -> [Task] -> IO ()
-printTasks rtype tasks = case rtype of
-  JSON -> BL.putStr $ encode $ ResponseTasks tasks
-  Text -> prettyPrintTasks tasks
 
 printWtime :: ResponseType -> String -> [DailyWtime] -> IO ()
 printWtime rtype msg wtime = case rtype of
