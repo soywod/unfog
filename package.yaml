@@ -27,14 +27,9 @@ library:
   dependencies:
   - aeson
   - base-compat
-  - boxes
   - bytestring
-  - containers
   - directory
   - human-readable-duration
-  - rainbow
-  - rainbox
-  - text
   - time
 
 executables:

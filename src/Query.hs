@@ -8,7 +8,6 @@ import           Data.Fixed
 import           Data.List
 import           Data.Maybe
 import           Data.Time
-import           Text.PrettyPrint.Boxes
 import           Text.Read
 
 import           Event
@@ -16,7 +15,6 @@ import           Response
 import           State
 import           Store
 import           Task
-import           Utils
 import qualified Parsec
 
 data Query

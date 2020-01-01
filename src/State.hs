@@ -7,7 +7,6 @@ import           Data.Time
 
 import           Event
 import           Task
-import           Utils
 
 data State = State { _tasks :: [Task]
                    , _ctx :: [Tag]

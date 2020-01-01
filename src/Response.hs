@@ -39,6 +39,7 @@ printWtime rtype msg wtime = case rtype of
     putStrLn msg
     putStrLn ""
     prettyPrintWtime wtime
+    putStrLn ""
 
 printVersion :: ResponseType -> String -> IO ()
 printVersion rtype version = case rtype of

@@ -11,7 +11,6 @@ import           System.IO.Error
 
 import           Event
 import           State
-import           Utils
 
 readEvents :: IO [Event]
 readEvents = mapLineToEvent <$> getStoreFileContent

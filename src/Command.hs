@@ -6,15 +6,12 @@ import           Data.List                      ( union )
 import           Data.Time
 import           Control.Monad
 import           Data.Time.Clock.POSIX
-import           Text.PrettyPrint.Boxes
-import           Text.Read
 
 import           Event
 import           Response
 import           State
 import           Store
 import           Task
-import           Utils
 import qualified Parsec
 
 data Command
