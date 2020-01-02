@@ -78,7 +78,7 @@ use cases (given now = `2019/12/22 10:00`):
 | `:010120` | 2020/01/01 00:00 |
 
 ```bash
-unfog create|add desc (+tags) (:due:time)
+unfog create|add|a desc (+tags) (:due:time)
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71659883-84143200-2d49-11ea-9094-e74cc074c42b.png)
@@ -86,7 +86,7 @@ unfog create|add desc (+tags) (:due:time)
 ### Show
 
 ```bash
-unfog show id
+unfog show|info|s|i id
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71660019-fc7af300-2d49-11ea-91d6-73a83ed943ef.png)
@@ -94,7 +94,7 @@ unfog show id
 ### List
 
 ```bash
-unfog list
+unfog list|l
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71659764-0bad7100-2d49-11ea-9d80-5d6654e05446.png)
@@ -105,7 +105,7 @@ Desc and due are replaced, but tags are kept. You can add one
 with `+tag` and remove one with `-tag`.
 
 ```bash
-unfog update|edit ids (desc) (+tags) (-tags) (:due:time)
+unfog update|edit|u|e ids (desc) (+tags) (-tags) (:due:time)
 ```
 
 ### Replace
@@ -121,9 +121,9 @@ unfog replace|set ids desc (+tags) (:due:time)
 Starts a task if stopped, or stops a task if started.
 
 ```bash
-unfog toggle ids
-unfog start ids
-unfog stop ids
+unfog toggle|t ids
+unfog start|sta|+ ids
+unfog stop|sto|- ids
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71660125-5976a900-2d4a-11ea-8c4d-8c232fc59632.png)
@@ -134,7 +134,7 @@ Mark as done a task will remove it from the main list by adding a special tag
 `done`:
 
 ```bash
-unfog done ids
+unfog done|d ids
 ```
 
 *Note: done tasks can be listed by enabling the [`done` context](#context).*
@@ -142,13 +142,17 @@ unfog done ids
 ### Delete
 
 ```bash
-unfog delete ids
+unfog delete|D ids
 ```
 
 ### Remove
 
 The remove command acts like a toggle. If the task is already done, then it
 [deletes it](#delete), otherwise it [marks it as done](#done).
+
+```bash
+unfog remove|r ids
+```
 
 ### Context
 
@@ -159,7 +163,7 @@ Filters tasks by the given tags. Once set up:
   to it
 
 ```bash
-unfog context|ctx (+tags)
+unfog context|ctx|c (+tags)
 ```
 
 The special context `+done` allows you to see done tasks:
@@ -180,7 +184,7 @@ You can also filter them with a date range. Min date starts by `[`, and max
 date by `]`. The date range should follow the due time format (see [#create]).
 
 ```bash
-unfog worktime|wtime (+tags) ([min:range) (]max:range)
+unfog worktime|wtime|w (+tags) ([min:range) (]max:range)
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71660308-eae61b00-2d4a-11ea-866c-e0bdf19b84be.png)
@@ -190,7 +194,7 @@ unfog worktime|wtime (+tags) ([min:range) (]max:range)
 ### Upgrade
 
 ```bash
-unfog upgrade
+unfog upgrade|up
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71656858-66d96680-2d3d-11ea-8ec9-1d9bb2b8712e.png)

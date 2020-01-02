@@ -78,14 +78,14 @@ commands =
 
 createExpr :: ReadP [Arg]
 createExpr = do
-  cmd  <- cmdAliasExpr ["create", "add"]
+  cmd  <- cmdAliasExpr ["create", "add", "a"]
   args <- many1 $ optExpr <++ addTagExpr <++ dueExpr <++ wordExpr
   guard $ isJust $ find (not . isOpt) args
   return $ cmd : args
 
 updateExpr :: ReadP [Arg]
 updateExpr = do
-  cmd  <- cmdAliasExpr ["update", "edit"]
+  cmd  <- cmdAliasExpr ["update", "edit", "u", "e"]
   ids  <- many1 idExpr
   args <- many1 $ optExpr <++ addTagExpr <++ delTagExpr <++ dueExpr <++ wordExpr
   return $ cmd : ids ++ args
@@ -99,45 +99,45 @@ replaceExpr = do
   return $ cmd : ids ++ args
 
 startExpr :: ReadP [Arg]
-startExpr = cmdWithIdExpr ["start"]
+startExpr = cmdWithIdExpr ["start", "sta", "+"]
 
 stopExpr :: ReadP [Arg]
-stopExpr = cmdWithIdExpr ["stop"]
+stopExpr = cmdWithIdExpr ["stop", "sto", "-"]
 
 toggleExpr :: ReadP [Arg]
-toggleExpr = cmdWithIdExpr ["toggle"]
+toggleExpr = cmdWithIdExpr ["toggle", "t"]
 
 doneExpr :: ReadP [Arg]
-doneExpr = cmdWithIdExpr ["done"]
+doneExpr = cmdWithIdExpr ["done", "d"]
 
 deleteExpr :: ReadP [Arg]
-deleteExpr = cmdWithIdExpr ["delete"]
+deleteExpr = cmdWithIdExpr ["delete", "D"]
 
 removeExpr :: ReadP [Arg]
-removeExpr = cmdWithIdExpr ["remove"]
+removeExpr = cmdWithIdExpr ["remove", "r"]
 
 ctxExpr :: ReadP [Arg]
 ctxExpr = do
-  cmd  <- cmdAliasExpr ["context", "ctx"]
+  cmd  <- cmdAliasExpr ["context", "ctx", "c"]
   args <- many $ optExpr <++ addCtxTagExpr
   return $ cmd : args
 
 listExpr :: ReadP [Arg]
 listExpr = do
-  cmd  <- cmdAliasExpr ["list"]
+  cmd  <- cmdAliasExpr ["list", "l"]
   args <- many optExpr
   return $ cmd : args
 
 showExpr :: ReadP [Arg]
 showExpr = do
-  cmd  <- cmdAliasExpr ["show"]
+  cmd  <- cmdAliasExpr ["show", "info", "s", "i"]
   id   <- idExpr
   args <- many optExpr
   return $ cmd : id : args
 
 wtimeExpr :: ReadP [Arg]
 wtimeExpr = do
-  cmd  <- cmdAliasExpr ["worktime", "wtime"]
+  cmd  <- cmdAliasExpr ["worktime", "wtime", "w"]
   args <- many $ optExpr <++ addCtxTagExpr <++ minDateExpr <++ maxDateExpr
   return $ cmd : args
 
@@ -154,7 +154,7 @@ versionExpr = do
 
 upgradeExpr :: ReadP [Arg]
 upgradeExpr = do
-  cmd <- cmdAliasExpr ["upgrade"]
+  cmd <- cmdAliasExpr ["upgrade", "up"]
   return [cmd]
 
 -- Composite exprs
@@ -169,7 +169,7 @@ cmdWithIdExpr aliases = do
 cmdAliasExpr :: [String] -> ReadP Arg
 cmdAliasExpr aliases = do
   skipSpaces
-  cmd <- choice $ map string aliases
+  cmd <- choice $ reverse $ map string aliases
   return $ SetCmd $ head aliases
 
 idExpr :: ReadP Arg

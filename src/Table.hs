@@ -87,5 +87,4 @@ bgBrightMagenta = defineStyle 45 1 0
 bgBrightCyan = defineStyle 46 1 0
 bgBrightWhite = defineStyle 47 1 0
 
-ext :: Int -> Cell -> Cell
 ext = defineStyle 38 5

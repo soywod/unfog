@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Add upgrade command [#10]
+- Add shorter aliases
 
 ## [0.3.3] - 2020-01-01
 
