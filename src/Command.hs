@@ -94,7 +94,7 @@ updateTask t args state id = case maybeTask of
     let ref = _ref task
         id  = _id task
         pos = -1
-        due = Nothing
+        due = Parsec.parseDue t args
     in  UpdateTask t ref id pos nextDesc nextTags due
 
 replaceTask :: UTCTime -> Parsec.ArgTree -> State -> Int -> Command
@@ -113,7 +113,7 @@ replaceTask t args state id = case maybeTask of
     let ref = _ref task
         id  = _id task
         pos = -1
-        due = Nothing
+        due = Parsec.parseDue t args
     in  UpdateTask t ref id pos nextDesc nextTags due
 
 startTask :: UTCTime -> Parsec.ArgTree -> State -> Id -> Command

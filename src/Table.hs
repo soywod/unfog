@@ -50,6 +50,7 @@ reset = defineStyle 0 0 0
 bold = defineStyle 1 0 0
 underline = defineStyle 4 0 0
 reversed = defineStyle 7 0 0
+
 black = defineStyle 30 0 0
 red = defineStyle 31 0 0
 green = defineStyle 32 0 0
@@ -67,6 +68,24 @@ brightBlue = defineStyle 34 1 0
 brightMagenta = defineStyle 35 1 0
 brightCyan = defineStyle 36 1 0
 brightWhite = defineStyle 37 1 0
+
+bgBlack = defineStyle 40 0 0
+bgRed = defineStyle 41 0 0
+bgGreen = defineStyle 42 0 0
+bgYellow = defineStyle 43 0 0
+bgBlue = defineStyle 44 0 0
+bgMagenta = defineStyle 45 0 0
+bgCyan = defineStyle 46 0 0
+bgWhite = defineStyle 47 0 0
+
+bgBrightBlack = defineStyle 40 1 0
+bgBrightRed = defineStyle 41 1 0
+bgBrightGreen = defineStyle 42 1 0
+bgBrightYellow = defineStyle 43 1 0
+bgBrightBlue = defineStyle 44 1 0
+bgBrightMagenta = defineStyle 45 1 0
+bgBrightCyan = defineStyle 46 1 0
+bgBrightWhite = defineStyle 47 1 0
 
 ext :: Int -> Cell -> Cell
 ext = defineStyle 38 5

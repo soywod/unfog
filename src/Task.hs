@@ -199,7 +199,9 @@ tableTaskRow task = cells
     , cell desc
     , blue . cell $ tags
     , green . cell $ active
-    , yellow . cell $ due
+    , (if fromMaybe 0 (_due task) < 0 then bgRed . white else yellow)
+      . cell
+      $ due
     ]
 
 taskToStrings :: Task -> [String]
