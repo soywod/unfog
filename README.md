@@ -2,7 +2,7 @@
 
 A simple task and time manager, written in [Haskell](https://www.haskell.org).
 
-![image](https://user-images.githubusercontent.com/10437171/71645664-d1f25100-2cdb-11ea-9b84-620874793e69.png)
+![image](https://user-images.githubusercontent.com/10437171/71659764-0bad7100-2d49-11ea-9d80-5d6654e05446.png)
 
 ## Table of contents
 
@@ -57,17 +57,11 @@ stack install
 ## Usage
 ### Create
 
-To create a task, you need:
+To create a task, you need (no matter the order):
 
 - A description
 - A list of tags *(optional)*
 - A due time *(optional)*
-
-```bash
-unfog create desc (+tags) (:due:time) # alias: add
-```
-
-![image](https://user-images.githubusercontent.com/10437171/69493623-1145aa80-0eb1-11ea-8e34-f14bb3c831bc.png)
 
 A tag should start by `+` and should be composed of alpha numeral chars.
 
@@ -81,6 +75,13 @@ use cases (given now = `2019/12/22 10:00`):
 | `:18:8` | 2019/12/18 08:00 |
 | `::12` | 2019/12/22 12:00 |
 | `:1010` | 2019/10/10 00:00 |
+| `:010120` | 2020/01/01 00:00 |
+
+```bash
+unfog create|add desc (+tags) (:due:time)
+```
+
+![image](https://user-images.githubusercontent.com/10437171/71659883-84143200-2d49-11ea-9094-e74cc074c42b.png)
 
 ### Show
 
@@ -88,7 +89,7 @@ use cases (given now = `2019/12/22 10:00`):
 unfog show id
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/69493650-6ed9f700-0eb1-11ea-99f7-77bee937ec3c.png)
+![image](https://user-images.githubusercontent.com/10437171/71660019-fc7af300-2d49-11ea-91d6-73a83ed943ef.png)
 
 ### List
 
@@ -96,23 +97,23 @@ unfog show id
 unfog list
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/69493551-338af880-0eb0-11ea-90fa-5c3c2f7783d4.png)
+![image](https://user-images.githubusercontent.com/10437171/71659764-0bad7100-2d49-11ea-9d80-5d6654e05446.png)
 
 ### Update
 
-Update a task. Desc and due are replaced, but tags are kept. You can add one
+Desc and due are replaced, but tags are kept. You can add one
 with `+tag` and remove one with `-tag`.
 
 ```bash
-unfog update ids (desc) (+tags) (-tags) (:due:time) # alias: edit
+unfog update|edit ids (desc) (+tags) (-tags) (:due:time)
 ```
 
 ### Replace
 
-Replace a task (nothing is kept).
+Replace a task (nothing is kept, even the context).
 
 ```bash
-unfog replace ids desc (+tags) (:due:time) # alias: set
+unfog replace|set ids desc (+tags) (:due:time)
 ```
 
 ### Toggle
@@ -120,16 +121,17 @@ unfog replace ids desc (+tags) (:due:time) # alias: set
 Starts a task if stopped, or stops a task if started.
 
 ```bash
+unfog toggle ids
 unfog start ids
 unfog stop ids
-unfog toggle ids
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/69493665-b2346580-0eb1-11ea-8cd4-46f3df331f5a.png)
+![image](https://user-images.githubusercontent.com/10437171/71660125-5976a900-2d4a-11ea-8c4d-8c232fc59632.png)
 
 ### Done
 
-Mark as done a task will remove it from the main list by adding a special tag `done`:
+Mark as done a task will remove it from the main list by adding a special tag
+`done`:
 
 ```bash
 unfog done ids
@@ -157,7 +159,7 @@ Filters tasks by the given tags. Once set up:
   to it
 
 ```bash
-unfog context +tags # alias: ctx
+unfog context|ctx (+tags)
 ```
 
 The special context `+done` allows you to see done tasks:
@@ -166,10 +168,7 @@ The special context `+done` allows you to see done tasks:
 unfog context +done
 ```
 
-*Note: the `+` is optional.*
-
-![image](https://user-images.githubusercontent.com/10437171/69493746-c88ef100-0eb2-11ea-9dc2-c17dc7b4b8e4.png)
-
+*Note: the `+` is optional.*<br />
 *Note: giving an empty (or invalid) context will clear it.*
 
 ### Worktime
@@ -181,16 +180,14 @@ You can also filter them with a date range. Min date starts by `[`, and max
 date by `]`. The date range should follow the due time format (see [#create]).
 
 ```bash
-unfog worktime +tags ([min:range) (]max:range) # alias: wtime
+unfog worktime|wtime (+tags) ([min:range) (]max:range)
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/69493775-2ae7f180-0eb3-11ea-88a3-a59eb088830e.png)
+![image](https://user-images.githubusercontent.com/10437171/71660308-eae61b00-2d4a-11ea-866c-e0bdf19b84be.png)
 
 *Note: the `+` is optional.*
 
 ### Upgrade
-
-Upgrade the executable:
 
 ```bash
 unfog upgrade
@@ -220,13 +217,15 @@ Task {
   active: TimeRecord
   due: TimeRecord
   done: 0 | 1
-  wtime: {
-    total: TimeRecord,
-    wtimes: [{
-      date: String (day)
-      wtime: TimeRecord,
-    }]
-  }
+  wtime: TimeRecord
+}
+
+Worktime {
+  total: TimeRecord,
+  wtimes: [{
+    date: String (day)
+    wtime: TimeRecord,
+  }]
 }
 
 TimeRecord {
@@ -235,8 +234,6 @@ TimeRecord {
   micro: Int (worktime in micro seconds)
 }
 ```
-
-![image](https://user-images.githubusercontent.com/10437171/69493950-e14cd600-0eb5-11ea-9804-1095e6deb73e.png)
 
 This is useful to create user interafaces. Here the list of current implementations:
 
