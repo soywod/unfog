@@ -34,6 +34,10 @@ data Task =
        , _stops :: [UTCTime]
        } deriving (Show, Read, Eq)
 
+type DailyWtime = (String, Duration)
+newtype DailyWtimeRecord = DailyWtimeRecord {toDailyWtimeRecord :: DailyWtime}
+newtype DailyWtimeTotalRecord = DailyWtimeTotalRecord {toDailyWtimeTotalRecord :: Duration}
+
 newtype TimeRecord = TimeRecord {toTimeRecord :: Maybe Duration}
 instance ToJSON TimeRecord where
   toJSON (TimeRecord time) = object
@@ -144,9 +148,6 @@ withMinMax maybeMin maybeMax = map withMinMax'
     let max = minimum $ [fromMaybe date maybeMax, date]
     in  maximum $ [fromMaybe max maybeMin, max]
 
-type DailyWtime = (String, Duration)
-newtype DailyWtimeRecord = DailyWtimeRecord {toDailyWtimeRecord :: DailyWtime}
-newtype DailyWtimeTotalRecord = DailyWtimeTotalRecord {toDailyWtimeTotalRecord :: Duration}
 fWtimePerDay :: [DailyWtime] -> (UTCTime, UTCTime) -> [DailyWtime]
 fWtimePerDay acc (start, stop) = case lookup key acc of
   Nothing       -> (key, nextSecs) : nextAcc
@@ -177,6 +178,27 @@ printHumanTime Nothing    = ""
 printHumanTime (Just due) = if due > 0 then "in " ++ due' else due' ++ " ago"
   where due' = humanReadableDuration $ abs due
 
+prettyPrintTask :: Task -> IO ()
+prettyPrintTask = render . tableTask
+
+tableTask :: Task -> [[Cell]]
+tableTask task = head : body
+ where
+  head = map (bold . underline . cell) ["KEY", "VALUE"]
+  keys = map cell ["ID", "DESC", "TAGS", "ACTIVE", "DUE", "WORKTIME"]
+  values =
+    [ red . cell $ show $ _id task
+    , cell $ _desc task
+    , blue . cell $ unwords $ _tags task
+    , green . cell $ printActive $ _active task
+    , (if fromMaybe 0 (_due task) < 0 then bgRed . white else yellow)
+      . cell
+      $ printHumanTime
+      $ _due task
+    , yellow . cell $ humanReadableDuration $ _wtime task
+    ]
+  body = transpose [keys, values]
+
 prettyPrintTasks :: [Task] -> IO ()
 prettyPrintTasks = render . tableTasks
 
@@ -191,26 +213,15 @@ tableTaskHead =
   map (bold . underline . cell) ["ID", "DESC", "TAGS", "ACTIVE", "DUE"]
 
 tableTaskRow :: Task -> [Cell]
-tableTaskRow task = cells
- where
-  [id, desc, tags, active, due] = taskToStrings task
-  cells =
-    [ red . cell $ id
-    , cell desc
-    , blue . cell $ tags
-    , green . cell $ active
-    , (if fromMaybe 0 (_due task) < 0 then bgRed . white else yellow)
-      . cell
-      $ due
-    ]
-
-taskToStrings :: Task -> [String]
-taskToStrings task =
-  [ show $ _id task
-  , _desc task
-  , unwords $ _tags task
-  , printActive $ _active task
-  , printApproxTime $ _due task
+tableTaskRow task =
+  [ red . cell $ show $ _id task
+  , cell $ _desc task
+  , blue . cell $ unwords $ _tags task
+  , green . cell $ printActive $ _active task
+  , (if fromMaybe 0 (_due task) < 0 then bgRed . white else yellow)
+    . cell
+    $ printApproxTime
+    $ _due task
   ]
 
 prettyPrintWtime :: [DailyWtime] -> IO ()

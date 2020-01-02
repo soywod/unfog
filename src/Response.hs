@@ -34,7 +34,7 @@ printTasks rtype msg tasks = case rtype of
 printTask :: ResponseType -> Task -> IO ()
 printTask rtype task = case rtype of
   JSON -> BL.putStr $ encode $ ResponseTask task
-  Text -> prettyPrintTasks [task]
+  Text -> prettyPrintTask task
 
 printWtime :: ResponseType -> String -> [DailyWtime] -> IO ()
 printWtime rtype msg wtime = case rtype of
