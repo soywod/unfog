@@ -2,49 +2,42 @@ module Table where
 
 import           Data.List
 
+type ColSize = Int
 type Style = String
 type Value = String
 
 data Cell = Cell [Style] Value
 
-instance Show Cell where
-  show (Cell styles val) = foldr (++) "" styles ++ val
-
-renderCell :: Int -> Cell -> String
-renderCell colSize cell = startStyle ++ val ++ padding ++ endStyle
+renderCell :: ColSize -> Cell -> String
+renderCell colSize (Cell styles val) = startStyle ++ val ++ padding ++ endStyle
  where
-  val        = getCellVal cell
-  startStyle = foldr (++) "" (getCellStyles cell)
+  startStyle = join styles
   padding    = take (colSize - length val + 1) $ repeat ' '
   endStyle   = "\x1b[0m"
 
 renderCols :: [[Cell]] -> [[String]]
 renderCols = map (intersperse sep) . transpose . map renderCols' . transpose
  where
-  sep = renderCell 0 (ext 238 . cell $ "|")
+  getCellVal (Cell _ val) = val
   renderCols' cells = map (renderCell colSize) cells
     where colSize = maximum (map (length . getCellVal) cells)
 
 renderRows :: [[String]] -> [String]
-renderRows = map renderRows'
-  where renderRows' cols = foldr (++) "" cols ++ "\n"
-
-renderTable :: [String] -> String
-renderTable = foldr (++) ""
+renderRows = map ((++ "\n") . join)
 
 render :: [[Cell]] -> IO ()
-render = putStr . renderTable . renderRows . renderCols
+render = putStr . join . renderRows . renderCols
 
 -- Utils
 
+join :: [String] -> String
+join = foldr (++) ""
+
+sep :: String
+sep = renderCell 0 (ext 238 . cell $ "|")
+
 cell :: Value -> Cell
 cell val = Cell [] val
-
-getCellVal :: Cell -> Value
-getCellVal (Cell _ val) = val
-
-getCellStyles :: Cell -> [Style]
-getCellStyles (Cell styles _) = styles
 
 defineStyle :: Int -> Int -> Int -> Cell -> Cell
 defineStyle color bright shade (Cell styles val) = Cell (styles ++ [style]) val
