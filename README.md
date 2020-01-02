@@ -2,7 +2,7 @@
 
 A simple task and time manager, written in [Haskell](https://www.haskell.org).
 
-![image](https://user-images.githubusercontent.com/10437171/69493813-cd07d980-0eb3-11ea-911d-8d3e3f493b70.png)
+![image](https://user-images.githubusercontent.com/10437171/71645664-d1f25100-2cdb-11ea-9b84-620874793e69.png)
 
 ## Table of contents
 
@@ -21,6 +21,7 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
   * [Remove](#remove)
   * [Context](#context)
   * [Worktime](#worktime)
+  * [Upgrade](#upgrade)
 * [Options](#options)
   * [JSON](#json)
 * [Contributing](#contributing)
@@ -186,6 +187,16 @@ unfog worktime +tags ([min:range) (]max:range) # alias: wtime
 ![image](https://user-images.githubusercontent.com/10437171/69493775-2ae7f180-0eb3-11ea-88a3-a59eb088830e.png)
 
 *Note: the `+` is optional.*
+
+### Upgrade
+
+Upgrade the executable:
+
+```bash
+unfog upgrade
+```
+
+![image](https://user-images.githubusercontent.com/10437171/71656858-66d96680-2d3d-11ea-8ec9-1d9bb2b8712e.png)
 
 ## Options
 ### JSON

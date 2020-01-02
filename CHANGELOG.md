@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add upgrade command [#10]
+
 ## [0.3.3] - 2020-01-01
 
 ### Added
 
-- Add colors #4
+- Colors [#4]
 
 ## [0.3.2] - 2019-12-30
 
@@ -141,6 +143,7 @@ First release :tada:
 [#6]: https://github.com/unfog-io/unfog-cli/issues/6
 [#8]: https://github.com/unfog-io/unfog-cli/issues/8
 [#9]: https://github.com/unfog-io/unfog-cli/issues/9
+[#10]: https://github.com/unfog-io/unfog-cli/issues/10
 [#12]: https://github.com/unfog-io/unfog-cli/issues/12
 [#13]: https://github.com/unfog-io/unfog-cli/issues/13
 [#15]: https://github.com/unfog-io/unfog-cli/issues/15

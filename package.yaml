@@ -30,6 +30,7 @@ library:
   - bytestring
   - directory
   - human-readable-duration
+  - process
   - time
 
 executables:

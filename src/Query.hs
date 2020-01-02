@@ -8,6 +8,7 @@ import           Data.Fixed
 import           Data.List
 import           Data.Maybe
 import           Data.Time
+import           System.Process                 ( system )
 import           Text.Read
 
 import           Event
@@ -23,6 +24,7 @@ data Query
   | ShowWtime Parsec.ArgTree
   | ShowHelp
   | ShowVersion
+  | Upgrade
   | Error String String
   deriving (Show)
 
@@ -36,13 +38,14 @@ handle args = do
 
 getQuery :: Parsec.ArgTree -> Query
 getQuery args = case Parsec._cmd args of
-  "list"     -> ShowTasks args
+  "list" -> ShowTasks args
+  "show" -> case Parsec._ids args of
+    []     -> Error "show" "invalid arguments"
+    id : _ -> ShowTask args
   "worktime" -> ShowWtime args
   "help"     -> ShowHelp
   "version"  -> ShowVersion
-  "show"     -> case Parsec._ids args of
-    []     -> Error "show" "invalid arguments"
-    id : _ -> ShowTask args
+  "upgrade"  -> Upgrade
 
 execute :: Parsec.ArgTree -> State -> [Event] -> Query -> IO ()
 execute args state events query = do
@@ -98,6 +101,11 @@ execute args state events query = do
       putStrLn "help"
       putStrLn "version"
 
-    ShowVersion           -> printVersion rtype "0.3.3"
+    ShowVersion -> printVersion rtype "0.3.3"
+
+    Upgrade ->
+      system
+          "curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/install.sh | sh"
+        >> return ()
 
     Error command message -> printErr rtype $ command ++ ": " ++ message
