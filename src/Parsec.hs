@@ -118,7 +118,7 @@ removeExpr = cmdWithIdExpr ["remove", "r"]
 
 ctxExpr :: ReadP [Arg]
 ctxExpr = do
-  cmd  <- cmdAliasExpr ["context", "ctx", "c"]
+  cmd  <- cmdAliasExpr ["context", "ctx"]
   args <- many $ optExpr <++ addCtxTagExpr
   return $ cmd : args
 
@@ -154,7 +154,7 @@ versionExpr = do
 
 upgradeExpr :: ReadP [Arg]
 upgradeExpr = do
-  cmd <- cmdAliasExpr ["upgrade", "up"]
+  cmd <- cmdAliasExpr ["upgrade"]
   return [cmd]
 
 -- Composite exprs
@@ -268,21 +268,21 @@ isTag c | isAlphaNum c  = True
 parser :: ReadP [Arg]
 parser =
   createExpr
-    <|> updateExpr
-    <|> replaceExpr
-    <|> startExpr
-    <|> stopExpr
-    <|> toggleExpr
-    <|> doneExpr
-    <|> deleteExpr
-    <|> removeExpr
-    <|> ctxExpr
-    <|> listExpr
-    <|> showExpr
-    <|> wtimeExpr
-    <|> helpExpr
-    <|> versionExpr
-    <|> upgradeExpr
+    <++ updateExpr
+    <++ replaceExpr
+    <++ startExpr
+    <++ stopExpr
+    <++ toggleExpr
+    <++ doneExpr
+    <++ deleteExpr
+    <++ removeExpr
+    <++ ctxExpr
+    <++ listExpr
+    <++ showExpr
+    <++ wtimeExpr
+    <++ helpExpr
+    <++ versionExpr
+    <++ upgradeExpr
 
 eval :: ArgTree -> Arg -> ArgTree
 eval tree arg = case arg of

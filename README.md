@@ -163,7 +163,7 @@ Filters tasks by the given tags. Once set up:
   to it
 
 ```bash
-unfog context|ctx|c (+tags)
+unfog context|ctx (+tags)
 ```
 
 The special context `+done` allows you to see done tasks:
@@ -194,7 +194,7 @@ unfog worktime|wtime|w (+tags) ([min:range) (]max:range)
 ### Upgrade
 
 ```bash
-unfog upgrade|up
+unfog upgrade
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71656858-66d96680-2d3d-11ea-8ec9-1d9bb2b8712e.png)
