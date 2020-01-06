@@ -45,6 +45,15 @@ printWtime rtype msg wtime = case rtype of
     prettyPrintWtime wtime
     putStrLn ""
 
+printReport :: ResponseType -> String -> [Task] -> IO ()
+printReport rtype msg tasks = case rtype of
+  JSON -> BL.putStr $ encode $ ResponseTasks tasks
+  Text -> do
+    putStrLn msg
+    putStrLn ""
+    prettyPrintReport tasks
+    putStrLn ""
+
 printVersion :: ResponseType -> String -> IO ()
 printVersion rtype version = case rtype of
   JSON -> BL.putStr $ encode $ ResponseMsg version

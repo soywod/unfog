@@ -199,6 +199,39 @@ tableTask task = head : body
     ]
   body = transpose [keys, values]
 
+prettyPrintReport :: [Task] -> IO ()
+prettyPrintReport = render . tableReport
+
+tableReport :: [Task] -> [[Cell]]
+tableReport tasks = head : body ++ foot
+ where
+  head = tableTaskHead
+  body = map tableReportRow tasks
+  foot = [tableReportFoot $ sum $ map _wtime tasks]
+
+tableReportHead :: [Cell]
+tableReportHead = map (bold . underline . cell)
+                      ["ID", "DESC", "TAGS", "ACTIVE", "DUE", "WORKTIME"]
+
+tableReportRow :: Task -> [Cell]
+tableReportRow task =
+  [ red . cell $ show $ _id task
+  , cell $ _desc task
+  , blue . cell $ unwords $ _tags task
+  , green . cell $ printActive $ _active task
+  , (if fromMaybe 0 (_due task) < 0 then bgRed . white else yellow)
+    . cell
+    $ printHumanTime
+    $ _due task
+  , yellow . cell $ humanReadableDuration (_wtime task)
+  ]
+
+tableReportFoot :: Duration -> [Cell]
+tableReportFoot total =
+  (bold . cell) "TOTAL"
+    :  replicate 4 (cell "")
+    ++ [bold . yellow . cell $ humanReadableDuration total]
+
 prettyPrintTasks :: [Task] -> IO ()
 prettyPrintTasks = render . tableTasks
 
@@ -209,8 +242,8 @@ tableTasks tasks = head : body
   body = map tableTaskRow tasks
 
 tableTaskHead :: [Cell]
-tableTaskHead =
-  map (bold . underline . cell) ["ID", "DESC", "TAGS", "ACTIVE", "DUE"]
+tableTaskHead = map (bold . underline . cell)
+                    ["ID", "DESC", "TAGS", "ACTIVE", "DUE", "WORKTIME"]
 
 tableTaskRow :: Task -> [Cell]
 tableTaskRow task =
@@ -222,6 +255,9 @@ tableTaskRow task =
     . cell
     $ printApproxTime
     $ _due task
+  , yellow . cell $ if _wtime task > 0
+    then approximativeDuration (_wtime task)
+    else ""
   ]
 
 prettyPrintWtime :: [DailyWtime] -> IO ()

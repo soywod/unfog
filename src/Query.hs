@@ -22,6 +22,7 @@ data Query
   = ShowTasks Parsec.ArgTree
   | ShowTask Parsec.ArgTree
   | ShowWtime Parsec.ArgTree
+  | ShowReport Parsec.ArgTree
   | ShowHelp
   | ShowVersion
   | Upgrade
@@ -43,6 +44,7 @@ getQuery args = case Parsec._cmd args of
     []     -> Error "show" "invalid arguments"
     id : _ -> ShowTask args
   "worktime" -> ShowWtime args
+  "report"   -> ShowReport args
   "help"     -> ShowHelp
   "version"  -> ShowVersion
   "upgrade"  -> Upgrade
@@ -58,7 +60,7 @@ execute args state events query = do
       let fByDone = filterByDone $ "done" `elem` ctx
       let tasks = mapWithWtime now . fByTags . fByDone $ _tasks state
       let ctxStr = if null ctx then "" else " [" ++ unwords ctx ++ "]"
-      printTasks rtype ("unfog: list " ++ ctxStr) tasks
+      printTasks rtype ("unfog: list" ++ ctxStr) tasks
 
     ShowTask args -> do
       now <- getCurrentTime
@@ -82,6 +84,15 @@ execute args state events query = do
       let wtime = getWtimePerDay now min max tasks
       let ctx = if null tags then "global" else "for [" ++ unwords tags ++ "]"
       printWtime rtype ("unfog: wtime " ++ ctx) wtime
+
+    ShowReport args -> do
+      now <- getCurrentTime
+      let ctx     = _ctx state
+      let fByTags = filterByTags ctx
+      let fByDone = filterByDone $ "done" `elem` ctx
+      let tasks = mapWithWtime now . fByTags . fByDone $ _tasks state
+      let ctxStr = if null ctx then "" else " [" ++ unwords ctx ++ "]"
+      printReport rtype ("unfog: report" ++ ctxStr) tasks
 
     ShowHelp -> do
       putStrLn "Usage: unfog cmd (args)"

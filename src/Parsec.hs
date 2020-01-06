@@ -60,7 +60,7 @@ emptyArgTree = ArgTree { _ids     = []
                        , _opts    = ArgOpts False
                        }
 
-queries = ["list", "show", "worktime", "help", "version", "upgrade"]
+queries = ["list", "show", "worktime", "report", "help", "version", "upgrade"]
 commands =
   [ "create"
   , "update"
@@ -139,6 +139,12 @@ wtimeExpr :: ReadP [Arg]
 wtimeExpr = do
   cmd  <- cmdAliasExpr ["worktime", "wtime", "w"]
   args <- many $ optExpr <++ addCtxTagExpr <++ minDateExpr <++ maxDateExpr
+  return $ cmd : args
+
+reportExpr :: ReadP [Arg]
+reportExpr = do
+  cmd  <- cmdAliasExpr ["report", "rp"]
+  args <- many optExpr
   return $ cmd : args
 
 helpExpr :: ReadP [Arg]
@@ -280,6 +286,7 @@ parser =
     <++ listExpr
     <++ showExpr
     <++ wtimeExpr
+    <++ reportExpr
     <++ helpExpr
     <++ versionExpr
     <++ upgradeExpr
