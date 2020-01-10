@@ -10,6 +10,7 @@ data Event
   | TaskStarted UTCTime Ref Id
   | TaskStopped UTCTime Ref Id
   | TaskMarkedAsDone UTCTime Ref Id
+  | TaskUnmarkedAsDone UTCTime Ref Id
   | TaskDeleted UTCTime Ref Id
   | ContextSet UTCTime [Tag]
   deriving (Show, Read)

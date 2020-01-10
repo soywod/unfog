@@ -20,6 +20,7 @@ data Command
   | StartTask UTCTime Ref Id
   | StopTask UTCTime Ref Id
   | MarkAsDoneTask UTCTime Ref Id Id
+  | UnmarkAsDoneTask UTCTime Ref Id Id
   | DeleteTask UTCTime Ref Id
   | SetContext UTCTime [Tag]
   | Error String String
@@ -42,13 +43,14 @@ handle args = do
 
 getCommands :: UTCTime -> Parsec.ArgTree -> State -> [Command]
 getCommands t args state = case Parsec._cmd args of
-  "create"  -> [createTask t args state]
-  "update"  -> map (updateTask t args state) (Parsec._ids args)
-  "replace" -> map (replaceTask t args state) (Parsec._ids args)
+  "add"     -> [createTask t args state]
+  "edit"    -> map (updateTask t args state) (Parsec._ids args)
+  "set"     -> map (replaceTask t args state) (Parsec._ids args)
   "start"   -> map (startTask t args state) (Parsec._ids args)
   "stop"    -> map (stopTask t args state) (Parsec._ids args)
   "toggle"  -> map (toggleTask t args state) (Parsec._ids args)
   "done"    -> map (markAsDoneTask t args state) (Parsec._ids args)
+  "undone"  -> map (unmarkAsDoneTask t args state) (Parsec._ids args)
   "delete"  -> map (deleteTask t args state) (Parsec._ids args)
   "remove"  -> map (removeTask t args state) (Parsec._ids args)
   "context" -> [setContext t args]
@@ -60,7 +62,8 @@ execute state command = case command of
   UpdateTask t r i p desc tags due -> [TaskUpdated t r i p desc tags due]
   StartTask t ref id               -> [TaskStarted t ref id]
   StopTask  t ref id               -> [TaskStopped t ref id]
-  MarkAsDoneTask t ref _ id        -> [TaskMarkedAsDone t ref id]
+  MarkAsDoneTask   t ref _ id      -> [TaskMarkedAsDone t ref id]
+  UnmarkAsDoneTask t ref _ id      -> [TaskUnmarkedAsDone t ref id]
   DeleteTask t ref id              -> [TaskDeleted t ref id]
   SetContext t ctx                 -> [ContextSet t ctx]
   Error      _ _                   -> []
@@ -170,6 +173,18 @@ markAsDoneTask t args state id = case maybeTask of
     | _done task = Error "done" $ "task [" ++ show id ++ "] already done"
     | otherwise  = MarkAsDoneTask t (_ref task) (_id task) nextNumber
 
+unmarkAsDoneTask :: UTCTime -> Parsec.ArgTree -> State -> Id -> Command
+unmarkAsDoneTask t args state id = case maybeTask of
+  Nothing   -> Error "done" $ "task [" ++ show id ++ "] not found"
+  Just task -> validate task
+ where
+  tasks      = filterByDone True (_tasks state)
+  maybeTask  = findById id tasks
+  nextNumber = generateId $ filter (not . _done) $ _tasks state
+  validate task
+    | (not . _done) task = Error "undone" $ "task [" ++ show id ++ "] not done"
+    | otherwise          = UnmarkAsDoneTask t (_ref task) (_id task) nextNumber
+
 deleteTask :: UTCTime -> Parsec.ArgTree -> State -> Id -> Command
 deleteTask t args state id = case maybeTask of
   Nothing   -> Error "delete" $ "task [" ++ show id ++ "] not found"
@@ -201,7 +216,8 @@ logger args cmd = case cmd of
   UpdateTask _ _ id _ _ _ _ -> printAction id "updated"
   StartTask _ _ id          -> printAction id "started"
   StopTask  _ _ id          -> printAction id "stopped"
-  MarkAsDoneTask _ _ id _   -> printAction id "done"
+  MarkAsDoneTask   _ _ id _ -> printAction id "done"
+  UnmarkAsDoneTask _ _ id _ -> printAction id "undone"
   DeleteTask _ _ id         -> printAction id "deleted"
   SetContext _ ctx          -> printCtx ctx
   Error cmd msg ->

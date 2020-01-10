@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Upgrade command [#10]
 - Add `status` command for UI integration
+- Add `undone` command to unmark as done tasks [#20]
 
 ### Changed
 
@@ -157,3 +158,4 @@ First release :tada:
 [#13]: https://github.com/unfog-io/unfog-cli/issues/13
 [#15]: https://github.com/unfog-io/unfog-cli/issues/15
 [#16]: https://github.com/unfog-io/unfog-cli/issues/16
+[#20]: https://github.com/unfog-io/unfog-cli/issues/20

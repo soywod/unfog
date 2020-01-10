@@ -179,6 +179,19 @@ spec = parallel $ do
                                                      , _opts = ArgOpts True
                                                      }
 
+  describe "undone expr" $ do
+    it "invalid args" $ do
+      parseArgs "undone" `shouldBe` emptyArgTree
+      parseArgs "undone bad-id" `shouldBe` emptyArgTree
+
+    it "with id" $ do
+      parseArgs "undone 1"
+        `shouldBe` emptyArgTree { _cmd = "undone", _ids = [1] }
+      parseArgs "u 1 --json" `shouldBe` emptyArgTree { _cmd  = "undone"
+                                                     , _ids  = [1]
+                                                     , _opts = ArgOpts True
+                                                     }
+
   describe "delete expr" $ do
     it "invalid args" $ do
       parseArgs "delete" `shouldBe` emptyArgTree

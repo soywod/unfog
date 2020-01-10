@@ -69,6 +69,7 @@ commands =
   , "stop"
   , "toggle"
   , "done"
+  , "undone"
   , "delete"
   , "remove"
   , "context"
@@ -109,6 +110,9 @@ toggleExpr = cmdWithIdExpr ["toggle", "t"]
 
 doneExpr :: ReadP [Arg]
 doneExpr = cmdWithIdExpr ["done", "d"]
+
+undoneExpr :: ReadP [Arg]
+undoneExpr = cmdWithIdExpr ["undone", "u"]
 
 deleteExpr :: ReadP [Arg]
 deleteExpr = cmdWithIdExpr ["delete", "D"]
@@ -281,6 +285,7 @@ parser =
     <++ stopExpr
     <++ toggleExpr
     <++ doneExpr
+    <++ undoneExpr
     <++ deleteExpr
     <++ removeExpr
     <++ ctxExpr

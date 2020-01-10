@@ -17,6 +17,7 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
   * [Set](#set)
   * [Toggle](#toggle)
   * [Done](#done)
+  * [Undone](#undone)
   * [Delete](#delete)
   * [Remove](#remove)
   * [Context](#context)
@@ -139,6 +140,14 @@ unfog done|d ids
 ```
 
 *Note: done tasks can be listed by enabling the [`done` context](#context).*
+
+### Undone
+
+Unmark as done a task will put back the task in the main list:
+
+```bash
+unfog undone|u ids
+```
 
 ### Delete
 

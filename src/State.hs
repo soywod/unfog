@@ -44,6 +44,9 @@ apply now state event = case event of
       let nextStops = _stops task ++ [ stop | _active task > 0 ]
       in  task { _id, _active = 0, _done = True, _stops = nextStops }
 
+  TaskUnmarkedAsDone stop ref _id -> state { _tasks = getNextTasks ref update }
+    where update task = task { _id, _done = False }
+
   TaskDeleted _ ref _ -> state { _tasks = nextTasks }
     where nextTasks = filter ((/=) ref . _ref) (_tasks state)
 
