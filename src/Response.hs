@@ -4,6 +4,7 @@ module Response where
 
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Data.Aeson
+import           Data.Duration
 import           Data.List
 
 import           Task
@@ -13,6 +14,7 @@ data Response
   | ResponseTask Task
   | ResponseTasks [Task]
   | ResponseWtime [DailyWtime]
+  | ResponseStatus Task
   | ResponseErr String
 
 data ResponseType = JSON | Text
@@ -45,14 +47,15 @@ printWtime rtype msg wtime = case rtype of
     prettyPrintWtime wtime
     putStrLn ""
 
-printReport :: ResponseType -> String -> [Task] -> IO ()
-printReport rtype msg tasks = case rtype of
-  JSON -> BL.putStr $ encode $ ResponseTasks tasks
-  Text -> do
-    putStrLn msg
-    putStrLn ""
-    prettyPrintReport tasks
-    putStrLn ""
+printEmptyStatus :: ResponseType -> IO ()
+printEmptyStatus rtype = case rtype of
+  JSON -> BL.putStr $ encode $ ResponseErr "no active task found"
+  Text -> putStrLn ""
+
+printStatus :: ResponseType -> Task -> IO ()
+printStatus rtype task = case rtype of
+  JSON -> BL.putStr $ encode $ ResponseStatus task
+  Text -> putStrLn $ _desc task ++ ": " ++ approximativeDuration (_active task)
 
 printVersion :: ResponseType -> String -> IO ()
 printVersion rtype version = case rtype of
@@ -74,6 +77,11 @@ instance ToJSON Response where
       [ "wtimes" .= map DailyWtimeRecord wtime
       , "total" .= DurationRecord (foldl (\t (_, w) -> t + w) 0 wtime)
       ]
+    ]
+  toJSON (ResponseStatus task) = object
+    [ "ok" .= (1 :: Int)
+    , "data" .= object
+      ["active" .= DurationRecord (_active task), "desc" .= _desc task]
     ]
   toJSON (ResponseErr err) = object ["ok" .= (0 :: Int), "data" .= err]
 

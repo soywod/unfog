@@ -10,11 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Upgrade command [#10]
+- Add `status` command for UI integration
 
 ### Changed
 
 - Shorter aliases
 - Show command (UI) [#17]
+- Commands names + aliases
 
 ## [0.3.3] - 2020-01-01
 

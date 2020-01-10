@@ -10,17 +10,18 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
   * [From binaries](#from-binaries)
   * [From sources](#from-sources)
 * [Usage](#usage)
-  * [Create](#create)
-  * [Show](#read)
+  * [Add](#add)
+  * [Info](#info)
   * [List](#list)
-  * [Update](#update)
-  * [Replace](#replace)
+  * [Edit](#edit)
+  * [Set](#set)
   * [Toggle](#toggle)
   * [Done](#done)
   * [Delete](#delete)
   * [Remove](#remove)
   * [Context](#context)
   * [Worktime](#worktime)
+  * [Status](#status)
   * [Upgrade](#upgrade)
 * [Options](#options)
   * [JSON](#json)
@@ -55,7 +56,7 @@ stack install
 ```
 
 ## Usage
-### Create
+### Add
 
 To create a task, you need (no matter the order):
 
@@ -78,15 +79,15 @@ use cases (given now = `2019/12/22 10:00`):
 | `:010120` | 2020/01/01 00:00 |
 
 ```bash
-unfog create|add|a desc (+tags) (:due:time)
+unfog add|a desc (+tags) (:due:time)
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71659883-84143200-2d49-11ea-9094-e74cc074c42b.png)
 
-### Show
+### Info
 
 ```bash
-unfog show|info|s|i id
+unfog info|i id
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71660019-fc7af300-2d49-11ea-91d6-73a83ed943ef.png)
@@ -99,21 +100,21 @@ unfog list|l
 
 ![image](https://user-images.githubusercontent.com/10437171/71659764-0bad7100-2d49-11ea-9d80-5d6654e05446.png)
 
-### Update
+### Edit
 
 Desc and due are replaced, but tags are kept. You can add one
 with `+tag` and remove one with `-tag`.
 
 ```bash
-unfog update|edit|u|e ids (desc) (+tags) (-tags) (:due:time)
+unfog edit|e ids (desc) (+tags) (-tags) (:due:time)
 ```
 
-### Replace
+### Set
 
 Replace a task (nothing is kept, even the context).
 
 ```bash
-unfog replace|set ids desc (+tags) (:due:time)
+unfog set|s ids desc (+tags) (:due:time)
 ```
 
 ### Toggle
@@ -122,8 +123,8 @@ Starts a task if stopped, or stops a task if started.
 
 ```bash
 unfog toggle|t ids
-unfog start|sta|+ ids
-unfog stop|sto|- ids
+unfog start|+ ids
+unfog stop|- ids
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71660125-5976a900-2d4a-11ea-8c4d-8c232fc59632.png)
@@ -163,7 +164,7 @@ Filters tasks by the given tags. Once set up:
   to it
 
 ```bash
-unfog context|ctx (+tags)
+unfog context|c (+tags)
 ```
 
 The special context `+done` allows you to see done tasks:
@@ -184,12 +185,30 @@ You can also filter them with a date range. Min date starts by `[`, and max
 date by `]`. The date range should follow the due time format (see [#create]).
 
 ```bash
-unfog worktime|wtime|w (+tags) ([min:range) (]max:range)
+unfog worktime|w (+tags) ([min:range) (]max:range)
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71660308-eae61b00-2d4a-11ea-866c-e0bdf19b84be.png)
 
 *Note: the `+` is optional.*
+
+### Status
+
+Shows the status of the first active task found (desc + active duration).
+
+```bash
+unfog status
+```
+
+Useful for interface integration. Example with
+[polybar](https://github.com/polybar/polybar):
+
+```
+[module/unfog]
+type = custom/script
+exec = unfog status
+interval = 10
+```
 
 ### Upgrade
 

@@ -60,11 +60,11 @@ emptyArgTree = ArgTree { _ids     = []
                        , _opts    = ArgOpts False
                        }
 
-queries = ["list", "show", "worktime", "report", "help", "version", "upgrade"]
+queries = ["list", "info", "worktime", "status", "upgrade", "version", "help"]
 commands =
-  [ "create"
-  , "update"
-  , "replace"
+  [ "add"
+  , "edit"
+  , "set"
   , "start"
   , "stop"
   , "toggle"
@@ -76,33 +76,33 @@ commands =
 
 -- Main exprs
 
-createExpr :: ReadP [Arg]
-createExpr = do
-  cmd  <- cmdAliasExpr ["create", "add", "a"]
+addExpr :: ReadP [Arg]
+addExpr = do
+  cmd  <- cmdAliasExpr ["add", "a"]
   args <- many1 $ optExpr <++ addTagExpr <++ dueExpr <++ wordExpr
   guard $ isJust $ find (not . isOpt) args
   return $ cmd : args
 
-updateExpr :: ReadP [Arg]
-updateExpr = do
-  cmd  <- cmdAliasExpr ["update", "edit", "u", "e"]
+editExpr :: ReadP [Arg]
+editExpr = do
+  cmd  <- cmdAliasExpr ["edit", "e"]
   ids  <- many1 idExpr
   args <- many1 $ optExpr <++ addTagExpr <++ delTagExpr <++ dueExpr <++ wordExpr
   return $ cmd : ids ++ args
 
-replaceExpr :: ReadP [Arg]
-replaceExpr = do
-  cmd  <- cmdAliasExpr ["replace", "set"]
+setExpr :: ReadP [Arg]
+setExpr = do
+  cmd  <- cmdAliasExpr ["set", "s"]
   ids  <- many1 idExpr
   args <- many1 $ optExpr <++ addTagExpr <++ dueExpr <++ wordExpr
   guard $ isJust $ find (not . isOpt) args
   return $ cmd : ids ++ args
 
 startExpr :: ReadP [Arg]
-startExpr = cmdWithIdExpr ["start", "sta", "+"]
+startExpr = cmdWithIdExpr ["start", "+"]
 
 stopExpr :: ReadP [Arg]
-stopExpr = cmdWithIdExpr ["stop", "sto", "-"]
+stopExpr = cmdWithIdExpr ["stop", "-"]
 
 toggleExpr :: ReadP [Arg]
 toggleExpr = cmdWithIdExpr ["toggle", "t"]
@@ -118,7 +118,7 @@ removeExpr = cmdWithIdExpr ["remove", "r"]
 
 ctxExpr :: ReadP [Arg]
 ctxExpr = do
-  cmd  <- cmdAliasExpr ["context", "ctx"]
+  cmd  <- cmdAliasExpr ["context", "c"]
   args <- many $ optExpr <++ addCtxTagExpr
   return $ cmd : args
 
@@ -128,23 +128,17 @@ listExpr = do
   args <- many optExpr
   return $ cmd : args
 
-showExpr :: ReadP [Arg]
-showExpr = do
-  cmd  <- cmdAliasExpr ["show", "info", "s", "i"]
+infoExpr :: ReadP [Arg]
+infoExpr = do
+  cmd  <- cmdAliasExpr ["info", "i"]
   id   <- idExpr
   args <- many optExpr
   return $ cmd : id : args
 
 wtimeExpr :: ReadP [Arg]
 wtimeExpr = do
-  cmd  <- cmdAliasExpr ["worktime", "wtime", "w"]
+  cmd  <- cmdAliasExpr ["worktime", "w"]
   args <- many $ optExpr <++ addCtxTagExpr <++ minDateExpr <++ maxDateExpr
-  return $ cmd : args
-
-reportExpr :: ReadP [Arg]
-reportExpr = do
-  cmd  <- cmdAliasExpr ["report", "rp"]
-  args <- many optExpr
   return $ cmd : args
 
 helpExpr :: ReadP [Arg]
@@ -163,6 +157,12 @@ upgradeExpr = do
   cmd <- cmdAliasExpr ["upgrade"]
   return [cmd]
 
+statusExpr :: ReadP [Arg]
+statusExpr = do
+  cmd  <- cmdAliasExpr ["status"]
+  args <- many optExpr
+  return $ cmd : args
+
 -- Composite exprs
 
 cmdWithIdExpr :: [String] -> ReadP [Arg]
@@ -175,7 +175,7 @@ cmdWithIdExpr aliases = do
 cmdAliasExpr :: [String] -> ReadP Arg
 cmdAliasExpr aliases = do
   skipSpaces
-  cmd <- choice $ reverse $ map string aliases
+  cmd <- foldr1 (<++) $ map string aliases
   return $ SetCmd $ head aliases
 
 idExpr :: ReadP Arg
@@ -273,9 +273,10 @@ isTag c | isAlphaNum c  = True
 
 parser :: ReadP [Arg]
 parser =
-  createExpr
-    <++ updateExpr
-    <++ replaceExpr
+  helpExpr
+    <++ versionExpr
+    <++ upgradeExpr
+    <++ statusExpr
     <++ startExpr
     <++ stopExpr
     <++ toggleExpr
@@ -283,13 +284,12 @@ parser =
     <++ deleteExpr
     <++ removeExpr
     <++ ctxExpr
+    <++ infoExpr
     <++ listExpr
-    <++ showExpr
     <++ wtimeExpr
-    <++ reportExpr
-    <++ helpExpr
-    <++ versionExpr
-    <++ upgradeExpr
+    <++ editExpr
+    <++ setExpr
+    <++ addExpr
 
 eval :: ArgTree -> Arg -> ArgTree
 eval tree arg = case arg of

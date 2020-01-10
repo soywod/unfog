@@ -19,13 +19,13 @@ import           Task
 import qualified Parsec
 
 data Query
-  = ShowTasks Parsec.ArgTree
-  | ShowTask Parsec.ArgTree
-  | ShowWtime Parsec.ArgTree
-  | ShowReport Parsec.ArgTree
-  | ShowHelp
-  | ShowVersion
+  = List Parsec.ArgTree
+  | Info Parsec.ArgTree
+  | Wtime Parsec.ArgTree
+  | Status
   | Upgrade
+  | Version
+  | Help
   | Error String String
   deriving (Show)
 
@@ -39,21 +39,21 @@ handle args = do
 
 getQuery :: Parsec.ArgTree -> Query
 getQuery args = case Parsec._cmd args of
-  "list" -> ShowTasks args
-  "show" -> case Parsec._ids args of
+  "list" -> List args
+  "info" -> case Parsec._ids args of
     []     -> Error "show" "invalid arguments"
-    id : _ -> ShowTask args
-  "worktime" -> ShowWtime args
-  "report"   -> ShowReport args
-  "help"     -> ShowHelp
-  "version"  -> ShowVersion
+    id : _ -> Info args
+  "worktime" -> Wtime args
+  "status"   -> Status
   "upgrade"  -> Upgrade
+  "version"  -> Version
+  "help"     -> Help
 
 execute :: Parsec.ArgTree -> State -> [Event] -> Query -> IO ()
 execute args state events query = do
   let rtype = if Parsec._json (Parsec._opts args) then JSON else Text
   case query of
-    ShowTasks args -> do
+    List args -> do
       now <- getCurrentTime
       let ctx     = _ctx state
       let fByTags = filterByTags ctx
@@ -62,7 +62,7 @@ execute args state events query = do
       let ctxStr = if null ctx then "" else " [" ++ unwords ctx ++ "]"
       printTasks rtype ("unfog: list" ++ ctxStr) tasks
 
-    ShowTask args -> do
+    Info args -> do
       now <- getCurrentTime
       let ctx       = _ctx state
       let id        = head $ Parsec._ids args
@@ -74,7 +74,7 @@ execute args state events query = do
         Nothing   -> printErr rtype $ "show: task [" ++ show id ++ "] not found"
         Just task -> printTask rtype task { _wtime = getTotalWtime now task }
 
-    ShowWtime args -> do
+    Wtime args -> do
       now <- getCurrentTime
       let tags  = Parsec._tags args `union` _ctx state
       let min   = Parsec.parseMinDate now args
@@ -85,16 +85,20 @@ execute args state events query = do
       let ctx = if null tags then "global" else "for [" ++ unwords tags ++ "]"
       printWtime rtype ("unfog: wtime " ++ ctx) wtime
 
-    ShowReport args -> do
+    Status -> do
       now <- getCurrentTime
-      let ctx     = _ctx state
-      let fByTags = filterByTags ctx
-      let fByDone = filterByDone $ "done" `elem` ctx
-      let tasks = mapWithWtime now . fByTags . fByDone $ _tasks state
-      let ctxStr = if null ctx then "" else " [" ++ unwords ctx ++ "]"
-      printReport rtype ("unfog: report" ++ ctxStr) tasks
+      case filter ((> 0) . _active) $ _tasks state of
+        []       -> printEmptyStatus rtype
+        task : _ -> printStatus rtype task
 
-    ShowHelp -> do
+    Upgrade ->
+      system
+          "curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/install.sh | sh"
+        >> return ()
+
+    Version -> printVersion rtype "0.3.3"
+
+    Help    -> do
       putStrLn "Usage: unfog cmd (args)"
       putStrLn ""
       putStrLn "Create a task:"
@@ -131,12 +135,5 @@ execute args state events query = do
       putStrLn ""
       putStrLn "Display total worktime by context:"
       putStrLn "worktime|wtime (+tags) ([min:time) (]max:time) (--json)"
-
-    ShowVersion -> printVersion rtype "0.3.3"
-
-    Upgrade ->
-      system
-          "curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/install.sh | sh"
-        >> return ()
 
     Error command message -> printErr rtype $ command ++ ": " ++ message
