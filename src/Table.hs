@@ -34,7 +34,7 @@ join :: [String] -> String
 join = foldr (++) ""
 
 sep :: String
-sep = renderCell 0 (ext 238 . cell $ "|")
+sep = renderCell 0 (ext 8 . cell $ "|")
 
 cell :: Value -> Cell
 cell val = Cell [] val

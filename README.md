@@ -197,7 +197,7 @@ date by `]`. The date range should follow the due time format (see [#create]).
 unfog worktime|w (+tags) ([min:range) (]max:range)
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/71660308-eae61b00-2d4a-11ea-866c-e0bdf19b84be.png)
+![image](https://user-images.githubusercontent.com/10437171/72210877-2c509600-34c2-11ea-8052-37f684ba4e8e.png)
 
 *Note: the `+` is optional.*
 

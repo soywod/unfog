@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2020-01-11
+
 ### Added
 
 - Upgrade command [#10]
@@ -17,7 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Shorter aliases
 - Show command (UI) [#17]
-- Commands names + aliases
+- `worktime` command (group by ids) [#11]
+- **[BREAKING]** Commands names + aliases
 
 ## [0.3.3] - 2020-01-01
 
@@ -131,7 +134,8 @@ First release :tada:
 
 - Linux binaries
 
-[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.3.3...HEAD
+[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/unfog-io/unfog-cli/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/unfog-io/unfog-cli/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/unfog-io/unfog-cli/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/unfog-io/unfog-cli/compare/v0.3.0...v0.3.1
@@ -154,6 +158,7 @@ First release :tada:
 [#8]: https://github.com/unfog-io/unfog-cli/issues/8
 [#9]: https://github.com/unfog-io/unfog-cli/issues/9
 [#10]: https://github.com/unfog-io/unfog-cli/issues/10
+[#11]: https://github.com/unfog-io/unfog-cli/issues/11
 [#12]: https://github.com/unfog-io/unfog-cli/issues/12
 [#13]: https://github.com/unfog-io/unfog-cli/issues/13
 [#15]: https://github.com/unfog-io/unfog-cli/issues/15

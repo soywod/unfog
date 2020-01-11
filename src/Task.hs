@@ -20,21 +20,35 @@ type Active = Bool
 type Done = Bool
 type Duration = Micro
 
-data Task =
-  Task { _id :: Id
-       , _ref :: Ref
-       , _pos :: Pos
-       , _desc :: Desc
-       , _tags :: [Tag]
-       , _due :: Maybe Duration
-       , _active :: Duration
-       , _done :: Done
-       , _wtime :: Duration
-       , _starts :: [UTCTime]
-       , _stops :: [UTCTime]
-       } deriving (Show, Read, Eq)
+data Task = Task { _id :: Id
+                 , _ref :: Ref
+                 , _pos :: Pos
+                 , _desc :: Desc
+                 , _tags :: [Tag]
+                 , _due :: Maybe Duration
+                 , _active :: Duration
+                 , _done :: Done
+                 , _wtime :: Duration
+                 , _starts :: [UTCTime]
+                 , _stops :: [UTCTime]
+                 } deriving (Show, Read, Eq)
 
-type DailyWtime = (String, Duration)
+emptyTask :: Task
+emptyTask = Task { _id     = 0
+                 , _ref    = 0
+                 , _pos    = -1
+                 , _desc   = ""
+                 , _tags   = []
+                 , _due    = Nothing
+                 , _active = 0
+                 , _done   = False
+                 , _wtime  = 0
+                 , _starts = []
+                 , _stops  = []
+                 }
+
+data WtimeTask = WtimeTask Ref Desc Duration deriving (Show, Read, Eq)
+type DailyWtime = (String, [WtimeTask])
 newtype DailyWtimeRecord = DailyWtimeRecord {toDailyWtimeRecord :: DailyWtime}
 newtype DailyWtimeTotalRecord = DailyWtimeTotalRecord {toDailyWtimeTotalRecord :: Duration}
 
@@ -68,22 +82,8 @@ instance ToJSON Task where
     ]
 
 instance ToJSON DailyWtimeRecord where
-  toJSON (DailyWtimeRecord (date, wtime)) =
-    object ["date" .= date, "wtime" .= DurationRecord wtime]
-
-emptyTask :: Task
-emptyTask = Task { _id     = 0
-                 , _ref    = 0
-                 , _pos    = -1
-                 , _desc   = ""
-                 , _tags   = []
-                 , _due    = Nothing
-                 , _active = 0
-                 , _done   = False
-                 , _wtime  = 0
-                 , _starts = []
-                 , _stops  = []
-                 }
+  toJSON (DailyWtimeRecord (date, _)) =
+    object ["date" .= date, "wtime" .= DurationRecord 0]
 
 generateId :: [Task] -> Id
 generateId tasks = generateId' (sort $ map _id tasks) [1 ..]
@@ -129,18 +129,6 @@ getTotalWtime now task = realToFrac $ sum $ zipWith diffUTCTime stops starts
   starts = _starts task
   stops  = _stops task ++ [ now | _active task > 0 ]
 
-getWtimePerDay
-  :: UTCTime -> Maybe UTCTime -> Maybe UTCTime -> [Task] -> [DailyWtime]
-getWtimePerDay now min max tasks = withoutEmpty $ wtime
- where
-  wtime           = foldl fWtimePerDay [] $ zip starts stops
-  withoutEmpty    = filter $ (\(_, d) -> d > 0)
-  (starts, stops) = foldl byStartsAndStops ([], []) tasks
-  byStartsAndStops (starts, stops) t =
-    ( starts ++ withMinMax min max (_starts t)
-    , stops ++ withMinMax min max (_stops t ++ [ now | _active t > 0 ])
-    )
-
 withMinMax :: Maybe UTCTime -> Maybe UTCTime -> [UTCTime] -> [UTCTime]
 withMinMax maybeMin maybeMax = map withMinMax'
  where
@@ -148,21 +136,53 @@ withMinMax maybeMin maybeMax = map withMinMax'
     let max = minimum $ [fromMaybe date maybeMax, date]
     in  maximum $ [fromMaybe max maybeMin, max]
 
-fWtimePerDay :: [DailyWtime] -> (UTCTime, UTCTime) -> [DailyWtime]
-fWtimePerDay acc (start, stop) = case lookup key acc of
-  Nothing       -> (key, nextSecs) : nextAcc
-  Just prevSecs -> (key, prevSecs + nextSecs) : filter ((/=) key . fst) nextAcc
+mergeWtimes :: [DailyWtime] -> [DailyWtime] -> [DailyWtime]
+mergeWtimes = foldl mergeWtimes'
  where
-  key                 = show currDay
-  currDay             = utctDay start
-  endOfDay            = read $ show currDay ++ " 23:59:59.999999999" :: UTCTime
-  nextDay = read $ show (addDays 1 currDay) ++ " 00:00:00" :: UTCTime
-  (nextSecs, nextAcc) = if stop < endOfDay
-    then (realToFrac $ diffUTCTime stop start, acc)
+  mergeWtimes' a (bday, bvals) = case lookup bday a of
+    Nothing -> (bday, bvals) : a
+    Just avals ->
+      (bday, foldl mergeWtimesVals avals bvals) : filter ((/=) bday . fst) a
+
+mergeWtimesVals :: [WtimeTask] -> WtimeTask -> [WtimeTask]
+mergeWtimesVals avals (WtimeTask bid bdesc bwtime) =
+  case find ((==) bid . getId) avals of
+    Nothing -> (WtimeTask bid bdesc bwtime) : avals
+    Just aval ->
+      (WtimeTask bid bdesc (getWtime aval + bwtime)) : without bid avals
+ where
+  getId (WtimeTask id desc wtime) = id
+  getWtime (WtimeTask id desc wtime) = wtime
+  without val = filter ((/=) val . getId)
+
+getWtimePerDay
+  :: UTCTime -> Maybe UTCTime -> Maybe UTCTime -> [Task] -> [DailyWtime]
+getWtimePerDay now min max = foldl (getWtimePerDay' now min max) []
+ where
+  getWtimePerDay' now min max wtimes task = nextWtimes
+   where
+    wtimeTask = WtimeTask (_id task) (_desc task) 0
+    starts    = withMinMax min max $ _starts task
+    stops     = withMinMax min max $ _stops task ++ [ now | _active task > 0 ]
+    getWtime (WtimeTask _ _ w) = w
+    nextWtimes =
+      filter (\(_, wtimes) -> (sum $ map getWtime wtimes) > 0)
+        $ mergeWtimes wtimes
+        $ concatMap (wtimePerDay wtimeTask)
+        $ zip starts stops
+
+wtimePerDay :: WtimeTask -> (UTCTime, UTCTime) -> [DailyWtime]
+wtimePerDay (WtimeTask id desc _) (start, stop) = nextWtimes
+ where
+  day        = show currDay
+  currDay    = utctDay start
+  endOfDay   = read $ show currDay ++ " 23:59:59.999999999" :: UTCTime
+  nextDay    = read $ show (addDays 1 currDay) ++ " 00:00:00" :: UTCTime
+  nextWtimes = if stop < endOfDay
+    then [(day, [WtimeTask id desc $ realToFrac $ diffUTCTime stop start])]
     else
-      ( realToFrac $ diffUTCTime endOfDay start
-      , fWtimePerDay acc (nextDay, stop)
-      )
+      (day, [WtimeTask id desc $ realToFrac $ diffUTCTime endOfDay start])
+        : wtimePerDay (WtimeTask id desc 0) (nextDay, stop)
 
 printActive :: Micro -> String
 printActive active | active > 0 = approximativeDuration active ++ " ago"
@@ -268,21 +288,30 @@ tableWtime wtime = head : body ++ foot
  where
   prettyPrint (date, wtime) = [date, humanReadableDuration $ realToFrac wtime]
   head = tableWtimeHead
-  body = map tableWtimeRow wtime
-  foot = [tableWtimeFoot $ foldl (\acc (_, x) -> acc + x) 0 wtime]
+  body = concatMap tableWtimeRow wtime
+  getWtime (WtimeTask _ _ w) = w
+  foot = [tableWtimeFoot $ sum $ map getWtime $ concatMap snd wtime]
 
 tableWtimeHead :: [Cell]
-tableWtimeHead = map (underline . bold . cell) ["DATE", "WORKTIME"]
+tableWtimeHead =
+  map (underline . bold . cell) ["DATE", "ID", "DESC", "WORKTIME"]
 
-tableWtimeRow :: DailyWtime -> [Cell]
-tableWtimeRow wtime = cells
+tableWtimeRow :: DailyWtime -> [[Cell]]
+tableWtimeRow wtime = map toCell (wtimeToStrings wtime) ++ [foot]
  where
-  [date, total] = wtimeToStrings wtime
-  cells         = [cell date, yellow . cell $ total]
+  toCell [date, id, desc, total] =
+    [cell date, red . cell $ id, cell desc, yellow . cell $ total]
+  getWtime (WtimeTask _ _ wtime) = wtime
+  total = humanReadableDuration $ sum $ map getWtime $ snd wtime
+  foot  = [ext 8 . cell $ "TOTAL", cell "", cell "", ext 8 . cell $ total]
 
 tableWtimeFoot :: Duration -> [Cell]
-tableWtimeFoot total = [bold . cell $ "TOTAL", bold . cell $ humanTotal]
+tableWtimeFoot total =
+  [bold . cell $ "TOTAL", cell "", cell "", bold . cell $ humanTotal]
   where humanTotal = humanReadableDuration total
 
-wtimeToStrings :: DailyWtime -> [String]
-wtimeToStrings (date, wtime) = [date, humanReadableDuration $ realToFrac wtime]
+wtimeToStrings :: DailyWtime -> [[String]]
+wtimeToStrings (date, tasks) = map wtimeToStrings' tasks
+ where
+  wtimeToStrings' (WtimeTask id desc wtime) =
+    [date, show id, desc, humanReadableDuration $ realToFrac wtime]

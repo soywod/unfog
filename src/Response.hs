@@ -74,9 +74,7 @@ instance ToJSON Response where
   toJSON (ResponseWtime wtime) = object
     [ "ok" .= (1 :: Int)
     , "data" .= object
-      [ "wtimes" .= map DailyWtimeRecord wtime
-      , "total" .= DurationRecord (foldl (\t (_, w) -> t + w) 0 wtime)
-      ]
+      ["wtimes" .= map DailyWtimeRecord wtime, "total" .= DurationRecord 0]
     ]
   toJSON (ResponseStatus task) = object
     [ "ok" .= (1 :: Int)
