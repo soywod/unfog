@@ -27,12 +27,12 @@ data Command
   | NoOp
   deriving (Show, Read)
 
-type Subscriber = Parsec.ArgTree -> Command -> IO ()
+type Subscriber = Parsec.Arg -> Command -> IO ()
 
 subscribers :: [Subscriber]
 subscribers = [logger]
 
-handle :: Parsec.ArgTree -> IO ()
+handle :: Parsec.Arg -> IO ()
 handle args = do
   now   <- getCurrentTime
   state <- applyEvents now <$> readEvents
@@ -41,7 +41,7 @@ handle args = do
   writeEvents evts
   mapM_ (forM_ cmds) $ map ($ args) subscribers
 
-getCommands :: UTCTime -> Parsec.ArgTree -> State -> [Command]
+getCommands :: UTCTime -> Parsec.Arg -> State -> [Command]
 getCommands t args state = case Parsec._cmd args of
   "add"     -> [createTask t args state]
   "edit"    -> map (updateTask t args state) (Parsec._ids args)
@@ -69,7 +69,7 @@ execute state command = case command of
   Error      _ _                   -> []
   NoOp                             -> []
 
-createTask :: UTCTime -> Parsec.ArgTree -> State -> Command
+createTask :: UTCTime -> Parsec.Arg -> State -> Command
 createTask t args state = CreateTask t ref id pos desc tags due
  where
   ref  = floor $ 1000 * utcTimeToPOSIXSeconds t :: Int
@@ -79,7 +79,7 @@ createTask t args state = CreateTask t ref id pos desc tags due
   tags = Parsec._tags args `union` _ctx state
   due  = Parsec.parseDue t args
 
-updateTask :: UTCTime -> Parsec.ArgTree -> State -> Id -> Command
+updateTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
 updateTask t args state id = case maybeTask of
   Nothing   -> Error "update" $ "task [" ++ show id ++ "] not found"
   Just task -> validate task
@@ -100,7 +100,7 @@ updateTask t args state id = case maybeTask of
         due = Parsec.parseDue t args
     in  UpdateTask t ref id pos nextDesc nextTags due
 
-replaceTask :: UTCTime -> Parsec.ArgTree -> State -> Int -> Command
+replaceTask :: UTCTime -> Parsec.Arg -> State -> Int -> Command
 replaceTask t args state id = case maybeTask of
   Nothing   -> Error "replace" $ "task [" ++ show id ++ "] not found"
   Just task -> validate task
@@ -119,7 +119,7 @@ replaceTask t args state id = case maybeTask of
         due = Parsec.parseDue t args
     in  UpdateTask t ref id pos nextDesc nextTags due
 
-startTask :: UTCTime -> Parsec.ArgTree -> State -> Id -> Command
+startTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
 startTask t args state id = case maybeTask of
   Nothing   -> Error "start" $ "task [" ++ show id ++ "] not found"
   Just task -> validate task
@@ -134,7 +134,7 @@ startTask t args state id = case maybeTask of
     ++ "] already started"
     | otherwise = StartTask t (_ref task) (_id task)
 
-stopTask :: UTCTime -> Parsec.ArgTree -> State -> Id -> Command
+stopTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
 stopTask t args state id = case maybeTask of
   Nothing   -> Error "stop" $ "task [" ++ show id ++ "] not found"
   Just task -> validate task
@@ -149,7 +149,7 @@ stopTask t args state id = case maybeTask of
     ++ "] already stopped"
     | otherwise = StopTask t (_ref task) (_id task)
 
-toggleTask :: UTCTime -> Parsec.ArgTree -> State -> Id -> Command
+toggleTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
 toggleTask t args state id = case maybeTask of
   Nothing   -> Error "toggle" $ "task [" ++ show id ++ "] not found"
   Just task -> validate task
@@ -161,7 +161,7 @@ toggleTask t args state id = case maybeTask of
     | _active task > 0 = StopTask t (_ref task) (_id task)
     | otherwise = StartTask t (_ref task) (_id task)
 
-markAsDoneTask :: UTCTime -> Parsec.ArgTree -> State -> Id -> Command
+markAsDoneTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
 markAsDoneTask t args state id = case maybeTask of
   Nothing   -> Error "done" $ "task [" ++ show id ++ "] not found"
   Just task -> validate task
@@ -173,7 +173,7 @@ markAsDoneTask t args state id = case maybeTask of
     | _done task = Error "done" $ "task [" ++ show id ++ "] already done"
     | otherwise  = MarkAsDoneTask t (_ref task) (_id task) nextNumber
 
-unmarkAsDoneTask :: UTCTime -> Parsec.ArgTree -> State -> Id -> Command
+unmarkAsDoneTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
 unmarkAsDoneTask t args state id = case maybeTask of
   Nothing   -> Error "done" $ "task [" ++ show id ++ "] not found"
   Just task -> validate task
@@ -185,7 +185,7 @@ unmarkAsDoneTask t args state id = case maybeTask of
     | (not . _done) task = Error "undone" $ "task [" ++ show id ++ "] not done"
     | otherwise          = UnmarkAsDoneTask t (_ref task) (_id task) nextNumber
 
-deleteTask :: UTCTime -> Parsec.ArgTree -> State -> Id -> Command
+deleteTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
 deleteTask t args state id = case maybeTask of
   Nothing   -> Error "delete" $ "task [" ++ show id ++ "] not found"
   Just task -> DeleteTask t (_ref task) (_id task)
@@ -193,7 +193,7 @@ deleteTask t args state id = case maybeTask of
   tasks     = filterByDone ("done" `elem` _ctx state) (_tasks state)
   maybeTask = findById id tasks
 
-removeTask :: UTCTime -> Parsec.ArgTree -> State -> Id -> Command
+removeTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
 removeTask t args state id = case maybeTask of
   Just task -> MarkAsDoneTask t (_ref task) (_id task) nextNumber
   Nothing   -> case maybeDoneTask of
@@ -207,7 +207,7 @@ removeTask t args state id = case maybeTask of
   maybeTask     = findById id tasks
   maybeDoneTask = findById id doneTasks
 
-setContext :: UTCTime -> Parsec.ArgTree -> Command
+setContext :: UTCTime -> Parsec.Arg -> Command
 setContext t args = SetContext t (Parsec._tags args)
 
 logger :: Subscriber

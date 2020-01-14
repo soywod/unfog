@@ -19,9 +19,9 @@ import           Task
 import qualified Parsec
 
 data Query
-  = List Parsec.ArgTree
-  | Info Parsec.ArgTree
-  | Wtime Parsec.ArgTree
+  = List Parsec.Arg
+  | Info Parsec.Arg
+  | Wtime Parsec.Arg
   | Status
   | Upgrade
   | Version
@@ -29,7 +29,7 @@ data Query
   | Error String String
   deriving (Show)
 
-handle :: Parsec.ArgTree -> IO ()
+handle :: Parsec.Arg -> IO ()
 handle args = do
   evts <- readEvents
   now  <- getCurrentTime
@@ -37,7 +37,7 @@ handle args = do
   let qry   = getQuery args
   execute args state evts qry
 
-getQuery :: Parsec.ArgTree -> Query
+getQuery :: Parsec.Arg -> Query
 getQuery args = case Parsec._cmd args of
   "list" -> List args
   "info" -> case Parsec._ids args of
@@ -49,7 +49,7 @@ getQuery args = case Parsec._cmd args of
   "version"  -> Version
   "help"     -> Help
 
-execute :: Parsec.ArgTree -> State -> [Event] -> Query -> IO ()
+execute :: Parsec.Arg -> State -> [Event] -> Query -> IO ()
 execute args state events query = do
   let rtype = if Parsec._json (Parsec._opts args) then JSON else Text
   case query of

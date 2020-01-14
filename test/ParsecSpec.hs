@@ -38,18 +38,18 @@ spec = parallel $ do
     it "with due" $ do
       parseArgs "add  :10:20   " `shouldBe` emptyArgTree
         { _cmd = "add"
-        , _due = Just $ ArgDate 10 0 0 20 0
+        , _due = Just $ ArgDate Rel 10 0 0 20 0
         }
       parseArgs "add    ::20" `shouldBe` emptyArgTree
         { _cmd = "add"
-        , _due = Just $ ArgDate 0 0 0 20 0
+        , _due = Just $ ArgDate Rel 0 0 0 20 0
         }
 
     it "with different order" $ do
       let expectedTree = emptyArgTree { _cmd  = "add"
                                       , _desc = "desc"
                                       , _tags = ["tag"]
-                                      , _due  = Just $ ArgDate 0 0 0 20 0
+                                      , _due  = Just $ ArgDate Rel 0 0 0 20 0
                                       , _opts = ArgOpts { _json = True }
                                       }
       parseArgs "a   desc +tag ::20 --json" `shouldBe` expectedTree
@@ -79,7 +79,7 @@ spec = parallel $ do
       parseArgs "edit   2 :10:20 " `shouldBe` emptyArgTree
         { _cmd = "edit"
         , _ids = [2]
-        , _due = Just $ ArgDate 10 0 0 20 0
+        , _due = Just $ ArgDate Rel 10 0 0 20 0
         }
 
     it "with opt" $ do
@@ -116,7 +116,7 @@ spec = parallel $ do
       parseArgs "set   2 :10:20 " `shouldBe` emptyArgTree
         { _cmd = "set"
         , _ids = [2]
-        , _due = Just $ ArgDate 10 0 0 20 0
+        , _due = Just $ ArgDate Rel 10 0 0 20 0
         }
 
     it "with opt" $ do
@@ -282,7 +282,7 @@ spec = parallel $ do
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
-        , _minDate = Just $ ArgDate 10 0 0 0 0
+        , _minDate = Just $ ArgDate Rel 10 0 0 0 0
         }
 
     it "with min time" $ do
@@ -290,7 +290,7 @@ spec = parallel $ do
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
-        , _minDate = Just $ ArgDate 0 0 0 20 0
+        , _minDate = Just $ ArgDate Rel 0 0 0 20 0
         }
 
     it "with min datetime" $ do
@@ -298,7 +298,7 @@ spec = parallel $ do
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
-        , _minDate = Just $ ArgDate 10 0 0 20 0
+        , _minDate = Just $ ArgDate Rel 10 0 0 20 0
         }
 
     it "with max date" $ do
@@ -306,7 +306,7 @@ spec = parallel $ do
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
-        , _maxDate = Just $ ArgDate 10 0 0 0 0
+        , _maxDate = Just $ ArgDate Rel 10 0 0 0 0
         }
 
     it "with max time" $ do
@@ -314,7 +314,7 @@ spec = parallel $ do
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
-        , _maxDate = Just $ ArgDate 0 0 0 20 0
+        , _maxDate = Just $ ArgDate Rel 0 0 0 20 0
         }
 
     it "with max datetime" $ do
@@ -322,7 +322,7 @@ spec = parallel $ do
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
-        , _maxDate = Just $ ArgDate 10 0 0 20 0
+        , _maxDate = Just $ ArgDate Rel 10 0 0 20 0
         }
 
     it "with min and max datetimes" $ do
@@ -330,8 +330,8 @@ spec = parallel $ do
         { _type    = Qry
         , _cmd     = "worktime"
         , _tags    = ["tag"]
-        , _minDate = Just $ ArgDate 10 0 0 20 0
-        , _maxDate = Just $ ArgDate 14 0 0 0 0
+        , _minDate = Just $ ArgDate Rel 10 0 0 20 0
+        , _maxDate = Just $ ArgDate Rel 14 0 0 0 0
         }
 
   describe "help expr" $ do
