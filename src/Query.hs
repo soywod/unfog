@@ -52,6 +52,7 @@ getQuery args = case Parsec._cmd args of
 execute :: Parsec.Arg -> State -> [Event] -> Query -> IO ()
 execute args state events query = do
   let rtype = if Parsec._json (Parsec._opts args) then JSON else Text
+  let more  = Parsec._more (Parsec._opts args)
   case query of
     List args -> do
       now <- getCurrentTime
@@ -83,7 +84,7 @@ execute args state events query = do
       let tasks = filterByRefs refs $ _tasks state
       let wtime = getWtimePerDay now min max tasks
       let ctx = if null tags then "global" else "for [" ++ unwords tags ++ "]"
-      printWtime rtype ("unfog: wtime " ++ ctx) wtime
+      printWtime rtype more ("unfog: wtime " ++ ctx) wtime
 
     Status -> do
       now <- getCurrentTime

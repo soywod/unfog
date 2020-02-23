@@ -193,6 +193,8 @@ by days. An empty context will show the worktime of all your tasks.
 You can also filter them with a date range. Min date starts by `[`, and max
 date by `]`. The date range should follow the due time format (see [#create]).
 
+See the (`--more`)[#more] option get more informations in the result.
+
 ```bash
 unfog worktime|w (+tags) ([min:range) (]max:range)
 ```
@@ -270,6 +272,13 @@ TimeRecord {
 This is useful to create user interafaces. Here the list of current implementations:
 
 - [Unfog.vim](https://github.com/unfog-io/unfog-vim) for Vim/Neovim
+
+### More
+
+By adding the `--more` option, you will get more informations depending on the
+command:
+
+- [Worktime](#worktime): adds for each day the tasks with their worktime
 
 ## Contributing
 

@@ -1,10 +1,9 @@
 module Command where
 
-import qualified Data.ByteString.Lazy.Char8    as BL
-import           Data.Aeson              hiding ( Error )
-import           Data.List                      ( union )
-import           Data.Time
 import           Control.Monad
+import           Data.Aeson              hiding ( Error )
+import           Data.List
+import           Data.Time
 import           Data.Time.Clock.POSIX
 
 import           Event

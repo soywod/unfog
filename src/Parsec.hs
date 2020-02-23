@@ -32,7 +32,7 @@ data ArgDate = ArgDate { _dateType :: ArgDateType
                        } deriving (Show, Eq)
 
 data ArgType = Cmd | Qry deriving (Show, Eq)
-data ArgOpts = ArgOpts { _json :: Bool } deriving (Show, Eq)
+data ArgOpts = ArgOpts { _json :: Bool, _more :: Bool } deriving (Show, Eq)
 data Arg = Arg { _type :: ArgType
                , _cmd :: String
                , _ids :: [Int]
@@ -53,7 +53,7 @@ emptyArgTree = Arg { _ids     = []
                    , _due     = Nothing
                    , _minDate = Nothing
                    , _maxDate = Nothing
-                   , _opts    = ArgOpts False
+                   , _opts    = ArgOpts False False
                    }
 
 queries = ["list", "info", "worktime", "status", "upgrade", "version", "help"]
@@ -241,7 +241,7 @@ optExpr :: ReadP ArgExpr
 optExpr = do
   skipSpaces
   string "--"
-  opt <- choice $ map string ["json"]
+  opt <- choice $ map string ["json", "more"]
   eofOrSpaces
   return $ AddOpt opt
 
@@ -346,3 +346,4 @@ eval tree arg = case arg of
    where
     opts = case opt of
       "json" -> (_opts tree) { _json = True }
+      "more" -> (_opts tree) { _more = True }

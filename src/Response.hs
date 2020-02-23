@@ -38,13 +38,14 @@ printTask rtype task = case rtype of
   JSON -> BL.putStr $ encode $ ResponseTask task
   Text -> prettyPrintTask task
 
-printWtime :: ResponseType -> String -> [DailyWtime] -> IO ()
-printWtime rtype msg wtime = case rtype of
+printWtime :: ResponseType -> Bool -> String -> [DailyWtime] -> IO ()
+printWtime rtype more msg wtime = case rtype of
   JSON -> BL.putStr $ encode $ ResponseWtime wtime
   Text -> do
+    let prettyPrint = if more then prettyPrintFullWtime else prettyPrintWtime
     putStrLn msg
     putStrLn ""
-    prettyPrintWtime wtime
+    prettyPrint wtime
     putStrLn ""
 
 printEmptyStatus :: ResponseType -> IO ()

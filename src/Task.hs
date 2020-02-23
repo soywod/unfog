@@ -286,29 +286,67 @@ prettyPrintWtime = render . tableWtime
 tableWtime :: [DailyWtime] -> [[Cell]]
 tableWtime wtime = head : body ++ foot
  where
-  prettyPrint (date, wtime) = [date, humanReadableDuration $ realToFrac wtime]
-  head = tableWtimeHead
-  body = concatMap tableWtimeRow wtime
   getWtime (WtimeTask _ _ w) = w
-  foot = [tableWtimeFoot $ sum $ map getWtime $ concatMap snd wtime]
+  head = tableWtimeHead
+  body = map tableWtimeRow wtime
+  foot = tableWtimeFoot $ sum $ map getWtime $ concatMap snd wtime
 
 tableWtimeHead :: [Cell]
-tableWtimeHead =
-  map (underline . bold . cell) ["DATE", "ID", "DESC", "WORKTIME"]
+tableWtimeHead = map (underline . bold . cell) ["DATE", "WORKTIME"]
 
-tableWtimeRow :: DailyWtime -> [[Cell]]
-tableWtimeRow wtime = map toCell (wtimeToStrings wtime) ++ [foot]
+tableWtimeRow :: DailyWtime -> [Cell]
+tableWtimeRow wtime = [cell $ fst wtime, yellow . cell $ total]
  where
-  toCell [date, id, desc, total] =
-    [cell date, red . cell $ id, cell desc, yellow . cell $ total]
   getWtime (WtimeTask _ _ wtime) = wtime
   total = humanReadableDuration $ sum $ map getWtime $ snd wtime
-  foot  = [ext 8 . cell $ "TOTAL", cell "", cell "", ext 8 . cell $ total]
 
-tableWtimeFoot :: Duration -> [Cell]
+tableWtimeFoot :: Duration -> [[Cell]]
 tableWtimeFoot total =
-  [bold . cell $ "TOTAL", cell "", cell "", bold . cell $ humanTotal]
-  where humanTotal = humanReadableDuration total
+  [ replicate 2 $ ext 8 . cell $ replicate 3 '-'
+  , [bold . cell $ "TOTAL RAW", bold . cell $ humanReadableDuration total]
+  , [ bold . cell $ "TOTAL WDAY"
+    , bold . cell $ humanReadableDuration (total * 3.2)
+    ]
+  ]
+
+prettyPrintFullWtime :: [DailyWtime] -> IO ()
+prettyPrintFullWtime = render . tableFullWtime
+
+tableFullWtime :: [DailyWtime] -> [[Cell]]
+tableFullWtime wtime = head : body ++ foot
+ where
+  head = tableFullWtimeHead
+  body = concatMap tableFullWtimeRow wtime
+  getWtime (WtimeTask _ _ w) = w
+  foot = tableFullWtimeFoot $ sum $ map getWtime $ concatMap snd wtime
+
+tableFullWtimeHead :: [Cell]
+tableFullWtimeHead =
+  map (underline . bold . cell) ["DATE", "ID", "DESC", "WORKTIME"]
+
+tableFullWtimeRow :: DailyWtime -> [[Cell]]
+tableFullWtimeRow wtime = map toCell (wtimeToStrings wtime) ++ [foot]
+ where
+  toCell [date, id, desc, total] =
+    [ext 8 . cell $ date, red . cell $ id, cell desc, ext 8 . cell $ total]
+  getWtime (WtimeTask _ _ wtime) = wtime
+  total = humanReadableDuration $ sum $ map getWtime $ snd wtime
+  foot  = [cell $ fst wtime, cell "", cell "", yellow . cell $ total]
+
+tableFullWtimeFoot :: Duration -> [[Cell]]
+tableFullWtimeFoot total =
+  [ replicate 4 $ ext 8 . cell $ replicate 3 '-'
+  , [ bold . cell $ "TOTAL RAW"
+    , cell ""
+    , cell ""
+    , bold . cell $ humanReadableDuration total
+    ]
+  , [ bold . cell $ "TOTAL WDAY"
+    , cell ""
+    , cell ""
+    , bold . cell $ humanReadableDuration (total * 3.2)
+    ]
+  ]
 
 wtimeToStrings :: DailyWtime -> [[String]]
 wtimeToStrings (date, tasks) = map wtimeToStrings' tasks

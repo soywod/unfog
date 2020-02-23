@@ -46,12 +46,13 @@ spec = parallel $ do
         }
 
     it "with different order" $ do
-      let expectedTree = emptyArgTree { _cmd  = "add"
-                                      , _desc = "desc"
-                                      , _tags = ["tag"]
-                                      , _due  = Just $ ArgDate Rel 0 0 0 20 0
-                                      , _opts = ArgOpts { _json = True }
-                                      }
+      let expectedTree = emptyArgTree
+            { _cmd  = "add"
+            , _desc = "desc"
+            , _tags = ["tag"]
+            , _due  = Just $ ArgDate Rel 0 0 0 20 0
+            , _opts = ArgOpts { _json = True, _more = False }
+            }
       parseArgs "a   desc +tag ::20 --json" `shouldBe` expectedTree
       parseArgs "a +tag   desc --json ::20" `shouldBe` expectedTree
       parseArgs "a ::20 --json   desc +tag" `shouldBe` expectedTree
@@ -88,7 +89,7 @@ spec = parallel $ do
         , _desc = "desc"
         , _tags = ["tag"]
         , _ids  = [1]
-        , _opts = ArgOpts True
+        , _opts = ArgOpts True False
         }
 
   describe "set expr" $ do
@@ -125,7 +126,7 @@ spec = parallel $ do
         , _desc = "desc"
         , _tags = ["tag"]
         , _ids  = [1]
-        , _opts = ArgOpts True
+        , _opts = ArgOpts True False
         }
 
   describe "start expr" $ do
@@ -137,10 +138,11 @@ spec = parallel $ do
       parseArgs "start 1" `shouldBe` emptyArgTree { _cmd = "start", _ids = [1] }
       parseArgs "start 1 2"
         `shouldBe` emptyArgTree { _cmd = "start", _ids = [1, 2] }
-      parseArgs "+ 1 --json" `shouldBe` emptyArgTree { _cmd  = "start"
-                                                     , _ids  = [1]
-                                                     , _opts = ArgOpts True
-                                                     }
+      parseArgs "+ 1 --json" `shouldBe` emptyArgTree
+        { _cmd  = "start"
+        , _ids  = [1]
+        , _opts = ArgOpts True False
+        }
 
   describe "stop expr" $ do
     it "invalid args" $ do
@@ -149,10 +151,11 @@ spec = parallel $ do
 
     it "with id" $ do
       parseArgs "stop 1" `shouldBe` emptyArgTree { _cmd = "stop", _ids = [1] }
-      parseArgs "- 1 --json" `shouldBe` emptyArgTree { _cmd  = "stop"
-                                                     , _ids  = [1]
-                                                     , _opts = ArgOpts True
-                                                     }
+      parseArgs "- 1 --json" `shouldBe` emptyArgTree
+        { _cmd  = "stop"
+        , _ids  = [1]
+        , _opts = ArgOpts True False
+        }
 
   describe "toggle expr" $ do
     it "invalid args" $ do
@@ -162,10 +165,11 @@ spec = parallel $ do
     it "with id" $ do
       parseArgs "toggle 1"
         `shouldBe` emptyArgTree { _cmd = "toggle", _ids = [1] }
-      parseArgs "t 1 --json" `shouldBe` emptyArgTree { _cmd  = "toggle"
-                                                     , _ids  = [1]
-                                                     , _opts = ArgOpts True
-                                                     }
+      parseArgs "t 1 --json" `shouldBe` emptyArgTree
+        { _cmd  = "toggle"
+        , _ids  = [1]
+        , _opts = ArgOpts True False
+        }
 
   describe "done expr" $ do
     it "invalid args" $ do
@@ -174,10 +178,11 @@ spec = parallel $ do
 
     it "with id" $ do
       parseArgs "done 1" `shouldBe` emptyArgTree { _cmd = "done", _ids = [1] }
-      parseArgs "d 1 --json" `shouldBe` emptyArgTree { _cmd  = "done"
-                                                     , _ids  = [1]
-                                                     , _opts = ArgOpts True
-                                                     }
+      parseArgs "d 1 --json" `shouldBe` emptyArgTree
+        { _cmd  = "done"
+        , _ids  = [1]
+        , _opts = ArgOpts True False
+        }
 
   describe "undone expr" $ do
     it "invalid args" $ do
@@ -187,10 +192,11 @@ spec = parallel $ do
     it "with id" $ do
       parseArgs "undone 1"
         `shouldBe` emptyArgTree { _cmd = "undone", _ids = [1] }
-      parseArgs "u 1 --json" `shouldBe` emptyArgTree { _cmd  = "undone"
-                                                     , _ids  = [1]
-                                                     , _opts = ArgOpts True
-                                                     }
+      parseArgs "u 1 --json" `shouldBe` emptyArgTree
+        { _cmd  = "undone"
+        , _ids  = [1]
+        , _opts = ArgOpts True False
+        }
 
   describe "delete expr" $ do
     it "invalid args" $ do
@@ -200,10 +206,11 @@ spec = parallel $ do
     it "with id" $ do
       parseArgs "delete 1"
         `shouldBe` emptyArgTree { _cmd = "delete", _ids = [1] }
-      parseArgs "D 1 --json" `shouldBe` emptyArgTree { _cmd  = "delete"
-                                                     , _ids  = [1]
-                                                     , _opts = ArgOpts True
-                                                     }
+      parseArgs "D 1 --json" `shouldBe` emptyArgTree
+        { _cmd  = "delete"
+        , _ids  = [1]
+        , _opts = ArgOpts True False
+        }
 
   describe "remove expr" $ do
     it "invalid args" $ do
@@ -213,10 +220,11 @@ spec = parallel $ do
     it "with id" $ do
       parseArgs "remove 1"
         `shouldBe` emptyArgTree { _cmd = "remove", _ids = [1] }
-      parseArgs "r 1 --json" `shouldBe` emptyArgTree { _cmd  = "remove"
-                                                     , _ids  = [1]
-                                                     , _opts = ArgOpts True
-                                                     }
+      parseArgs "r 1 --json" `shouldBe` emptyArgTree
+        { _cmd  = "remove"
+        , _ids  = [1]
+        , _opts = ArgOpts True False
+        }
 
   describe "context expr" $ do
     it "clear context" $ do
@@ -232,16 +240,17 @@ spec = parallel $ do
       parseArgs "c +tag1 tag2 --json" `shouldBe` emptyArgTree
         { _cmd  = "context"
         , _tags = ["tag1", "tag2"]
-        , _opts = ArgOpts True
+        , _opts = ArgOpts True False
         }
 
   describe "list expr" $ do
     it "with opt" $ do
       parseArgs "list  " `shouldBe` emptyArgTree { _type = Qry, _cmd = "list" }
-      parseArgs "l   --json" `shouldBe` emptyArgTree { _type = Qry
-                                                     , _cmd  = "list"
-                                                     , _opts = ArgOpts True
-                                                     }
+      parseArgs "l   --json" `shouldBe` emptyArgTree
+        { _type = Qry
+        , _cmd  = "list"
+        , _opts = ArgOpts True False
+        }
 
   describe "info expr" $ do
     it "invalid args" $ do
@@ -251,11 +260,12 @@ spec = parallel $ do
     it "with id" $ do
       parseArgs "info 1"
         `shouldBe` emptyArgTree { _type = Qry, _cmd = "info", _ids = [1] }
-      parseArgs "i 1   --json" `shouldBe` emptyArgTree { _type = Qry
-                                                       , _cmd  = "info"
-                                                       , _ids  = [1]
-                                                       , _opts = ArgOpts True
-                                                       }
+      parseArgs "i 1   --json" `shouldBe` emptyArgTree
+        { _type = Qry
+        , _cmd  = "info"
+        , _ids  = [1]
+        , _opts = ArgOpts True False
+        }
 
   describe "worktime expr" $ do
     it "global" $ do
@@ -274,7 +284,7 @@ spec = parallel $ do
         { _type = Qry
         , _cmd  = "worktime"
         , _tags = ["tag", "tag2"]
-        , _opts = ArgOpts True
+        , _opts = ArgOpts True False
         }
 
     it "with min date" $ do
