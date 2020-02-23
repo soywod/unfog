@@ -97,7 +97,7 @@ execute args state events query = do
           "curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/install.sh | sh"
         >> return ()
 
-    Version -> printVersion rtype "0.4.0"
+    Version -> printVersion rtype "0.4.1"
 
     Help    -> do
       putStrLn "Usage: unfog cmd (args)"
