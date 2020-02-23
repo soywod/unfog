@@ -82,8 +82,11 @@ instance ToJSON Task where
     ]
 
 instance ToJSON DailyWtimeRecord where
-  toJSON (DailyWtimeRecord (date, _)) =
-    object ["date" .= date, "wtime" .= DurationRecord 0]
+  toJSON (DailyWtimeRecord (date, wtime)) = object
+    ["date" .= date, "wtime" .= DurationRecord (sum $ map getWtime wtime)]
+
+getWtime :: WtimeTask -> Duration
+getWtime (WtimeTask _ _ w) = w
 
 generateId :: [Task] -> Id
 generateId tasks = generateId' (sort $ map _id tasks) [1 ..]
@@ -152,7 +155,6 @@ mergeWtimesVals avals (WtimeTask bid bdesc bwtime) =
       (WtimeTask bid bdesc (getWtime aval + bwtime)) : without bid avals
  where
   getId (WtimeTask id desc wtime) = id
-  getWtime (WtimeTask id desc wtime) = wtime
   without val = filter ((/=) val . getId)
 
 getWtimePerDay
@@ -164,7 +166,6 @@ getWtimePerDay now min max = foldl (getWtimePerDay' now min max) []
     wtimeTask = WtimeTask (_id task) (_desc task) 0
     starts    = withMinMax min max $ _starts task
     stops     = withMinMax min max $ _stops task ++ [ now | _active task > 0 ]
-    getWtime (WtimeTask _ _ w) = w
     nextWtimes =
       filter (\(_, wtimes) -> (sum $ map getWtime wtimes) > 0)
         $ mergeWtimes wtimes
@@ -286,7 +287,6 @@ prettyPrintWtime = render . tableWtime
 tableWtime :: [DailyWtime] -> [[Cell]]
 tableWtime wtime = head : body ++ foot
  where
-  getWtime (WtimeTask _ _ w) = w
   head = tableWtimeHead
   body = map tableWtimeRow wtime
   foot = tableWtimeFoot $ sum $ map getWtime $ concatMap snd wtime
@@ -296,9 +296,7 @@ tableWtimeHead = map (underline . bold . cell) ["DATE", "WORKTIME"]
 
 tableWtimeRow :: DailyWtime -> [Cell]
 tableWtimeRow wtime = [cell $ fst wtime, yellow . cell $ total]
- where
-  getWtime (WtimeTask _ _ wtime) = wtime
-  total = humanReadableDuration $ sum $ map getWtime $ snd wtime
+  where total = humanReadableDuration $ sum $ map getWtime $ snd wtime
 
 tableWtimeFoot :: Duration -> [[Cell]]
 tableWtimeFoot total =
@@ -317,7 +315,6 @@ tableFullWtime wtime = head : body ++ foot
  where
   head = tableFullWtimeHead
   body = concatMap tableFullWtimeRow wtime
-  getWtime (WtimeTask _ _ w) = w
   foot = tableFullWtimeFoot $ sum $ map getWtime $ concatMap snd wtime
 
 tableFullWtimeHead :: [Cell]
@@ -329,7 +326,6 @@ tableFullWtimeRow wtime = map toCell (wtimeToStrings wtime) ++ [foot]
  where
   toCell [date, id, desc, total] =
     [ext 8 . cell $ date, red . cell $ id, cell desc, ext 8 . cell $ total]
-  getWtime (WtimeTask _ _ wtime) = wtime
   total = humanReadableDuration $ sum $ map getWtime $ snd wtime
   foot  = [cell $ fst wtime, cell "", cell "", yellow . cell $ total]
 

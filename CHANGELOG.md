@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `--more` option for worktime query
 
+### Fixed
+
+- `--json` output for worktime command
+
 ## [0.4.0] - 2020-01-11
 
 ### Added

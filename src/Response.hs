@@ -75,7 +75,9 @@ instance ToJSON Response where
   toJSON (ResponseWtime wtime) = object
     [ "ok" .= (1 :: Int)
     , "data" .= object
-      ["wtimes" .= map DailyWtimeRecord wtime, "total" .= DurationRecord 0]
+      [ "wtimes" .= map DailyWtimeRecord wtime
+      , "total" .= DurationRecord (sum $ map getWtime $ concatMap snd wtime)
+      ]
     ]
   toJSON (ResponseStatus task) = object
     [ "ok" .= (1 :: Int)
