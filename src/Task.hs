@@ -159,7 +159,8 @@ mergeWtimesVals avals (WtimeTask bid bdesc bwtime) =
 
 getWtimePerDay
   :: UTCTime -> Maybe UTCTime -> Maybe UTCTime -> [Task] -> [DailyWtime]
-getWtimePerDay now min max = foldl (getWtimePerDay' now min max) []
+getWtimePerDay now min max =
+  reverse . sortOn fst . foldl (getWtimePerDay' now min max) []
  where
   getWtimePerDay' now min max wtimes task = nextWtimes
    where

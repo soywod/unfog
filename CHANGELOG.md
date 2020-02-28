@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Bad wtime ordering [#22]
+
 ## [0.4.1] - 2020-02-23
 
 ### Added
@@ -175,3 +179,4 @@ First release :tada:
 [#15]: https://github.com/unfog-io/unfog-cli/issues/15
 [#16]: https://github.com/unfog-io/unfog-cli/issues/16
 [#20]: https://github.com/unfog-io/unfog-cli/issues/20
+[#22]: https://github.com/unfog-io/unfog-cli/issues/22
