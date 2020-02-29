@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Bad wtime ordering [#22]
+- Make install script more compatible by replacing `[[]]` with `[]`
 
 ## [0.4.1] - 2020-02-23
 
