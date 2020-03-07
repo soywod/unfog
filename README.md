@@ -2,7 +2,7 @@
 
 A simple task and time manager, written in [Haskell](https://www.haskell.org).
 
-![image](https://user-images.githubusercontent.com/10437171/71659764-0bad7100-2d49-11ea-9d80-5d6654e05446.png)
+![image](https://user-images.githubusercontent.com/10437171/76142225-d6d0d980-606b-11ea-8253-044c1cb75824.png)
 
 ## Table of contents
 
@@ -84,7 +84,7 @@ use cases (given now = `2019/12/22 10:00`):
 unfog add|a desc (+tags) (:due:time)
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/71659883-84143200-2d49-11ea-9094-e74cc074c42b.png)
+![image](https://user-images.githubusercontent.com/10437171/76144755-aeed7000-6083-11ea-89df-799bba54c20b.png)
 
 ### Info
 
@@ -92,7 +92,7 @@ unfog add|a desc (+tags) (:due:time)
 unfog info|i id
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/71660019-fc7af300-2d49-11ea-91d6-73a83ed943ef.png)
+![image](https://user-images.githubusercontent.com/10437171/76144807-28855e00-6084-11ea-99b7-19b99ed9c470.png)
 
 ### List
 
@@ -100,7 +100,7 @@ unfog info|i id
 unfog list|l
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/71659764-0bad7100-2d49-11ea-9d80-5d6654e05446.png)
+![image](https://user-images.githubusercontent.com/10437171/76142225-d6d0d980-606b-11ea-8253-044c1cb75824.png)
 
 ### Edit
 
@@ -128,8 +128,6 @@ unfog toggle|t ids
 unfog start|+ ids
 unfog stop|- ids
 ```
-
-![image](https://user-images.githubusercontent.com/10437171/71660125-5976a900-2d4a-11ea-8c4d-8c232fc59632.png)
 
 ### Done
 
@@ -183,6 +181,8 @@ The special context `+done` allows you to see done tasks:
 unfog context +done
 ```
 
+![image](https://user-images.githubusercontent.com/10437171/76144981-a302ad80-6085-11ea-8333-662b4d0e5a30.png)
+
 *Note: the `+` is optional.*<br />
 *Note: giving an empty (or invalid) context will clear it.*
 
@@ -199,11 +199,11 @@ date by `]`. The date range should follow the due time format (see
 unfog worktime|w (+tags) ([min:range) (]max:range) (--more)
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/75121085-158c8a00-5691-11ea-86ba-74ae62fa3a0e.png)
+![image](https://user-images.githubusercontent.com/10437171/76145256-540a4780-6088-11ea-988f-331299d77700.png)
 
 The [`--more`](#more) will add (for each day) the tasks with their worktime:
 
-![image](https://user-images.githubusercontent.com/10437171/75121108-45d42880-5691-11ea-827c-df0156bb6b25.png)
+![image](https://user-images.githubusercontent.com/10437171/76145348-fe826a80-6088-11ea-92a8-4c480c9e8007.png)
 
 *Note: the `+` is optional.*<br>
 *Note: the `TOTAL WDAY` is the total in worktime days, where a worktime day is
