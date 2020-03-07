@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2020-03-07
+
 ### Changed
 
 - Remove secs and millis from queries [#23]
@@ -153,7 +155,8 @@ First release :tada:
 
 - Linux binaries
 
-[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.4.1...HEAD
+[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/unfog-io/unfog-cli/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/unfog-io/unfog-cli/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/unfog-io/unfog-cli/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/unfog-io/unfog-cli/compare/v0.3.2...v0.3.3
@@ -185,3 +188,4 @@ First release :tada:
 [#16]: https://github.com/unfog-io/unfog-cli/issues/16
 [#20]: https://github.com/unfog-io/unfog-cli/issues/20
 [#22]: https://github.com/unfog-io/unfog-cli/issues/22
+[#23]: https://github.com/unfog-io/unfog-cli/issues/23
