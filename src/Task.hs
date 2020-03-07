@@ -10,6 +10,7 @@ import           Data.Maybe
 import           Data.Time
 
 import           Table
+import           Duration
 
 type Id = Int
 type Ref = Int
@@ -18,7 +19,6 @@ type Desc = String
 type Tag = String
 type Active = Bool
 type Done = Bool
-type Duration = Micro
 
 data Task = Task { _id :: Id
                  , _ref :: Ref
@@ -63,8 +63,8 @@ instance ToJSON TimeRecord where
 newtype DurationRecord = DurationRecord {toWtimeRecord :: Duration}
 instance ToJSON DurationRecord where
   toJSON (DurationRecord wtime) = object
-    [ "approx" .= approximativeDuration wtime
-    , "human" .= humanReadableDuration wtime
+    [ "approx" .= showDurationApprox wtime
+    , "human" .= showDuration wtime
     , "micro" .= wtime
     ]
 
@@ -187,18 +187,16 @@ wtimePerDay (WtimeTask id desc _) (start, stop) = nextWtimes
         : wtimePerDay (WtimeTask id desc 0) (nextDay, stop)
 
 printActive :: Micro -> String
-printActive active | active > 0 = approximativeDuration active ++ " ago"
+printActive active | active > 0 = showDurationApprox active
                    | otherwise  = ""
 
 printApproxTime :: Maybe Duration -> String
 printApproxTime Nothing    = ""
-printApproxTime (Just due) = if due > 0 then "in " ++ due' else due' ++ " ago"
-  where due' = approximativeDuration $ abs due
+printApproxTime (Just due) = showRelativeDurationApprox due
 
 printHumanTime :: Maybe Duration -> String
 printHumanTime Nothing    = ""
-printHumanTime (Just due) = if due > 0 then "in " ++ due' else due' ++ " ago"
-  where due' = humanReadableDuration $ abs due
+printHumanTime (Just due) = showRelativeDuration due
 
 prettyPrintTask :: Task -> IO ()
 prettyPrintTask = render . tableTask
@@ -217,42 +215,9 @@ tableTask task = head : body
       . cell
       $ printHumanTime
       $ _due task
-    , yellow . cell $ humanReadableDuration $ _wtime task
+    , yellow . cell $ showDuration $ _wtime task
     ]
   body = transpose [keys, values]
-
-prettyPrintReport :: [Task] -> IO ()
-prettyPrintReport = render . tableReport
-
-tableReport :: [Task] -> [[Cell]]
-tableReport tasks = head : body ++ foot
- where
-  head = tableTaskHead
-  body = map tableReportRow tasks
-  foot = [tableReportFoot $ sum $ map _wtime tasks]
-
-tableReportHead :: [Cell]
-tableReportHead = map (bold . underline . cell)
-                      ["ID", "DESC", "TAGS", "ACTIVE", "DUE", "WORKTIME"]
-
-tableReportRow :: Task -> [Cell]
-tableReportRow task =
-  [ red . cell $ show $ _id task
-  , cell $ _desc task
-  , blue . cell $ unwords $ _tags task
-  , green . cell $ printActive $ _active task
-  , (if fromMaybe 0 (_due task) < 0 then bgRed . white else yellow)
-    . cell
-    $ printHumanTime
-    $ _due task
-  , yellow . cell $ humanReadableDuration (_wtime task)
-  ]
-
-tableReportFoot :: Duration -> [Cell]
-tableReportFoot total =
-  (bold . cell) "TOTAL"
-    :  replicate 4 (cell "")
-    ++ [bold . yellow . cell $ humanReadableDuration total]
 
 prettyPrintTasks :: [Task] -> IO ()
 prettyPrintTasks = render . tableTasks
@@ -278,7 +243,7 @@ tableTaskRow task =
     $ printApproxTime
     $ _due task
   , yellow . cell $ if _wtime task > 0
-    then approximativeDuration (_wtime task)
+    then showDurationApprox (_wtime task)
     else ""
   ]
 
@@ -297,15 +262,13 @@ tableWtimeHead = map (underline . bold . cell) ["DATE", "WORKTIME"]
 
 tableWtimeRow :: DailyWtime -> [Cell]
 tableWtimeRow wtime = [cell $ fst wtime, yellow . cell $ total]
-  where total = humanReadableDuration $ sum $ map getWtime $ snd wtime
+  where total = showDuration $ sum $ map getWtime $ snd wtime
 
 tableWtimeFoot :: Duration -> [[Cell]]
 tableWtimeFoot total =
   [ replicate 2 $ ext 8 . cell $ replicate 3 '-'
-  , [bold . cell $ "TOTAL RAW", bold . cell $ humanReadableDuration total]
-  , [ bold . cell $ "TOTAL WDAY"
-    , bold . cell $ humanReadableDuration (total * 3.2)
-    ]
+  , [bold . cell $ "TOTAL RAW", bold . cell $ showDuration total]
+  , [bold . cell $ "TOTAL WDAY", bold . cell $ showDuration (total * 3.2)]
   ]
 
 prettyPrintFullWtime :: [DailyWtime] -> IO ()
@@ -327,7 +290,7 @@ tableFullWtimeRow wtime = map toCell (wtimeToStrings wtime) ++ [foot]
  where
   toCell [date, id, desc, total] =
     [ext 8 . cell $ date, red . cell $ id, cell desc, ext 8 . cell $ total]
-  total = humanReadableDuration $ sum $ map getWtime $ snd wtime
+  total = showDuration $ sum $ map getWtime $ snd wtime
   foot  = [cell $ fst wtime, cell "", cell "", yellow . cell $ total]
 
 tableFullWtimeFoot :: Duration -> [[Cell]]
@@ -336,12 +299,12 @@ tableFullWtimeFoot total =
   , [ bold . cell $ "TOTAL RAW"
     , cell ""
     , cell ""
-    , bold . cell $ humanReadableDuration total
+    , bold . cell $ showDuration total
     ]
   , [ bold . cell $ "TOTAL WDAY"
     , cell ""
     , cell ""
-    , bold . cell $ humanReadableDuration (total * 3.2)
+    , bold . cell $ showDuration (total * 3.2)
     ]
   ]
 
@@ -349,4 +312,4 @@ wtimeToStrings :: DailyWtime -> [[String]]
 wtimeToStrings (date, tasks) = map wtimeToStrings' tasks
  where
   wtimeToStrings' (WtimeTask id desc wtime) =
-    [date, show id, desc, humanReadableDuration $ realToFrac wtime]
+    [date, show id, desc, showDuration $ realToFrac wtime]
