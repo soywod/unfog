@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2020-03-11
+
 ### Added
 
 - Init basic bash completion (commands, ids and tags)
