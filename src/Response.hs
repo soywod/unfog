@@ -13,6 +13,8 @@ data Response
   = ResponseMsg String
   | ResponseTask Task
   | ResponseTasks [Task]
+  | ResponseTasksId [Id]
+  | ResponseTasksTags [Tag]
   | ResponseWtime [DailyWtime]
   | ResponseStatus Task
   | ResponseErr String
@@ -23,6 +25,16 @@ printMsg :: ResponseType -> String -> IO ()
 printMsg rtype msg = case rtype of
   JSON -> BL.putStr $ encode $ ResponseMsg msg
   Text -> putStrLn $ "unfog: " ++ msg
+
+printTasksId :: ResponseType -> [Id] -> IO ()
+printTasksId rtype ids = case rtype of
+  JSON -> BL.putStr . encode . ResponseTasksId $ ids
+  Text -> putStr . unwords . map show $ ids
+
+printTasksTags :: ResponseType -> [Tag] -> IO ()
+printTasksTags rtype tags = case rtype of
+  JSON -> BL.putStr . encode . ResponseTasksTags . map ((:) '+') $ tags
+  Text -> putStr . unwords . map ((:) '+') $ tags
 
 printTasks :: ResponseType -> String -> [Task] -> IO ()
 printTasks rtype msg tasks = case rtype of
@@ -69,10 +81,12 @@ printErr rtype err = case rtype of
   Text -> putStrLn $ "\x1b[31munfog: " ++ err ++ "\x1b[0m"
 
 instance ToJSON Response where
-  toJSON (ResponseMsg   msg  ) = object ["ok" .= (1 :: Int), "data" .= msg]
-  toJSON (ResponseTask  task ) = object ["ok" .= (1 :: Int), "data" .= task]
+  toJSON (ResponseMsg       msg  ) = object ["ok" .= (1 :: Int), "data" .= msg]
+  toJSON (ResponseTask      task ) = object ["ok" .= (1 :: Int), "data" .= task]
+  toJSON (ResponseTasksId   ids  ) = object ["ok" .= (1 :: Int), "data" .= ids]
+  toJSON (ResponseTasksTags tags ) = object ["ok" .= (1 :: Int), "data" .= tags]
   toJSON (ResponseTasks tasks) = object ["ok" .= (1 :: Int), "data" .= tasks]
-  toJSON (ResponseWtime wtime) = object
+  toJSON (ResponseWtime     wtime) = object
     [ "ok" .= (1 :: Int)
     , "data" .= object
       [ "wtimes" .= map DailyWtimeRecord wtime

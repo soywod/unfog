@@ -32,7 +32,13 @@ data ArgDate = ArgDate { _dateType :: ArgDateType
                        } deriving (Show, Eq)
 
 data ArgType = Cmd | Qry deriving (Show, Eq)
-data ArgOpts = ArgOpts { _json :: Bool, _more :: Bool } deriving (Show, Eq)
+
+data ArgOpts = ArgOpts { _json :: Bool
+                       , _more :: Bool
+                       , _onlyIds :: Bool
+                       , _onlyTags :: Bool
+                       } deriving (Show, Eq)
+
 data Arg = Arg { _type :: ArgType
                , _cmd :: String
                , _ids :: [Int]
@@ -53,7 +59,7 @@ emptyArgTree = Arg { _ids     = []
                    , _due     = Nothing
                    , _minDate = Nothing
                    , _maxDate = Nothing
-                   , _opts    = ArgOpts False False
+                   , _opts    = ArgOpts False False False False
                    }
 
 queries = ["list", "info", "worktime", "status", "upgrade", "version", "help"]
@@ -125,8 +131,15 @@ ctxExpr = do
 listExpr :: ReadP [ArgExpr]
 listExpr = do
   cmd  <- cmdAliasExpr ["list", "l"]
-  args <- many optExpr
+  args <- many $ listOptExpr <++ optExpr
   return $ cmd : args
+
+listOptExpr :: ReadP ArgExpr
+listOptExpr = do
+  skipSpaces
+  opt <- choice $ map string ["ids", "tags"]
+  eofOrSpaces
+  return $ AddOpt opt
 
 infoExpr :: ReadP [ArgExpr]
 infoExpr = do
@@ -347,3 +360,5 @@ eval tree arg = case arg of
     opts = case opt of
       "json" -> (_opts tree) { _json = True }
       "more" -> (_opts tree) { _more = True }
+      "ids"  -> (_opts tree) { _onlyIds = True }
+      "tags" -> (_opts tree) { _onlyTags = True }

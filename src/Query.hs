@@ -35,7 +35,7 @@ handle args = do
   now  <- getCurrentTime
   let state = applyEvents now evts
   let qry   = getQuery args
-  execute args state evts qry
+  execute args state qry
 
 getQuery :: Parsec.Arg -> Query
 getQuery args = case Parsec._cmd args of
@@ -49,19 +49,12 @@ getQuery args = case Parsec._cmd args of
   "version"  -> Version
   "help"     -> Help
 
-execute :: Parsec.Arg -> State -> [Event] -> Query -> IO ()
-execute args state events query = do
+execute :: Parsec.Arg -> State -> Query -> IO ()
+execute args state query = do
   let rtype = if Parsec._json (Parsec._opts args) then JSON else Text
   let more  = Parsec._more (Parsec._opts args)
   case query of
-    List args -> do
-      now <- getCurrentTime
-      let ctx     = _ctx state
-      let fByTags = filterByTags ctx
-      let fByDone = filterByDone $ "done" `elem` ctx
-      let tasks = mapWithWtime now . fByTags . fByDone $ _tasks state
-      let ctxStr = if null ctx then "" else " [" ++ unwords ctx ++ "]"
-      printTasks rtype ("unfog: list" ++ ctxStr) tasks
+    List args -> listTasks args state query rtype
 
     Info args -> do
       now <- getCurrentTime
@@ -94,7 +87,7 @@ execute args state events query = do
 
     Upgrade ->
       system
-          "curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/install.sh | sh"
+          "curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/bin/install.sh | sh"
         >> return ()
 
     Version -> printVersion rtype "0.4.2"
@@ -138,3 +131,25 @@ execute args state events query = do
       putStrLn "worktime|wtime (+tags) ([min:time) (]max:time) (--json)"
 
     Error command message -> printErr rtype $ command ++ ": " ++ message
+
+listTasks :: Parsec.Arg -> State -> Query -> ResponseType -> IO ()
+listTasks args state query rtype
+  | Parsec._onlyIds (Parsec._opts args)
+  = printTasksId rtype . map Task._id . fByTags . fByDone $ allTasks
+  | Parsec._onlyTags (Parsec._opts args)
+  = printTasksTags rtype . nub . concatMap Task._tags $ allTasks
+  | otherwise
+  = do
+    now <- getCurrentTime
+    let ctx      = _ctx state
+    let fByTags  = filterByTags ctx
+    let fByDone  = filterByDone $ "done" `elem` ctx
+    let tasks = mapWithWtime now . fByTags . fByDone $ _tasks state
+    let ctxStr = if null ctx then "" else " [" ++ unwords ctx ++ "]"
+    let onlyIds  = Parsec._onlyIds (Parsec._opts args)
+    let onlyTags = Parsec._onlyTags (Parsec._opts args)
+    printTasks rtype ("unfog: list" ++ ctxStr) tasks
+ where
+  allTasks = _tasks state
+  fByTags  = filterByTags . _ctx $ state
+  fByDone  = filterByDone . elem "done" . _ctx $ state

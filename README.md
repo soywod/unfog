@@ -35,7 +35,7 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
 ### From binaries
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/bin/install.sh | sh
 ```
 
 *Note: Linux, OSX and Windows are supported. See the [releases

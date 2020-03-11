@@ -27,4 +27,7 @@ tar xzf unfog.tar.gz
 rm unfog.tar.gz
 chmod u+x unfog*
 sudo mv unfog* /usr/local/bin/
+curl -sLo unfog-completion.bash "https://raw.githubusercontent.com/unfog-io/unfog-cli/master/bin/completion.bash"
+source unfog-completion.bash
+sudo mv unfog-completion.bash /etc/bash_completion.d/
 echo "Unfog installed!"

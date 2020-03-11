@@ -51,7 +51,11 @@ spec = parallel $ do
             , _desc = "desc"
             , _tags = ["tag"]
             , _due  = Just $ ArgDate Rel 0 0 0 20 0
-            , _opts = ArgOpts { _json = True, _more = False }
+            , _opts = ArgOpts { _json     = True
+                              , _more     = False
+                              , _onlyIds  = False
+                              , _onlyTags = False
+                              }
             }
       parseArgs "a   desc +tag ::20 --json" `shouldBe` expectedTree
       parseArgs "a +tag   desc --json ::20" `shouldBe` expectedTree
@@ -89,7 +93,7 @@ spec = parallel $ do
         , _desc = "desc"
         , _tags = ["tag"]
         , _ids  = [1]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "set expr" $ do
@@ -126,7 +130,7 @@ spec = parallel $ do
         , _desc = "desc"
         , _tags = ["tag"]
         , _ids  = [1]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "start expr" $ do
@@ -141,7 +145,7 @@ spec = parallel $ do
       parseArgs "+ 1 --json" `shouldBe` emptyArgTree
         { _cmd  = "start"
         , _ids  = [1]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "stop expr" $ do
@@ -154,7 +158,7 @@ spec = parallel $ do
       parseArgs "- 1 --json" `shouldBe` emptyArgTree
         { _cmd  = "stop"
         , _ids  = [1]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "toggle expr" $ do
@@ -168,7 +172,7 @@ spec = parallel $ do
       parseArgs "t 1 --json" `shouldBe` emptyArgTree
         { _cmd  = "toggle"
         , _ids  = [1]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "done expr" $ do
@@ -181,7 +185,7 @@ spec = parallel $ do
       parseArgs "d 1 --json" `shouldBe` emptyArgTree
         { _cmd  = "done"
         , _ids  = [1]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "undone expr" $ do
@@ -195,7 +199,7 @@ spec = parallel $ do
       parseArgs "u 1 --json" `shouldBe` emptyArgTree
         { _cmd  = "undone"
         , _ids  = [1]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "delete expr" $ do
@@ -209,7 +213,7 @@ spec = parallel $ do
       parseArgs "D 1 --json" `shouldBe` emptyArgTree
         { _cmd  = "delete"
         , _ids  = [1]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "remove expr" $ do
@@ -223,7 +227,7 @@ spec = parallel $ do
       parseArgs "r 1 --json" `shouldBe` emptyArgTree
         { _cmd  = "remove"
         , _ids  = [1]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "context expr" $ do
@@ -240,7 +244,7 @@ spec = parallel $ do
       parseArgs "c +tag1 tag2 --json" `shouldBe` emptyArgTree
         { _cmd  = "context"
         , _tags = ["tag1", "tag2"]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "list expr" $ do
@@ -249,7 +253,7 @@ spec = parallel $ do
       parseArgs "l   --json" `shouldBe` emptyArgTree
         { _type = Qry
         , _cmd  = "list"
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "info expr" $ do
@@ -264,7 +268,7 @@ spec = parallel $ do
         { _type = Qry
         , _cmd  = "info"
         , _ids  = [1]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
   describe "worktime expr" $ do
@@ -284,7 +288,7 @@ spec = parallel $ do
         { _type = Qry
         , _cmd  = "worktime"
         , _tags = ["tag", "tag2"]
-        , _opts = ArgOpts True False
+        , _opts = ArgOpts True False False False
         }
 
     it "with min date" $ do

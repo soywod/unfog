@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Init basic bash completion (commands, ids and tags)
+
 ## [0.4.2] - 2020-03-07
 
 ### Changed
 
 - Remove secs and millis from queries [#23]
+- All screenshots
 
 ### Fixed
 
