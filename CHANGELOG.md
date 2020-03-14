@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Init basic bash completion (commands, ids and tags)
+- Init basic bash completion (commands, ids and tags) [#18]
 
 ## [0.4.2] - 2020-03-07
 
@@ -162,7 +162,8 @@ First release :tada:
 
 - Linux binaries
 
-[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.4.2...HEAD
+[unreleased]: https://github.com/unfog-io/unfog-cli/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/unfog-io/unfog-cli/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/unfog-io/unfog-cli/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/unfog-io/unfog-cli/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/unfog-io/unfog-cli/compare/v0.3.3...v0.4.0
@@ -193,6 +194,7 @@ First release :tada:
 [#13]: https://github.com/unfog-io/unfog-cli/issues/13
 [#15]: https://github.com/unfog-io/unfog-cli/issues/15
 [#16]: https://github.com/unfog-io/unfog-cli/issues/16
+[#18]: https://github.com/unfog-io/unfog-cli/issues/18
 [#20]: https://github.com/unfog-io/unfog-cli/issues/20
 [#22]: https://github.com/unfog-io/unfog-cli/issues/22
 [#23]: https://github.com/unfog-io/unfog-cli/issues/23
