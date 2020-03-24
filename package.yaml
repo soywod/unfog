@@ -29,7 +29,6 @@ library:
   - base-compat
   - bytestring
   - directory
-  - human-readable-duration
   - process
   - time
 

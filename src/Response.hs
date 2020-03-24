@@ -4,10 +4,10 @@ module Response where
 
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Data.Aeson
-import           Data.Duration
 import           Data.List
 
 import           Task
+import           Duration
 
 data Response
   = ResponseMsg String
@@ -68,7 +68,7 @@ printEmptyStatus rtype = case rtype of
 printStatus :: ResponseType -> Task -> IO ()
 printStatus rtype task = case rtype of
   JSON -> BL.putStr $ encode $ ResponseStatus task
-  Text -> putStrLn $ _desc task ++ ": " ++ approximativeDuration (_active task)
+  Text -> putStrLn $ _desc task ++ ": " ++ showApproxDuration (_active task)
 
 printVersion :: ResponseType -> String -> IO ()
 printVersion rtype version = case rtype of

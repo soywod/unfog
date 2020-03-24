@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Replace `Data.Duration` by own duration with tests [#24]
+
 ## [0.4.3] - 2020-03-11
 
 ### Added
@@ -198,3 +202,4 @@ First release :tada:
 [#20]: https://github.com/unfog-io/unfog-cli/issues/20
 [#22]: https://github.com/unfog-io/unfog-cli/issues/22
 [#23]: https://github.com/unfog-io/unfog-cli/issues/23
+[#24]: https://github.com/unfog-io/unfog-cli/issues/24

@@ -1,35 +1,83 @@
 module Duration where
 
-import qualified Data.Duration                 as D
+import           Prelude                 hiding ( min )
 import           Data.Fixed
 
-type Duration = D.Seconds
+-- Durations
 
-showDuration :: Duration -> String
-showDuration d = (unwords . reverse . showDuration' d) []
+type Duration = Micro
+
+ms :: Duration
+ms = MkFixed 1000
+
+sec :: Duration
+sec = 1000 * ms
+
+min :: Duration
+min = 60 * sec
+
+hour :: Duration
+hour = 60 * min
+
+day :: Duration
+day = 24 * hour
+
+year :: Duration
+year = 365 * day
+
+-- Show helpers
+
+showMins :: Duration -> String
+showMins = showDuration unit . flip div' min
  where
-  showUnit d unit = unwords [show d, if d > 1 then unit else init unit]
-  showDuration' d ds
-    | d > D.year
-    = showDuration' (mod' d D.year) $ showUnit (D.getYears d) "years" : ds
-    | d > D.day
-    = showDuration' (mod' d D.day) $ showUnit (D.getDays d) "days" : ds
-    | d > D.hour
-    = showDuration' (mod' d D.hour) $ showUnit (D.getHours d) "hours" : ds
-    | d > D.minute
-    = showDuration' (mod' d D.minute) $ showUnit (D.getMinutes d) "mins" : ds
-    | otherwise
-    = ds
+  unit n | n > 1     = "mins"
+         | otherwise = "min"
 
-showDurationApprox :: Duration -> String
-showDurationApprox = D.approximativeDuration
+showHours :: Duration -> String
+showHours = showDuration unit . flip div' hour
+ where
+  unit n | n > 1     = "hours"
+         | otherwise = "hour"
 
-showRelativeDuration :: Duration -> String
-showRelativeDuration d | d < 0     = showDuration (abs d) ++ " ago"
-                       | d > 0     = "in " ++ showDuration (abs d)
-                       | otherwise = ""
+showDays :: Duration -> String
+showDays = showDuration unit . flip div' day
+ where
+  unit n | n > 1     = "days"
+         | otherwise = "day"
 
-showRelativeDurationApprox :: Duration -> String
-showRelativeDurationApprox d | d < 0     = showDurationApprox (abs d) ++ " ago"
-                             | d > 0     = "in " ++ showDurationApprox (abs d)
-                             | otherwise = ""
+showYears :: Duration -> String
+showYears = showDuration unit . flip div' year
+ where
+  unit n | n > 1     = "years"
+         | otherwise = "year"
+
+showDuration :: (Integer -> String) -> Integer -> String
+showDuration showUnit n = unwords [show n, showUnit n]
+
+showFullDuration :: Duration -> String
+showFullDuration d = (unwords . reverse . show d) []
+ where
+  show d ds | d >= year = show (mod' d year) $ showYears d : ds
+            | d >= day  = show (mod' d day) $ showDays d : ds
+            | d >= hour = show (mod' d hour) $ showHours d : ds
+            | d >= min  = show (mod' d min) $ showMins d : ds
+            | otherwise = ds
+
+showApproxDuration :: Duration -> String
+showApproxDuration d | d >= year = showYears d
+                     | d >= day  = showDays d
+                     | d >= hour = showHours d
+                     | d >= min  = showMins d
+                     | otherwise = ""
+
+showFullRelDuration :: Duration -> String
+showFullRelDuration d | abs d < min = ""
+                      | d < 0       = unwords [showFullDuration (abs d), "ago"]
+                      | d > 0       = unwords ["in", showFullDuration (abs d)]
+                      | otherwise   = ""
+
+showApproxRelDuration :: Duration -> String
+showApproxRelDuration d | abs d < min = ""
+                        | d < 0 = unwords [showApproxDuration (abs d), "ago"]
+                        | d > 0 = unwords ["in", showApproxDuration (abs d)]
+                        | otherwise = ""

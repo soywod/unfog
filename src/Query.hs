@@ -3,7 +3,6 @@ module Query where
 import qualified Data.ByteString.Lazy.Char8    as BL
 import           Control.Exception
 import           Data.Aeson              hiding ( Error )
-import           Data.Duration
 import           Data.Fixed
 import           Data.List
 import           Data.Maybe
