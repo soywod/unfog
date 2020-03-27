@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- AUR package support [#26]
+
 ### Changed
 
 - Replace `Data.Duration` by own duration with tests [#24]
@@ -203,3 +207,4 @@ First release :tada:
 [#22]: https://github.com/unfog-io/unfog-cli/issues/22
 [#23]: https://github.com/unfog-io/unfog-cli/issues/23
 [#24]: https://github.com/unfog-io/unfog-cli/issues/24
+[#26]: https://github.com/unfog-io/unfog-cli/issues/26

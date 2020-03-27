@@ -1,6 +1,6 @@
-# ⌚ Unfog.cli
+# ⏱ Unfog.cli
 
-A simple task and time manager, written in [Haskell](https://www.haskell.org).
+A simple task & time manager, written in [Haskell](https://www.haskell.org).
 
 ![image](https://user-images.githubusercontent.com/10437171/76142225-d6d0d980-606b-11ea-8253-044c1cb75824.png)
 
@@ -8,6 +8,7 @@ A simple task and time manager, written in [Haskell](https://www.haskell.org).
 
 * [Installation](#installation)
   * [From binaries](#from-binaries)
+  * [From AUR](#from-aur)
   * [From sources](#from-sources)
 * [Usage](#usage)
   * [Add](#add)
@@ -41,6 +42,19 @@ curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/bin/instal
 *Note: Linux, OSX and Windows are supported. See the [releases
 section](https://github.com/unfog-io/unfog-cli/releases).*
 
+
+### From AUR
+
+For Arch Linux users, there is an [AUR
+package](https://aur.archlinux.org/packages/unfog-cli-bin) available (thanks to
+[Mohsen Mohammadi](https://github.com/mohsen-mohammadi)
+[[#26](https://github.com/unfog-io/unfog-cli/issues/26)]):
+
+```bash
+git clone https://aur.archlinux.org/unfog-cli.git
+cd unfog-cli
+makepkg -isc
+```
 
 ### From sources
 
