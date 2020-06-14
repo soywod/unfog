@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Bad build state for update cmd [#27]
+
 ### Added
 
 - AUR package support [#26]
@@ -208,3 +212,4 @@ First release :tada:
 [#23]: https://github.com/unfog-io/unfog-cli/issues/23
 [#24]: https://github.com/unfog-io/unfog-cli/issues/24
 [#26]: https://github.com/unfog-io/unfog-cli/issues/26
+[#27]: https://github.com/unfog-io/unfog-cli/issues/27

@@ -26,7 +26,7 @@ apply now state event = case event of
 
   TaskUpdated _ ref _ _pos _desc _tags due -> state { _tasks = nextTasks }
    where
-    due' = realToFrac <$> diffUTCTime now <$> due
+    due' = realToFrac <$> flip diffUTCTime now <$> due
     update task = task { _pos, _desc, _tags, _due = due' }
     nextTasks = getNextTasks ref update
 
