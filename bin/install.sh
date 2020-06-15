@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 get_os () {
   if [ "$OSTYPE" == "linux-gnu" ]; then
