@@ -6,6 +6,7 @@ before_install:
   - mkdir -p ${STACK_BIN}
   - export PATH=${STACK_BIN}:$PATH
   - travis_retry curl -sSL https://get.haskellstack.org/ | sh
+  - "echo 'allow-newer: true' > ${STACK_HOME}/config.yaml"
 
 script:
   - stack test

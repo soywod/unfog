@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2020-07-27
+
+### Changed
+
+- Upgrade ghc `v8.8.4` to fix Windows build error
+
 ## [0.4.4] - 2020-07-27
 
 ### Fixed
@@ -21,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Replace `Data.Duration` by own duration with tests [#24]
+- Upgrade ghc `v8.8.3`
 
 ## [0.4.3] - 2020-03-11
 
@@ -177,7 +184,8 @@ First release :tada:
 
 - Linux binaries
 
-[unreleased]: https://github.com/soywod/unfog.cli/compare/v0.4.4...HEAD
+[unreleased]: https://github.com/soywod/unfog.cli/compare/v0.4.5...HEAD
+[0.4.5]: https://github.com/soywod/unfog.cli/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/soywod/unfog.cli/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/soywod/unfog.cli/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/soywod/unfog.cli/compare/v0.4.1...v0.4.2

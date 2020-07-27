@@ -1,4 +1,4 @@
-# ⏱ Unfog [![Build Status](https://travis-ci.org/soywod/unfog.cli.svg?branch=v0.4.4)](https://travis-ci.org/soywod/unfog.cli)
+# ⏱ Unfog [![Build Status](https://travis-ci.org/soywod/unfog.cli.svg?branch=v0.4.5)](https://travis-ci.org/soywod/unfog.cli)
 
 Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
 
