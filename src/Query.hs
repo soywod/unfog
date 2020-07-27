@@ -86,7 +86,7 @@ execute args state query = do
 
     Upgrade ->
       system
-          "curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/bin/install.sh | sh"
+          "curl -sSL https://raw.githubusercontent.com/soywod/unfog.cli/master/bin/install.sh | sh"
         >> return ()
 
     Version -> printVersion rtype "0.4.3"

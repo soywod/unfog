@@ -1,6 +1,6 @@
-# ⏱ &nbsp;Unfog.cli [![ko-fi](https://img.shields.io/badge/ko--fi-Buy%20me%20a%20coffee!-red)](https://ko-fi.com/soywod#linkModal)
+# ⏱ &nbsp;Unfog
 
-A simple task & time manager, written in [Haskell](https://www.haskell.org).
+Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
 
 ![image](https://user-images.githubusercontent.com/10437171/76142225-d6d0d980-606b-11ea-8253-044c1cb75824.png)
 
@@ -29,18 +29,18 @@ A simple task & time manager, written in [Haskell](https://www.haskell.org).
   * [JSON](#json)
   * [More](#more)
 * [Contributing](#contributing)
-* [Changelog](https://github.com/unfog-io/unfog-cli/blob/master/CHANGELOG.md#changelog)
+* [Changelog](https://github.com/soywod/unfog.cli/blob/master/CHANGELOG.md#changelog)
 * [Credits](#credits)
 
 ## Installation
 ### From binaries
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/unfog-io/unfog-cli/master/bin/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/soywod/unfog.cli/master/bin/install.sh | bash
 ```
 
 *Note: Linux, OSX and Windows are supported. See the [releases
-section](https://github.com/unfog-io/unfog-cli/releases).*
+section](https://github.com/soywod/unfog.cli/releases).*
 
 
 ### From AUR
@@ -48,7 +48,7 @@ section](https://github.com/unfog-io/unfog-cli/releases).*
 For Arch Linux users, there is an [AUR
 package](https://aur.archlinux.org/packages/unfog-cli-bin) available (thanks to
 [Mohsen Mohammadi](https://github.com/mohsen-mohammadi)
-[[#26](https://github.com/unfog-io/unfog-cli/issues/26)]):
+[[#26](https://github.com/soywod/unfog.cli/issues/26)]):
 
 ```bash
 git clone https://aur.archlinux.org/unfog-cli.git
@@ -67,7 +67,7 @@ curl -sSL https://get.haskellstack.org/ | sh
 
 Then build from git:
 ```bash
-git clone https://github.com/unfog-io/unfog-cli.git unfog && cd unfog
+git clone https://github.com/soywod/unfog.cli.git unfog && cd unfog
 stack install
 ```
 
@@ -291,7 +291,7 @@ TimeRecord {
 
 This is useful to create user interafaces. Here the list of current implementations:
 
-- [Unfog.vim](https://github.com/unfog-io/unfog-vim) for Vim/Neovim
+- [Unfog.vim](https://github.com/soywod/unfog.vim) for Vim/Neovim
 
 ### More
 

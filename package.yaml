@@ -1,10 +1,10 @@
 name:                unfog
 version:             0.4.3
-github:              "unfog-io/unfog-cli"
+github:              "soywod/unfog.cli"
 license:             BSD3
 author:              "Clément DOUIN"
 maintainer:          "clement.douin@posteo.net"
-copyright:           "2019 Clément DOUIN"
+copyright:           "2019-2020 Clément DOUIN"
 
 extra-source-files:
 - README.md
@@ -17,7 +17,7 @@ category:            CLI
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/unfog-io/unfog-cli#readme>
+description:         Please see the README on GitHub at <https://github.com/soywod/unfog.cli#readme>
 
 dependencies:
 - base >= 4.7 && < 5
