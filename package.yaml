@@ -29,6 +29,7 @@ library:
   - base-compat
   - bytestring
   - directory
+  - optparse-applicative
   - process
   - time
 
