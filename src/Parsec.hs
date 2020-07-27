@@ -52,8 +52,8 @@ data Arg = Arg { _type :: ArgType
 
 emptyArgTree :: Arg
 emptyArgTree = Arg { _ids     = []
-                   , _type    = Cmd
-                   , _cmd     = ""
+                   , _type    = Qry
+                   , _cmd     = "list"
                    , _desc    = ""
                    , _tags    = []
                    , _due     = Nothing

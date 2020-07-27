@@ -177,8 +177,8 @@ wtimePerDay (WtimeTask id desc _) (start, stop) = nextWtimes
  where
   day        = show currDay
   currDay    = utctDay start
-  endOfDay   = read $ show currDay ++ " 23:59:59.999999999" :: UTCTime
-  nextDay    = read $ show (addDays 1 currDay) ++ " 00:00:00" :: UTCTime
+  endOfDay   = read $ show currDay ++ " 23:59:59 UTC" :: UTCTime
+  nextDay    = read $ show (addDays 1 currDay) ++ " 00:00:00 UTC" :: UTCTime
   nextWtimes = if stop < endOfDay
     then [(day, [WtimeTask id desc $ realToFrac $ diffUTCTime stop start])]
     else
