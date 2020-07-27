@@ -1,4 +1,4 @@
-# ⏱ &nbsp;Unfog
+# ⏱ Unfog
 
 Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
 
