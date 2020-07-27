@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - AUR package support [#26]
+- Default command to list [#30]
 
 ### Changed
 
@@ -216,3 +217,4 @@ First release :tada:
 [#24]: https://github.com/soywod/unfog.cli/issues/24
 [#26]: https://github.com/soywod/unfog.cli/issues/26
 [#27]: https://github.com/soywod/unfog.cli/issues/27
+[#30]: https://github.com/soywod/unfog.cli/issues/30
