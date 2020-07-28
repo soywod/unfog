@@ -23,6 +23,7 @@ data ArgExpr
   deriving (Show)
 
 data ArgDateType = Rel | Abs deriving (Show, Eq)
+
 data ArgDate = ArgDate
   { _dateType :: ArgDateType,
     _months :: Int,
@@ -32,7 +33,6 @@ data ArgDate = ArgDate
     _mins :: Int
   }
   deriving (Show, Eq)
-
 
 data ArgType = Cmd | Qry deriving (Show, Eq)
 
