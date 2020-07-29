@@ -28,7 +28,16 @@ data Arg
   | Info InfoOpts
   | Wtime WtimeOpts
   | Status StatusOpts
+  | Upgrade
   deriving (Show)
+
+-- Helpers
+
+readUTCTime :: TimeZone -> String -> Maybe UTCTime
+readUTCTime tzone = parseLocalTime >=> toUTC
+  where
+    parseLocalTime = parseTimeM True defaultTimeLocale "%Y-%m-%d %H:%M"
+    toUTC = return . localTimeToUTC tzone
 
 -- Options
 
@@ -65,7 +74,7 @@ jsonOpt = switch $ long "json" <> help "Show result as JSON string"
 -- Queries
 
 queries :: UTCTime -> TimeZone -> Mod CommandFields Arg
-queries now tzone = listQuery <> infoQuery <> wtimeQuery now tzone <> statusQuery
+queries now tzone = listQuery <> infoQuery <> wtimeQuery now tzone <> statusQuery <> upgradeQuery
 
 listQuery :: Mod CommandFields Arg
 listQuery = command "list" $ info parser infoMod
@@ -101,15 +110,13 @@ statusQuery = command "status" $ info parser infoMod
     parser = Status <$> opts
     opts = StatusOpts <$> moreOpt "Show more details about the task" <*> jsonOpt
 
--- Commands
-
--- Helpers
-
-readUTCTime :: TimeZone -> String -> Maybe UTCTime
-readUTCTime tzone = parseLocalTime >=> toUTC
+upgradeQuery :: Mod CommandFields Arg
+upgradeQuery = command "upgrade" $ info parser infoMod
   where
-    parseLocalTime = parseTimeM True defaultTimeLocale "%Y-%m-%d %H:%M"
-    toUTC = return . localTimeToUTC tzone
+    infoMod = progDesc "Upgrade the CLI"
+    parser = pure Upgrade
+
+-- Commands
 
 -- Parsers
 
