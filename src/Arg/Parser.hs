@@ -19,6 +19,8 @@ type OnlyTagsOpt = Bool
 
 type OnlyIdsOpt = Bool
 
+type VersionOpt = Bool
+
 type MoreOpt = Bool
 
 type JsonOpt = Bool
@@ -29,6 +31,7 @@ data Arg
   | Wtime WtimeOpts
   | Status StatusOpts
   | Upgrade
+  | Version
   deriving (Show)
 
 -- Helpers
@@ -74,7 +77,13 @@ jsonOpt = switch $ long "json" <> help "Show result as JSON string"
 -- Queries
 
 queries :: UTCTime -> TimeZone -> Mod CommandFields Arg
-queries now tzone = listQuery <> infoQuery <> wtimeQuery now tzone <> statusQuery <> upgradeQuery
+queries now tzone =
+  listQuery
+    <> infoQuery
+    <> wtimeQuery now tzone
+    <> statusQuery
+    <> upgradeQuery
+    <> versionQuery
 
 listQuery :: Mod CommandFields Arg
 listQuery = command "list" $ info parser infoMod
@@ -115,6 +124,12 @@ upgradeQuery = command "upgrade" $ info parser infoMod
   where
     infoMod = progDesc "Upgrade the CLI"
     parser = pure Upgrade
+
+versionQuery :: Mod CommandFields Arg
+versionQuery = command "version" $ info parser infoMod
+  where
+    infoMod = progDesc "Show the version"
+    parser = pure Version
 
 -- Commands
 
