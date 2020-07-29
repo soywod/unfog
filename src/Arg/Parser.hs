@@ -3,6 +3,7 @@ module Arg.Parser where
 import Arg.Info (InfoOpts (InfoOpts))
 import Arg.List (ListOpts (ListOpts))
 import Arg.Worktime (WtimeOpts (WtimeOpts))
+import Arg.Status (StatusOpts (StatusOpts))
 import Control.Monad
 import Data.Fixed
 import Data.Semigroup ((<>))
@@ -26,6 +27,7 @@ data Arg
   = List ListOpts
   | Info InfoOpts
   | Wtime WtimeOpts
+  | Status StatusOpts
   deriving (Show)
 
 -- Options
@@ -62,6 +64,9 @@ jsonOpt = switch $ long "json" <> help "Show result as JSON string"
 
 -- Queries
 
+queries :: UTCTime -> TimeZone -> Mod CommandFields Arg
+queries now tzone = listQuery <> infoQuery <> wtimeQuery now tzone <> statusQuery
+
 listQuery :: Mod CommandFields Arg
 listQuery = command "list" $ info parser infoMod
   where
@@ -88,6 +93,13 @@ wtimeQuery now tzone = command "worktime" $ info parser infoMod
         <*> toOpt now tzone
         <*> moreOpt "Show more details about worktime"
         <*> jsonOpt
+
+statusQuery :: Mod CommandFields Arg
+statusQuery = command "status" $ info parser infoMod
+  where
+    infoMod = progDesc "Show the total amount of time spent on the current active task"
+    parser = Status <$> opts
+    opts = StatusOpts <$> moreOpt "Show more details about the task" <*> jsonOpt
 
 -- Commands
 
@@ -121,6 +133,5 @@ parseArgs = do
   now <- getCurrentTime
   tzone <- getCurrentTimeZone
   let desc = fullDesc <> header "⏱ Unfog - Minimalist task & time manager"
-  let opts = hsubparser $ listQuery <> infoQuery <> wtimeQuery now tzone
-  let parser = helper <*> opts
+  let parser = helper <*> hsubparser (queries now tzone)
   execParser $ info parser desc

@@ -11,3 +11,4 @@ dispatch :: Arg -> IO ()
 dispatch (List opts) = putStrLn $ "list " ++ show opts
 dispatch (Info opts) = putStrLn $ "info " ++ show opts
 dispatch (Wtime opts) = putStrLn $ "wtime " ++ show opts
+dispatch (Status opts) = putStrLn $ "status " ++ show opts
