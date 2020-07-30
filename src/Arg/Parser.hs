@@ -1,6 +1,7 @@
 module Arg.Parser where
 
 import Arg.Add (AddOpts (AddOpts))
+import Arg.Edit (EditOpts (EditOpts))
 import Arg.Info (InfoOpts (InfoOpts))
 import Arg.List (ListOpts (ListOpts))
 import Arg.Status (StatusOpts (StatusOpts))
@@ -12,6 +13,7 @@ import Data.Semigroup ((<>))
 import Data.Time
 import Options.Applicative
 import Text.Read
+import Task (Id)
 
 type FromOpt = Maybe UTCTime
 
@@ -35,6 +37,7 @@ data Arg
   | Upgrade
   | Version
   | Add AddOpts
+  | Edit EditOpts
   deriving (Show)
 
 parseArgs :: IO Arg
@@ -71,7 +74,7 @@ infoQuery = command "info" $ info parser infoMod
   where
     infoMod = progDesc "Show task details"
     parser = Info <$> opts
-    opts = InfoOpts <$> argument auto (metavar "ID") <*> jsonOptParser
+    opts = InfoOpts <$> idParser <*> jsonOptParser
 
 wtimeQuery :: UTCTime -> TimeZone -> Mod CommandFields Arg
 wtimeQuery now tzone = command "worktime" $ info parser infoMod
@@ -108,14 +111,19 @@ versionQuery = command "version" $ info parser infoMod
 -- Commands
 
 commands :: UTCTime -> TimeZone -> Mod CommandFields Arg
-commands now tzone = addCommand
+commands now tzone = addCommand <> editCommand
 
 addCommand :: Mod CommandFields Arg
 addCommand = command "add" (info parser infoMod)
   where
     infoMod = progDesc "Add a new task"
-    descParser = unwords <$> some (argument str (metavar "DESC"))
     parser = Add <$> AddOpts <$> descParser
+
+editCommand :: Mod CommandFields Arg
+editCommand = command "edit" (info parser infoMod)
+  where
+    infoMod = progDesc "Edit an existing task"
+    parser = Edit <$> (EditOpts <$> idParser <*> descParser)
 
 -- Readers
 
@@ -148,6 +156,12 @@ tagReader = maybeReader parseTag
     parseTag _ = Nothing
 
 -- Parsers
+
+idParser :: Parser Id
+idParser = argument auto (metavar "ID")
+
+descParser :: Parser String
+descParser = unwords <$> some (argument str (metavar "DESC"))
 
 fromOptParser :: UTCTime -> TimeZone -> Parser FromOpt
 fromOptParser now tzone =

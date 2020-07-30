@@ -8,10 +8,11 @@ main :: IO ()
 main = parseArgs >>= dispatch
 
 dispatch :: Arg -> IO ()
-dispatch (List opts) = putStrLn $ "list " ++ show opts
-dispatch (Info opts) = putStrLn $ "info " ++ show opts
-dispatch (Wtime opts) = putStrLn $ "wtime " ++ show opts
-dispatch (Status opts) = putStrLn $ "status " ++ show opts
+dispatch (List opts) = putStrLn $ show opts
+dispatch (Info opts) = putStrLn $ show opts
+dispatch (Wtime opts) = putStrLn $ show opts
+dispatch (Status opts) = putStrLn $ show opts
 dispatch Upgrade = putStrLn "upgrade"
 dispatch Version = putStrLn "version"
-dispatch (Add opts) = putStrLn $ "add" ++ show opts
+dispatch (Add opts) = putStrLn $ show opts
+dispatch (Edit opts) = putStrLn $ show opts
