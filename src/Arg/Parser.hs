@@ -1,11 +1,13 @@
 module Arg.Parser where
 
+import Arg.Add (AddOpts (AddOpts))
 import Arg.Info (InfoOpts (InfoOpts))
 import Arg.List (ListOpts (ListOpts))
-import Arg.Worktime (WtimeOpts (WtimeOpts))
 import Arg.Status (StatusOpts (StatusOpts))
+import Arg.Worktime (WtimeOpts (WtimeOpts))
 import Control.Monad
 import Data.Fixed
+import Data.List
 import Data.Semigroup ((<>))
 import Data.Time
 import Options.Applicative
@@ -32,47 +34,19 @@ data Arg
   | Status StatusOpts
   | Upgrade
   | Version
+  | Add AddOpts
   deriving (Show)
 
--- Helpers
-
-readUTCTime :: TimeZone -> String -> Maybe UTCTime
-readUTCTime tzone = parseLocalTime >=> toUTC
-  where
-    parseLocalTime = parseTimeM True defaultTimeLocale "%Y-%m-%d %H:%M"
-    toUTC = return . localTimeToUTC tzone
-
--- Options
-
-fromOpt :: UTCTime -> TimeZone -> Parser FromOpt
-fromOpt now tzone =
-  option (fromDateParser now tzone) $
-    long "from"
-      <> short 'f'
-      <> metavar "DATE"
-      <> value Nothing
-      <> help "Start date of interval"
-
-toOpt :: UTCTime -> TimeZone -> Parser FromOpt
-toOpt now tzone =
-  option (fromDateParser now tzone) $
-    long "to"
-      <> short 't'
-      <> metavar "DATE"
-      <> value Nothing
-      <> help "End date of interval"
-
-onlyIdsOpt :: Parser OnlyIdsOpt
-onlyIdsOpt = switch $ long "only-ids" <> help "Show only tasks id"
-
-onlyTagsOpt :: Parser OnlyTagsOpt
-onlyTagsOpt = switch $ long "only-tags" <> help "Show only tasks tags"
-
-moreOpt :: String -> Parser MoreOpt
-moreOpt h = switch $ long "more" <> help h
-
-jsonOpt :: Parser MoreOpt
-jsonOpt = switch $ long "json" <> help "Show result as JSON string"
+parseArgs :: IO Arg
+parseArgs = do
+  now <- getCurrentTime
+  tzone <- getCurrentTimeZone
+  let desc = fullDesc <> header "⏱ Unfog - Minimalist task & time manager"
+  let queries' = queries now tzone
+  let commands' = commands now tzone
+  let parser = helper <*> hsubparser (queries' <> commands')
+  let prefs' = prefs showHelpOnError
+  customExecParser prefs' (info parser desc)
 
 -- Queries
 
@@ -90,14 +64,14 @@ listQuery = command "list" $ info parser infoMod
   where
     infoMod = progDesc "Show tasks filtered by current context"
     parser = List <$> opts
-    opts = ListOpts <$> onlyIdsOpt <*> onlyTagsOpt <*> moreOpt "Show more details about tasks" <*> jsonOpt
+    opts = ListOpts <$> onlyIdsOptParser <*> onlyTagsOptParser <*> moreOptParser "Show more details about tasks" <*> jsonOptParser
 
 infoQuery :: Mod CommandFields Arg
 infoQuery = command "info" $ info parser infoMod
   where
     infoMod = progDesc "Show task details"
     parser = Info <$> opts
-    opts = InfoOpts <$> argument auto (metavar "ID") <*> jsonOpt
+    opts = InfoOpts <$> argument auto (metavar "ID") <*> jsonOptParser
 
 wtimeQuery :: UTCTime -> TimeZone -> Mod CommandFields Arg
 wtimeQuery now tzone = command "worktime" $ info parser infoMod
@@ -107,17 +81,17 @@ wtimeQuery now tzone = command "worktime" $ info parser infoMod
     opts =
       WtimeOpts
         <$> many (argument str (metavar "TAGS..."))
-        <*> fromOpt now tzone
-        <*> toOpt now tzone
-        <*> moreOpt "Show more details about worktime"
-        <*> jsonOpt
+        <*> fromOptParser now tzone
+        <*> toOptParser now tzone
+        <*> moreOptParser "Show more details about worktime"
+        <*> jsonOptParser
 
 statusQuery :: Mod CommandFields Arg
 statusQuery = command "status" $ info parser infoMod
   where
     infoMod = progDesc "Show the total amount of time spent on the current active task"
     parser = Status <$> opts
-    opts = StatusOpts <$> moreOpt "Show more details about the task" <*> jsonOpt
+    opts = StatusOpts <$> moreOptParser "Show more details about the task" <*> jsonOptParser
 
 upgradeQuery :: Mod CommandFields Arg
 upgradeQuery = command "upgrade" $ info parser infoMod
@@ -133,27 +107,74 @@ versionQuery = command "version" $ info parser infoMod
 
 -- Commands
 
--- Parsers
+commands :: UTCTime -> TimeZone -> Mod CommandFields Arg
+commands now tzone = addCommand
 
-dateParser :: String -> UTCTime -> TimeZone -> ReadM (Maybe UTCTime)
-dateParser timefmt now tzone = eitherReader parseDate
+addCommand :: Mod CommandFields Arg
+addCommand = command "add" (info parser infoMod)
   where
-    parseDate str = Right $ parseDate' <|> parseTime' <|> parseDateTime'
+    infoMod = progDesc "Add a new task"
+    descParser = unwords <$> some (argument str (metavar "DESC"))
+    parser = Add <$> AddOpts <$> descParser
+
+-- Readers
+
+readUTCTime :: TimeZone -> String -> Maybe UTCTime
+readUTCTime tzone = parseLocalTime >=> toUTC
+  where
+    parseLocalTime = parseTimeM True defaultTimeLocale "%Y-%m-%d %H:%M"
+    toUTC = return . localTimeToUTC tzone
+
+dateReader :: String -> UTCTime -> TimeZone -> ReadM (Maybe UTCTime)
+dateReader timefmt now tzone = maybeReader parseDate
+  where
+    parseDate str = Just $ parseDate' <|> parseTime' <|> parseDateTime'
       where
         parseDate' = readUTCTime tzone (str ++ " " ++ timefmt)
         parseTime' = readUTCTime tzone (formatTime defaultTimeLocale "%Y-%m-%d " now ++ str)
         parseDateTime' = readUTCTime tzone str
 
-fromDateParser :: UTCTime -> TimeZone -> ReadM (Maybe UTCTime)
-fromDateParser = dateParser "00:00"
+fromDateReader :: UTCTime -> TimeZone -> ReadM (Maybe UTCTime)
+fromDateReader = dateReader "00:00"
 
-toDateParser :: UTCTime -> TimeZone -> ReadM (Maybe UTCTime)
-toDateParser = dateParser "23:59"
+toDateReader :: UTCTime -> TimeZone -> ReadM (Maybe UTCTime)
+toDateReader = dateReader "23:59"
 
-parseArgs :: IO Arg
-parseArgs = do
-  now <- getCurrentTime
-  tzone <- getCurrentTimeZone
-  let desc = fullDesc <> header "⏱ Unfog - Minimalist task & time manager"
-  let parser = helper <*> hsubparser (queries now tzone)
-  execParser $ info parser desc
+tagReader :: ReadM String
+tagReader = maybeReader parseTag
+  where
+    parseTag "" = Nothing
+    parseTag ('+' : tag) = Just tag
+    parseTag _ = Nothing
+
+-- Parsers
+
+fromOptParser :: UTCTime -> TimeZone -> Parser FromOpt
+fromOptParser now tzone =
+  option (fromDateReader now tzone) $
+    long "from"
+      <> short 'f'
+      <> metavar "DATE"
+      <> value Nothing
+      <> help "Start date of interval"
+
+toOptParser :: UTCTime -> TimeZone -> Parser FromOpt
+toOptParser now tzone =
+  option (fromDateReader now tzone) $
+    long "to"
+      <> short 't'
+      <> metavar "DATE"
+      <> value Nothing
+      <> help "End date of interval"
+
+onlyIdsOptParser :: Parser OnlyIdsOpt
+onlyIdsOptParser = switch $ long "only-ids" <> help "Show only tasks id"
+
+onlyTagsOptParser :: Parser OnlyTagsOpt
+onlyTagsOptParser = switch $ long "only-tags" <> help "Show only tasks tags"
+
+moreOptParser :: String -> Parser MoreOpt
+moreOptParser h = switch $ long "more" <> help h
+
+jsonOptParser :: Parser MoreOpt
+jsonOptParser = switch $ long "json" <> help "Show result as JSON string"
