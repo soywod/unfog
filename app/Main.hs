@@ -16,3 +16,5 @@ dispatch Upgrade = putStrLn "upgrade"
 dispatch Version = putStrLn "version"
 dispatch (Add opts) = putStrLn $ show opts
 dispatch (Edit opts) = putStrLn $ show opts
+dispatch (Start opts) = putStrLn $ show opts
+dispatch (Stop opts) = putStrLn $ show opts

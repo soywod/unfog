@@ -4,8 +4,10 @@ import Arg.Add (AddOpts (AddOpts))
 import Arg.Edit (EditOpts (EditOpts))
 import Arg.Info (InfoOpts (InfoOpts))
 import Arg.List (ListOpts (ListOpts))
+import Arg.Start (StartOpts (StartOpts))
 import Arg.Status (StatusOpts (StatusOpts))
 import Arg.Worktime (WtimeOpts (WtimeOpts))
+import Arg.Stop (StopOpts (StopOpts))
 import Control.Monad
 import Data.Fixed
 import Data.List
@@ -38,6 +40,8 @@ data Arg
   | Version
   | Add AddOpts
   | Edit EditOpts
+  | Start StartOpts
+  | Stop StopOpts
   deriving (Show)
 
 parseArgs :: IO Arg
@@ -111,7 +115,7 @@ versionQuery = command "version" $ info parser infoMod
 -- Commands
 
 commands :: UTCTime -> TimeZone -> Mod CommandFields Arg
-commands now tzone = addCommand <> editCommand
+commands now tzone = addCommand <> editCommand <> startCommand <> stopCommand
 
 addCommand :: Mod CommandFields Arg
 addCommand = command "add" (info parser infoMod)
@@ -124,6 +128,18 @@ editCommand = command "edit" (info parser infoMod)
   where
     infoMod = progDesc "Edit an existing task"
     parser = Edit <$> (EditOpts <$> idParser <*> descParser)
+
+startCommand :: Mod CommandFields Arg
+startCommand = command "start" (info parser infoMod)
+  where
+    infoMod = progDesc "Start a task"
+    parser = Start <$> StartOpts <$> idParser
+
+stopCommand :: Mod CommandFields Arg
+stopCommand = command "stop" (info parser infoMod)
+  where
+    infoMod = progDesc "Stop a task"
+    parser = Stop <$> StopOpts <$> idParser
 
 -- Readers
 
