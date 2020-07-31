@@ -1,13 +1,15 @@
 module Arg.Parser where
 
 import Arg.Add (AddOpts (AddOpts))
+import Arg.Do (DoOpts (DoOpts))
 import Arg.Edit (EditOpts (EditOpts))
 import Arg.Info (InfoOpts (InfoOpts))
 import Arg.List (ListOpts (ListOpts))
 import Arg.Start (StartOpts (StartOpts))
 import Arg.Status (StatusOpts (StatusOpts))
-import Arg.Worktime (WtimeOpts (WtimeOpts))
 import Arg.Stop (StopOpts (StopOpts))
+import Arg.Worktime (WtimeOpts (WtimeOpts))
+import Arg.Undo (UndoOpts (UndoOpts))
 import Control.Monad
 import Data.Fixed
 import Data.List
@@ -42,6 +44,8 @@ data Arg
   | Edit EditOpts
   | Start StartOpts
   | Stop StopOpts
+  | Do DoOpts
+  | Undo UndoOpts
   deriving (Show)
 
 parseArgs :: IO Arg
@@ -58,13 +62,7 @@ parseArgs = do
 -- Queries
 
 queries :: UTCTime -> TimeZone -> Mod CommandFields Arg
-queries now tzone =
-  listQuery
-    <> infoQuery
-    <> wtimeQuery now tzone
-    <> statusQuery
-    <> upgradeQuery
-    <> versionQuery
+queries now tzone = foldr1 (<>) [listQuery, infoQuery, wtimeQuery now tzone, statusQuery, upgradeQuery, versionQuery]
 
 listQuery :: Mod CommandFields Arg
 listQuery = command "list" $ info parser infoMod
@@ -115,7 +113,7 @@ versionQuery = command "version" $ info parser infoMod
 -- Commands
 
 commands :: UTCTime -> TimeZone -> Mod CommandFields Arg
-commands now tzone = addCommand <> editCommand <> startCommand <> stopCommand
+commands now tzone = foldr1 (<>) [addCommand, editCommand, startCommand, stopCommand, doCommand, undoCommand]
 
 addCommand :: Mod CommandFields Arg
 addCommand = command "add" (info parser infoMod)
@@ -140,6 +138,18 @@ stopCommand = command "stop" (info parser infoMod)
   where
     infoMod = progDesc "Stop a task"
     parser = Stop <$> StopOpts <$> idParser
+
+doCommand :: Mod CommandFields Arg
+doCommand = command "do" (info parser infoMod)
+  where
+    infoMod = progDesc "Mark as done a task"
+    parser = Do <$> DoOpts <$> idParser
+
+undoCommand :: Mod CommandFields Arg
+undoCommand = command "undo" (info parser infoMod)
+  where
+    infoMod = progDesc "Unmark as done a task"
+    parser = Undo <$> UndoOpts <$> idParser
 
 -- Readers
 
