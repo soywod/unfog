@@ -21,3 +21,4 @@ dispatch (Stop opts) = putStrLn $ show opts
 dispatch (Do opts) = putStrLn $ show opts
 dispatch (Undo opts) = putStrLn $ show opts
 dispatch (Delete opts) = putStrLn $ show opts
+dispatch (Ctx opts) = putStrLn $ show opts

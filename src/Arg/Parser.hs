@@ -1,6 +1,7 @@
 module Arg.Parser where
 
 import Arg.Add (AddOpts (AddOpts))
+import Arg.Context (CtxOpts (CtxOpts))
 import Arg.Delete (DeleteOpts (DeleteOpts))
 import Arg.Do (DoOpts (DoOpts))
 import Arg.Edit (EditOpts (EditOpts))
@@ -9,8 +10,8 @@ import Arg.List (ListOpts (ListOpts))
 import Arg.Start (StartOpts (StartOpts))
 import Arg.Status (StatusOpts (StatusOpts))
 import Arg.Stop (StopOpts (StopOpts))
-import Arg.Worktime (WtimeOpts (WtimeOpts))
 import Arg.Undo (UndoOpts (UndoOpts))
+import Arg.Worktime (WtimeOpts (WtimeOpts))
 import Control.Monad
 import Data.Fixed
 import Data.List
@@ -18,7 +19,7 @@ import Data.Semigroup ((<>))
 import Data.Time
 import Options.Applicative
 import Text.Read
-import Task (Id)
+import Task (Id, Tag)
 
 type FromOpt = Maybe UTCTime
 
@@ -48,6 +49,7 @@ data Arg
   | Do DoOpts
   | Undo UndoOpts
   | Delete DeleteOpts
+  | Ctx CtxOpts
   deriving (Show)
 
 parseArgs :: IO Arg
@@ -133,7 +135,8 @@ commands now tzone =
       stopCommand,
       doCommand,
       undoCommand,
-      deleteCommand
+      deleteCommand,
+      ctxCommand
     ]
 
 addCommand :: Mod CommandFields Arg
@@ -178,6 +181,12 @@ deleteCommand = command "delete" (info parser infoMod)
     infoMod = progDesc "Delete a task"
     parser = Delete <$> DeleteOpts <$> idsParser
 
+ctxCommand :: Mod CommandFields Arg
+ctxCommand = command "context" (info parser infoMod)
+  where
+    infoMod = progDesc "Change the current context"
+    parser = Ctx <$> CtxOpts <$> tagsParser
+
 -- Readers
 
 readUTCTime :: TimeZone -> String -> Maybe UTCTime
@@ -201,13 +210,6 @@ fromDateReader = dateReader "00:00"
 toDateReader :: UTCTime -> TimeZone -> ReadM (Maybe UTCTime)
 toDateReader = dateReader "23:59"
 
-tagReader :: ReadM String
-tagReader = maybeReader parseTag
-  where
-    parseTag "" = Nothing
-    parseTag ('+' : tag) = Just tag
-    parseTag _ = Nothing
-
 -- Parsers
 
 idParser :: Parser Id
@@ -218,6 +220,9 @@ idsParser = some idParser
 
 descParser :: Parser String
 descParser = unwords <$> some (argument str (metavar "DESC"))
+
+tagsParser :: Parser [Tag]
+tagsParser = many (argument str (metavar "TAGS..."))
 
 fromOptParser :: UTCTime -> TimeZone -> Parser FromOpt
 fromOptParser now tzone =

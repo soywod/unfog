@@ -4,7 +4,7 @@ import Data.Time (UTCTime)
 import Task (Tag)
 
 data WtimeOpts = WtimeOpts
-  { ctx :: [Tag],
+  { tags :: [Tag],
     from :: Maybe UTCTime,
     to :: Maybe UTCTime,
     moreOpt :: Bool,
