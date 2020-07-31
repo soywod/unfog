@@ -1,6 +1,7 @@
 module Arg.Parser where
 
 import Arg.Add (AddOpts (AddOpts))
+import Arg.Delete (DeleteOpts (DeleteOpts))
 import Arg.Do (DoOpts (DoOpts))
 import Arg.Edit (EditOpts (EditOpts))
 import Arg.Info (InfoOpts (InfoOpts))
@@ -46,6 +47,7 @@ data Arg
   | Stop StopOpts
   | Do DoOpts
   | Undo UndoOpts
+  | Delete DeleteOpts
   deriving (Show)
 
 parseArgs :: IO Arg
@@ -62,7 +64,16 @@ parseArgs = do
 -- Queries
 
 queries :: UTCTime -> TimeZone -> Mod CommandFields Arg
-queries now tzone = foldr1 (<>) [listQuery, infoQuery, wtimeQuery now tzone, statusQuery, upgradeQuery, versionQuery]
+queries now tzone =
+  foldr1
+    (<>)
+    [ listQuery,
+      infoQuery,
+      wtimeQuery now tzone,
+      statusQuery,
+      upgradeQuery,
+      versionQuery
+    ]
 
 listQuery :: Mod CommandFields Arg
 listQuery = command "list" $ info parser infoMod
@@ -113,7 +124,17 @@ versionQuery = command "version" $ info parser infoMod
 -- Commands
 
 commands :: UTCTime -> TimeZone -> Mod CommandFields Arg
-commands now tzone = foldr1 (<>) [addCommand, editCommand, startCommand, stopCommand, doCommand, undoCommand]
+commands now tzone =
+  foldr1
+    (<>)
+    [ addCommand,
+      editCommand,
+      startCommand,
+      stopCommand,
+      doCommand,
+      undoCommand,
+      deleteCommand
+    ]
 
 addCommand :: Mod CommandFields Arg
 addCommand = command "add" (info parser infoMod)
@@ -131,25 +152,31 @@ startCommand :: Mod CommandFields Arg
 startCommand = command "start" (info parser infoMod)
   where
     infoMod = progDesc "Start a task"
-    parser = Start <$> StartOpts <$> idParser
+    parser = Start <$> StartOpts <$> idsParser
 
 stopCommand :: Mod CommandFields Arg
 stopCommand = command "stop" (info parser infoMod)
   where
     infoMod = progDesc "Stop a task"
-    parser = Stop <$> StopOpts <$> idParser
+    parser = Stop <$> StopOpts <$> idsParser
 
 doCommand :: Mod CommandFields Arg
 doCommand = command "do" (info parser infoMod)
   where
     infoMod = progDesc "Mark as done a task"
-    parser = Do <$> DoOpts <$> idParser
+    parser = Do <$> DoOpts <$> idsParser
 
 undoCommand :: Mod CommandFields Arg
 undoCommand = command "undo" (info parser infoMod)
   where
     infoMod = progDesc "Unmark as done a task"
-    parser = Undo <$> UndoOpts <$> idParser
+    parser = Undo <$> UndoOpts <$> idsParser
+
+deleteCommand :: Mod CommandFields Arg
+deleteCommand = command "delete" (info parser infoMod)
+  where
+    infoMod = progDesc "Delete a task"
+    parser = Delete <$> DeleteOpts <$> idsParser
 
 -- Readers
 
@@ -185,6 +212,9 @@ tagReader = maybeReader parseTag
 
 idParser :: Parser Id
 idParser = argument auto (metavar "ID")
+
+idsParser :: Parser [Id]
+idsParser = some idParser
 
 descParser :: Parser String
 descParser = unwords <$> some (argument str (metavar "DESC"))
