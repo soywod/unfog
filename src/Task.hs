@@ -11,7 +11,7 @@ import Data.UUID
 import Duration
 import Table
 
-type Id = UUID
+type Id = String
 
 type Pos = Int
 
@@ -26,9 +26,13 @@ type Done = Bool
 data Task = Task
   { getId :: Id,
     getDesc :: Desc,
-    getTags :: [Tag]
+    getTags :: [Tag],
+    getDone :: Done
   }
   deriving (Show, Read, Eq)
+
+findById :: Id -> [Task] -> Maybe Task
+findById id = find $ isPrefixOf id . getId
 
 -- emptyTask :: Task
 -- emptyTask = Task { id     = Nothing

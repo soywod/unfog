@@ -1,5 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
 module State where
 
 import Data.List
@@ -21,9 +19,14 @@ apply :: State -> Event -> State
 apply state evt = case evt of
   TaskCreated _ id desc tags -> state {getTasks = tasks}
     where
-      task = Task id desc tags
+      task = Task id desc tags False
       tasks = getTasks state ++ [task]
-  TaskUpdated _ id desc tags -> state
+  TaskUpdated _ id desc tags -> state {getTasks = tasks}
+    where
+      tasks = map update (getTasks state)
+      update task
+        | id == (getId task) = task {getDesc = desc}
+        | otherwise = task
   TaskStarted start _ -> state
   TaskStopped stop _ -> state
   TaskMarkedAsDone stop id -> state

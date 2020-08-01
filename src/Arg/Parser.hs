@@ -186,7 +186,7 @@ toDateReader = dateReader "23:59"
 -- Parsers
 
 idParser :: Parser Id
-idParser = argument auto (metavar "ID")
+idParser = argument str (metavar "ID")
 
 idsParser :: Parser [Id]
 idsParser = some idParser
