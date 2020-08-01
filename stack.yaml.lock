@@ -571,4 +571,39 @@ packages:
       sha256: 7e528e8de1df24f858e0be63bf8987537b2752a3d4f6ec823e5ac0e1dc7f1520
   original:
     hackage: StateVar-1.2@sha256:9ab3e4a0e252d28bc2f799c83e0725c3e23e8d3b722cff0fdb9822e64b6c16ac,1413
+- completed:
+    hackage: uuid-1.3.13@sha256:380b45cfd1d2dfda0b52d414f0040cef3adfc02bf54bd9e61f2ef47755ce5adc,3137
+    pantry-tree:
+      size: 767
+      sha256: 95b5b5506a78e68bf33586a925a6375274bd6d36cfca62e91e17221d8d851809
+  original:
+    hackage: uuid-1.3.13@sha256:380b45cfd1d2dfda0b52d414f0040cef3adfc02bf54bd9e61f2ef47755ce5adc,3137
+- completed:
+    hackage: cryptohash-md5-0.11.100.1@sha256:a4a528bf378bf747eed3748459acf02ed35b9200ec0403d34dbba55b7c9eaab7,3964
+    pantry-tree:
+      size: 502
+      sha256: 6198ba460eb08392318ac11fb85322f0de8a7f0e34b01deede281f27f8df342b
+  original:
+    hackage: cryptohash-md5-0.11.100.1@sha256:a4a528bf378bf747eed3748459acf02ed35b9200ec0403d34dbba55b7c9eaab7,3964
+- completed:
+    hackage: cryptohash-sha1-0.11.100.1@sha256:14d814cd88f5fd47641bef414668f3a5bba8b27fa8f960b1a6f4f2ba29265ee1,4363
+    pantry-tree:
+      size: 508
+      sha256: 20ff35375c2ee7dd814b6b4f6caef1e841bbd18b5a98f8ea16a313e54d5109df
+  original:
+    hackage: cryptohash-sha1-0.11.100.1@sha256:14d814cd88f5fd47641bef414668f3a5bba8b27fa8f960b1a6f4f2ba29265ee1,4363
+- completed:
+    hackage: entropy-0.4.1.6@sha256:d72a8745b0d011737190832be477f6d98a7c819865a6392e4c451110eb79361c,3007
+    pantry-tree:
+      size: 743
+      sha256: e3909bd795797100f74a6e81c9ed098fbc77985a053335b39c10e07b16ba1ddc
+  original:
+    hackage: entropy-0.4.1.6@sha256:d72a8745b0d011737190832be477f6d98a7c819865a6392e4c451110eb79361c,3007
+- completed:
+    hackage: network-info-0.2.0.10@sha256:cda87030e0e7adc56696006035fc322d5a6b8b0b41dd6d339ea630484de1711e,1717
+    pantry-tree:
+      size: 847
+      sha256: 7e95006c5acef2b50afc2b70ab7fe02832eae49083913dfb6fdf0674f09d41d6
+  original:
+    hackage: network-info-0.2.0.10@sha256:cda87030e0e7adc56696006035fc322d5a6b8b0b41dd6d339ea630484de1711e,1717
 snapshots: []

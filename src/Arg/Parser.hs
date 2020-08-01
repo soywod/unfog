@@ -1,56 +1,32 @@
 module Arg.Parser where
 
-import Arg.Add (AddOpts (AddOpts))
-import Arg.Context (CtxOpts (CtxOpts))
-import Arg.Delete (DeleteOpts (DeleteOpts))
-import Arg.Do (DoOpts (DoOpts))
-import Arg.Edit (EditOpts (EditOpts))
-import Arg.Info (InfoOpts (InfoOpts))
-import Arg.List (ListOpts (ListOpts))
-import Arg.Start (StartOpts (StartOpts))
-import Arg.Status (StatusOpts (StatusOpts))
-import Arg.Stop (StopOpts (StopOpts))
-import Arg.Undo (UndoOpts (UndoOpts))
-import Arg.Worktime (WtimeOpts (WtimeOpts))
+import Arg.Options
 import Control.Monad
-import Data.Fixed
-import Data.List
-import Data.Semigroup ((<>))
 import Data.Time
 import Options.Applicative
-import Text.Read
-import Task (Id, Tag)
+import Task (Desc, Id, Tag)
 
-type FromOpt = Maybe UTCTime
-
-type ToOpt = Maybe UTCTime
-
-type OnlyTagsOpt = Bool
-
-type OnlyIdsOpt = Bool
-
-type VersionOpt = Bool
-
-type MoreOpt = Bool
-
-type JsonOpt = Bool
-
-data Arg
-  = List ListOpts
-  | Info InfoOpts
-  | Wtime WtimeOpts
-  | Status StatusOpts
+data Query
+  = List OnlyIdsOpt OnlyTagsOpt MoreOpt JsonOpt
+  | Info Id MoreOpt JsonOpt
+  | Wtime [Tag] FromOpt ToOpt MoreOpt JsonOpt
+  | Status MoreOpt JsonOpt
+  | Version JsonOpt
   | Upgrade
-  | Version
-  | Add AddOpts
-  | Edit EditOpts
-  | Start StartOpts
-  | Stop StopOpts
-  | Do DoOpts
-  | Undo UndoOpts
-  | Delete DeleteOpts
-  | Ctx CtxOpts
   deriving (Show)
+
+data Command
+  = Add Desc
+  | Edit Id Desc
+  | Start [Id]
+  | Stop [Id]
+  | Do [Id]
+  | Undo [Id]
+  | Delete [Id]
+  | Ctx [Tag]
+  deriving (Show)
+
+data Arg = CommandArg Command | QueryArg Query
 
 parseArgs :: IO Arg
 parseArgs = do
@@ -78,50 +54,47 @@ queries now tzone =
     ]
 
 listQuery :: Mod CommandFields Arg
-listQuery = command "list" $ info parser infoMod
+listQuery = command "list" (info parser infoMod)
   where
     infoMod = progDesc "Show tasks filtered by current context"
-    parser = List <$> opts
-    opts = ListOpts <$> onlyIdsOptParser <*> onlyTagsOptParser <*> moreOptParser "Show more details about tasks" <*> jsonOptParser
+    parser = QueryArg <$> (List <$> onlyIdsOptParser <*> onlyTagsOptParser <*> moreOptParser "Show more details about tasks" <*> jsonOptParser)
 
 infoQuery :: Mod CommandFields Arg
-infoQuery = command "info" $ info parser infoMod
+infoQuery = command "info" (info parser infoMod)
   where
     infoMod = progDesc "Show task details"
-    parser = Info <$> opts
-    opts = InfoOpts <$> idParser <*> jsonOptParser
+    parser = QueryArg <$> (Info <$> idParser <*> moreOptParser "Show more details about the task" <*> jsonOptParser)
 
 wtimeQuery :: UTCTime -> TimeZone -> Mod CommandFields Arg
-wtimeQuery now tzone = command "worktime" $ info parser infoMod
+wtimeQuery now tzone = command "worktime" (info parser infoMod)
   where
     infoMod = progDesc "Show task details"
-    parser = Wtime <$> opts
-    opts =
-      WtimeOpts
-        <$> many (argument str (metavar "TAGS..."))
-        <*> fromOptParser now tzone
-        <*> toOptParser now tzone
-        <*> moreOptParser "Show more details about worktime"
-        <*> jsonOptParser
+    parser =
+      QueryArg
+        <$> ( Wtime <$> many (argument str (metavar "TAGS..."))
+                <*> fromOptParser now tzone
+                <*> toOptParser now tzone
+                <*> moreOptParser "Show more details about worktime"
+                <*> jsonOptParser
+            )
 
 statusQuery :: Mod CommandFields Arg
-statusQuery = command "status" $ info parser infoMod
+statusQuery = command "status" (info parser infoMod)
   where
     infoMod = progDesc "Show the total amount of time spent on the current active task"
-    parser = Status <$> opts
-    opts = StatusOpts <$> moreOptParser "Show more details about the task" <*> jsonOptParser
+    parser = QueryArg <$> (Status <$> moreOptParser "Show more details about the task" <*> jsonOptParser)
 
 upgradeQuery :: Mod CommandFields Arg
-upgradeQuery = command "upgrade" $ info parser infoMod
+upgradeQuery = command "upgrade" (info parser infoMod)
   where
     infoMod = progDesc "Upgrade the CLI"
-    parser = pure Upgrade
+    parser = pure $ QueryArg Upgrade
 
 versionQuery :: Mod CommandFields Arg
-versionQuery = command "version" $ info parser infoMod
+versionQuery = command "version" (info parser infoMod)
   where
     infoMod = progDesc "Show the version"
-    parser = pure Version
+    parser = QueryArg <$> Version <$> jsonOptParser
 
 -- Commands
 
@@ -143,49 +116,49 @@ addCommand :: Mod CommandFields Arg
 addCommand = command "add" (info parser infoMod)
   where
     infoMod = progDesc "Add a new task"
-    parser = Add <$> AddOpts <$> descParser
+    parser = CommandArg <$> Add <$> descParser
 
 editCommand :: Mod CommandFields Arg
 editCommand = command "edit" (info parser infoMod)
   where
     infoMod = progDesc "Edit an existing task"
-    parser = Edit <$> (EditOpts <$> idParser <*> descParser)
+    parser = CommandArg <$> (Edit <$> idParser <*> descParser)
 
 startCommand :: Mod CommandFields Arg
 startCommand = command "start" (info parser infoMod)
   where
     infoMod = progDesc "Start a task"
-    parser = Start <$> StartOpts <$> idsParser
+    parser = CommandArg <$> Start <$> idsParser
 
 stopCommand :: Mod CommandFields Arg
 stopCommand = command "stop" (info parser infoMod)
   where
     infoMod = progDesc "Stop a task"
-    parser = Stop <$> StopOpts <$> idsParser
+    parser = CommandArg <$> Stop <$> idsParser
 
 doCommand :: Mod CommandFields Arg
 doCommand = command "do" (info parser infoMod)
   where
     infoMod = progDesc "Mark as done a task"
-    parser = Do <$> DoOpts <$> idsParser
+    parser = CommandArg <$> Do <$> idsParser
 
 undoCommand :: Mod CommandFields Arg
 undoCommand = command "undo" (info parser infoMod)
   where
     infoMod = progDesc "Unmark as done a task"
-    parser = Undo <$> UndoOpts <$> idsParser
+    parser = CommandArg <$> Undo <$> idsParser
 
 deleteCommand :: Mod CommandFields Arg
 deleteCommand = command "delete" (info parser infoMod)
   where
     infoMod = progDesc "Delete a task"
-    parser = Delete <$> DeleteOpts <$> idsParser
+    parser = CommandArg <$> Delete <$> idsParser
 
 ctxCommand :: Mod CommandFields Arg
 ctxCommand = command "context" (info parser infoMod)
   where
     infoMod = progDesc "Change the current context"
-    parser = Ctx <$> CtxOpts <$> tagsParser
+    parser = CommandArg <$> Ctx <$> tagsParser
 
 -- Readers
 
@@ -204,10 +177,10 @@ dateReader timefmt now tzone = maybeReader parseDate
         parseTime' = readUTCTime tzone (formatTime defaultTimeLocale "%Y-%m-%d " now ++ str)
         parseDateTime' = readUTCTime tzone str
 
-fromDateReader :: UTCTime -> TimeZone -> ReadM (Maybe UTCTime)
+fromDateReader :: UTCTime -> TimeZone -> ReadM FromOpt
 fromDateReader = dateReader "00:00"
 
-toDateReader :: UTCTime -> TimeZone -> ReadM (Maybe UTCTime)
+toDateReader :: UTCTime -> TimeZone -> ReadM ToOpt
 toDateReader = dateReader "23:59"
 
 -- Parsers

@@ -121,6 +121,11 @@ extra-deps:
 - split-0.2.3.4@sha256:bad9bfc9e8e0aca4ac1f7b3a2767ee6b1c199d4a1b6960db5cc3d7674aee5d73,2564
 - vector-algorithms-0.8.0.3@sha256:477ef5ac82fdd28a39536ed0a767faec3425802827abee485be31db5bc6f5e90,3488
 - StateVar-1.2@sha256:9ab3e4a0e252d28bc2f799c83e0725c3e23e8d3b722cff0fdb9822e64b6c16ac,1413
+- uuid-1.3.13@sha256:380b45cfd1d2dfda0b52d414f0040cef3adfc02bf54bd9e61f2ef47755ce5adc,3137
+- cryptohash-md5-0.11.100.1@sha256:a4a528bf378bf747eed3748459acf02ed35b9200ec0403d34dbba55b7c9eaab7,3964
+- cryptohash-sha1-0.11.100.1@sha256:14d814cd88f5fd47641bef414668f3a5bba8b27fa8f960b1a6f4f2ba29265ee1,4363
+- entropy-0.4.1.6@sha256:d72a8745b0d011737190832be477f6d98a7c819865a6392e4c451110eb79361c,3007
+- network-info-0.2.0.10@sha256:cda87030e0e7adc56696006035fc322d5a6b8b0b41dd6d339ea630484de1711e,1717
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

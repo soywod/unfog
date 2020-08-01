@@ -32,6 +32,7 @@ library:
   - optparse-applicative
   - process
   - time
+  - uuid
 
 executables:
   unfog:
