@@ -27,8 +27,10 @@ data Task = Task
   { getId :: Id,
     getDesc :: Desc,
     getTags :: [Tag],
+    getActive :: Active,
     getDone :: Done,
-    getActive :: Active
+    getStarts :: [UTCTime],
+    getStops :: [UTCTime]
   }
   deriving (Show, Read, Eq)
 
