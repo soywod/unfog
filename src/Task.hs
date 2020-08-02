@@ -19,7 +19,7 @@ type Desc = String
 
 type Tag = String
 
-type Active = Bool
+type Active = Maybe UTCTime
 
 type Done = Bool
 
@@ -37,30 +37,10 @@ data Task = Task
 findById :: Id -> [Task] -> Maybe Task
 findById id = find $ isPrefixOf id . getId
 
--- emptyTask :: Task
--- emptyTask = Task { id     = Nothing
---                  , pos    = -1
---                  , desc   = ""
---                  , tags   = []
---                  , active = 0
---                  , done   = False
---                  , wtime  = 0
---                  , starts = []
---                  , stops  = []
---                  }
-
 -- data WtimeTask = WtimeTask Desc Duration deriving (Show, Read, Eq)
 -- type DailyWtime = (String, [WtimeTask])
 -- newtype DailyWtimeRecord = DailyWtimeRecord {toDailyWtimeRecord :: DailyWtime}
 -- newtype DailyWtimeTotalRecord = DailyWtimeTotalRecord {toDailyWtimeTotalRecord :: Duration}
-
--- newtype TimeRecord = TimeRecord {toTimeRecord :: Maybe Duration}
--- instance ToJSON TimeRecord where
---   toJSON (TimeRecord time) = object
---     [ "approx" .= (printApproxTime time)
---     , "human" .= (printHumanTime time)
---     , "micro" .= fromMaybe 0 time
---     ]
 
 -- newtype DurationRecord = DurationRecord {toWtimeRecord :: Duration}
 -- instance ToJSON DurationRecord where
@@ -188,11 +168,7 @@ findById id = find $ isPrefixOf id . getId
 --       (day, [WtimeTask id desc $ realToFrac $ diffUTCTime endOfDay start])
 --         : wtimePerDay (WtimeTask id desc 0) (nextDay, stop)
 
--- printActive :: Micro -> String
--- printActive active | active > 0 = showApproxDuration active
---                    | otherwise  = ""
-
--- printApproxTime :: Maybe Duration -> String
+-- printApproxTime :: Active -> String
 -- printApproxTime Nothing    = ""
 -- printApproxTime (Just due) = showApproxRelDuration due
 
@@ -220,6 +196,27 @@ findById id = find $ isPrefixOf id . getId
 --     , yellow . cell $ showFullDuration $ wtime task
 --     ]
 --   body = transpose [keys, values]
+
+-- renderApproxRelActive :: UTCTime -> Active -> String
+-- renderApproxRelActive _ Nothing = ""
+-- renderApproxRelActive now (Just active) = showApproxRelDuration $ realToFrac $ diffUTCTime active now
+
+-- renderTasksTable :: UTCTime -> [Task] -> String
+-- renderTasksTable now tasks = render $ tableTasks now tasks
+
+-- tableTasks :: UTCTime -> [Task] -> [[Cell]]
+-- tableTasks now tasks = tableTaskHead : map (tableTaskRow now) tasks
+
+-- tableTaskHead :: [Cell]
+-- tableTaskHead = map (bold . underline . cell) ["ID", "DESC", "TAGS", "ACTIVE"]
+
+-- tableTaskRow :: UTCTime -> Task -> [Cell]
+-- tableTaskRow now task =
+--   [ red $ cell $ getId task,
+--     cell $ getDesc task,
+--     blue $ cell $ unwords $ getTags task,
+--     green $ cell $ renderApproxRelActive now $ getActive task
+--   ]
 
 -- prettyPrintTasks :: [Task] -> IO ()
 -- prettyPrintTasks = render . tableTasks

@@ -10,62 +10,56 @@ import State
 import Task
 
 data Query
-  = PrintTasks String
-  | PrintTask String
-  | PrintWtime String
-  | PrintStatus String
-  | PrintVersion String
+  = ShowTasks UTCTime ResponseType [Task]
+  | ShowTask UTCTime ResponseType Task
+  | ShowWtime String
+  | ShowStatus String
+  | ShowVersion String
   | DoUpgrade
   | Error String String
   deriving (Show, Read)
 
 handleQuery :: Arg.Query -> IO ()
-handleQuery query = case query of
-  Arg.List onlyIdsOpt onlyTagsOpt moreOpt jsonOpt -> do
-    state <- rebuild <$> readEvents
-    let query = printTasks state onlyIdsOpt onlyTagsOpt moreOpt jsonOpt
-    execute query
-  Arg.Info id moreOpt jsonOpt -> do
-    state <- rebuild <$> readEvents
-    let query = printTask state id
-    execute query
-  Arg.Wtime tags fromOpt toOpt moreOpt jsonOpt -> do
-    state <- rebuild <$> readEvents
-    let query = printWtime state tags fromOpt toOpt moreOpt jsonOpt
-    execute query
-  Arg.Status moreOpt jsonOpt -> do
-    state <- rebuild <$> readEvents
-    let query = printStatus state moreOpt jsonOpt
-    execute query
-  Arg.Version jsonOpt -> do
-    state <- rebuild <$> readEvents
-    let query = printVersion jsonOpt
-    execute query
-  Arg.Upgrade -> do
-    state <- rebuild <$> readEvents
-    execute DoUpgrade
+handleQuery arg = do
+  now <- getCurrentTime
+  state <- rebuild <$> readEvents
+  putStrLn $ execute $ mapArgToQuery now state arg
 
-execute :: Query -> IO ()
-execute DoUpgrade = putStrLn "UPGRADE"
-execute (Error key err) = putStrLn $ key ++ ": " ++ err
-execute query = print query
+mapArgToQuery :: UTCTime -> State -> Arg.Query -> Query
+mapArgToQuery now state (Arg.List onlyIdsOpt onlyTagsOpt moreOpt jsonOpt) = showTasks now state onlyIdsOpt onlyTagsOpt moreOpt jsonOpt
+mapArgToQuery now state (Arg.Info id moreOpt jsonOpt) = showTask now state id jsonOpt
+mapArgToQuery now state (Arg.Wtime tags fromOpt toOpt moreOpt jsonOpt) = showWtime now state tags fromOpt toOpt moreOpt jsonOpt
+mapArgToQuery _ state (Arg.Status moreOpt jsonOpt) = showStatus state moreOpt jsonOpt
+mapArgToQuery _ state (Arg.Version jsonOpt) = showVersion jsonOpt
+mapArgToQuery _ state Arg.Upgrade = DoUpgrade
 
-printTasks :: State -> OnlyIdsOpt -> OnlyTagsOpt -> MoreOpt -> JsonOpt -> Query
-printTasks state onlyIds onlyTags more json
-  | onlyIds = PrintTasks . show . map getId . getTasks $ state
-  | onlyTags = PrintTasks . show . nub . concatMap getTags . getTasks $ state
-  | otherwise = PrintTasks . show . getTasks $ state
+showTasks :: UTCTime -> State -> OnlyIdsOpt -> OnlyTagsOpt -> MoreOpt -> JsonOpt -> Query
+showTasks now state onlyIdsOpt onlyTagsOpt moreOpt jsonOpt
+  | onlyIdsOpt = ShowTasks now rtype (getTasks state)
+  | onlyTagsOpt = ShowTasks now rtype (getTasks state)
+  | otherwise = ShowTasks now rtype (getTasks state)
+  where
+    rtype = if jsonOpt then Json else Text
 
-printTask :: State -> Id -> Query
-printTask state id = case findById id (getTasks state) of
+showTask :: UTCTime -> State -> Id -> JsonOpt -> Query
+showTask now state id jsonOpt = case findById id (getTasks state) of
   Nothing -> Error "info" "task not found"
-  Just task -> PrintTask . show $ task
+  Just task -> ShowTask now rtype task
+  where
+    rtype = if jsonOpt then Json else Text
 
-printWtime :: State -> [Tag] -> FromOpt -> ToOpt -> MoreOpt -> JsonOpt -> Query
-printWtime state tags fromOpt toOpt moreOpt jsonOpt = PrintWtime "wtime"
+showWtime :: UTCTime -> State -> [Tag] -> FromOpt -> ToOpt -> MoreOpt -> JsonOpt -> Query
+showWtime now state tags fromOpt toOpt moreOpt jsonOpt = ShowWtime "wtime"
 
-printStatus :: State -> MoreOpt -> JsonOpt -> Query
-printStatus state moreOpt jsonOpt = PrintWtime "status"
+showStatus :: State -> MoreOpt -> JsonOpt -> Query
+showStatus state moreOpt jsonOpt = ShowWtime "status"
 
-printVersion :: JsonOpt -> Query
-printVersion jsonOpt = PrintVersion "1.0.0"
+showVersion :: JsonOpt -> Query
+showVersion jsonOpt = ShowVersion "1.0.0"
+
+execute :: Query -> String
+execute (ShowTasks now rtype tasks) = response rtype $ TasksResponse now tasks
+execute (ShowTask now rtype task) = response rtype $ TaskResponse now task
+execute DoUpgrade = "UPGRADE"
+execute (Error key err) = key ++ ": " ++ err
+execute query = show query

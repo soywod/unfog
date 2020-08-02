@@ -19,7 +19,7 @@ apply :: State -> Event -> State
 apply state evt = case evt of
   TaskCreated _ id desc tags -> state {getTasks = tasks}
     where
-      task = Task id desc tags False False [] []
+      task = Task id desc tags Nothing False [] []
       tasks = getTasks state ++ [task]
   TaskUpdated _ id desc tags -> state {getTasks = tasks}
     where
@@ -31,13 +31,13 @@ apply state evt = case evt of
     where
       tasks = map update (getTasks state)
       update task
-        | id == (getId task) = task {getActive = True, getStarts = getStarts task ++ [start]}
+        | id == (getId task) = task {getActive = Just start, getStarts = getStarts task ++ [start]}
         | otherwise = task
   TaskStopped stop id -> state {getTasks = tasks}
     where
       tasks = map update (getTasks state)
       update task
-        | id == (getId task) = task {getActive = False, getStops = getStops task ++ [stop]}
+        | id == (getId task) = task {getActive = Nothing, getStops = getStops task ++ [stop]}
         | otherwise = task
   TaskMarkedAsDone _ id -> state {getTasks = tasks}
     where

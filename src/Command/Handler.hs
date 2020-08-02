@@ -2,6 +2,7 @@ module Command.Handler where
 
 import qualified Arg.Parser as Arg
 import Data.List
+import Data.Maybe
 import Data.Time
 import Data.UUID.V4
 import Event
@@ -25,16 +26,17 @@ handleCommand :: Arg.Command -> IO ()
 handleCommand cmd = do
   now <- getCurrentTime
   state <- rebuild <$> readEvents
-  case cmd of
+  evts <- case cmd of
     Arg.Add desc -> do
       id <- show <$> nextRandom
-      writeEvents $ execute state $ createTask state now id desc
-    Arg.Edit id desc -> writeEvents $ execute state $ updateTask state now id desc
-    Arg.Start ids -> writeEvents $ concatMap (execute state) $ map (startTask state now) ids
-    Arg.Stop ids -> writeEvents $ concatMap (execute state) $ map (stopTask state now) ids
-    Arg.Do ids -> writeEvents $ concatMap (execute state) $ map (doTask state now) ids
-    Arg.Undo ids -> writeEvents $ concatMap (execute state) $ map (undoTask state now) ids
-    Arg.Delete ids -> writeEvents $ concatMap (execute state) $ map (deleteTask state now) ids
+      return . execute state $ createTask state now id desc
+    Arg.Edit id desc -> return . execute state $ updateTask state now id desc
+    Arg.Start ids -> return . concatMap (execute state) . map (startTask state now) $ ids
+    Arg.Stop ids -> return . concatMap (execute state) . map (stopTask state now) $ ids
+    Arg.Do ids -> return . concatMap (execute state) . map (doTask state now) $ ids
+    Arg.Undo ids -> return . concatMap (execute state) . map (undoTask state now) $ ids
+    Arg.Delete ids -> return . concatMap (execute state) . map (deleteTask state now) $ ids
+  writeEvents evts
 
 execute :: State -> Command -> [Event]
 execute state cmd = case cmd of
@@ -68,7 +70,7 @@ startTask state now id = case maybeTask of
     maybeTask = findById id (getTasks state)
     validate task
       | getDone task = Error "start" "task already done"
-      | getActive task = Error "start" "task already started"
+      | not $ isNothing $ getActive task = Error "start" "task already started"
       | otherwise = StartTask now (getId task)
 
 stopTask :: State -> UTCTime -> Id -> Command
@@ -79,7 +81,7 @@ stopTask state now id = case maybeTask of
     maybeTask = findById id (getTasks state)
     validate task
       | getDone task = Error "stop" "task already done"
-      | (not . getActive) task = Error "stop" "task already stopped"
+      | isNothing $ getActive task = Error "stop" "task already stopped"
       | otherwise = StopTask now (getId task)
 
 doTask :: State -> UTCTime -> Id -> Command
