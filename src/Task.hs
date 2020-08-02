@@ -27,7 +27,8 @@ data Task = Task
   { getId :: Id,
     getDesc :: Desc,
     getTags :: [Tag],
-    getDone :: Done
+    getDone :: Done,
+    getActive :: Active
   }
   deriving (Show, Read, Eq)
 

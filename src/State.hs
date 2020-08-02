@@ -19,7 +19,7 @@ apply :: State -> Event -> State
 apply state evt = case evt of
   TaskCreated _ id desc tags -> state {getTasks = tasks}
     where
-      task = Task id desc tags False
+      task = Task id desc tags False False
       tasks = getTasks state ++ [task]
   TaskUpdated _ id desc tags -> state {getTasks = tasks}
     where
