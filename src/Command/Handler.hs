@@ -22,7 +22,7 @@ data Command
   deriving (Show, Read)
 
 handleCommand :: Arg.Command -> IO ()
-handleCommand command = case command of
+handleCommand cmd = case cmd of
   Arg.Add desc -> do
     state <- rebuild <$> readEvents
     now <- getCurrentTime
@@ -38,7 +38,7 @@ handleCommand command = case command of
     writeEvents evts
 
 execute :: State -> Command -> [Event]
-execute state command = case command of
+execute state cmd = case cmd of
   CreateTask now id desc tags -> [TaskCreated now id desc tags]
   UpdateTask now id desc tags -> [TaskUpdated now id desc tags]
   Error _ _ -> []
