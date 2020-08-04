@@ -47,6 +47,7 @@ showTasks :: UTCTime -> ResponseType -> [Task] -> IO ()
 showTasks now Text tasks = putStrLn $ showTasksText now tasks
 showTasks now Json tasks = BL.putStr $ encode $ showTasksJson now tasks
 
+showTasksText :: UTCTime -> [Task] -> String
 showTasksText now tasks = render $ head : body
   where
     head = map (bold . underline . cell) ["ID", "DESC", "TAGS", "ACTIVE"]
@@ -71,6 +72,7 @@ showTask :: UTCTime -> ResponseType -> Task -> IO ()
 showTask now Text task = putStrLn $ showTaskText now task
 showTask now Json task = BL.putStr $ encode $ showTaskJson now task
 
+showTaskText :: UTCTime -> Task -> String
 showTaskText now task = render $ head : body
   where
     head = map (bold . underline . cell) ["KEY", "VALUE"]
@@ -134,31 +136,25 @@ showStatus :: UTCTime -> ResponseType -> Maybe Task -> IO ()
 showStatus now Text task = putStrLn $ showStatusText now task
 showStatus now Json task = BL.putStr $ encode $ showStatusJson now task
 
+showStatusText :: UTCTime -> Maybe Task -> String
+showStatusText now Nothing = ""
+showStatusText now (Just task) = getDesc task ++ ": " ++ showApproxActiveRel now (getActive task)
+
 showStatusJson :: UTCTime -> Maybe Task -> Maybe Data.Aeson.Value
 showStatusJson now = fmap showStatusJson'
   where
     showStatusJson' task =
       object
-        [ "desc" .= getDesc task,
+        [ "success" .= (1 :: Int),
+          "desc" .= getDesc task,
           "active" .= showActiveJson now (getActive task)
         ]
-
-showStatusText :: UTCTime -> Maybe Task -> String
-showStatusText now task = case task of
-  Nothing -> ""
-  Just task -> getDesc task ++ ": " ++ showApproxActiveRel now (getActive task)
 
 -- Version
 
 showVersion :: ResponseType -> String -> IO ()
-showVersion Text version = putStrLn $ showVersionText version
-showVersion Json version = BL.putStr $ encode $ showVersionJson version
-
-showVersionJson :: String -> Data.Aeson.Value
-showVersionJson version = object ["version" .= version]
-
-showVersionText :: String -> String
-showVersionText version = version
+showVersion Text version = putStrLn version
+showVersion Json version = BL.putStr $ encode $ object ["success" .= (1 :: Int), "version" .= version]
 
 -- Context
 

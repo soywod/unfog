@@ -11,8 +11,6 @@ data Query
   | Info Id MoreOpt JsonOpt
   | Wtime [Tag] FromOpt ToOpt MoreOpt JsonOpt
   | Status MoreOpt JsonOpt
-  | Version JsonOpt
-  | Upgrade
   deriving (Show)
 
 data Command
@@ -26,7 +24,11 @@ data Command
   | Context [Tag] JsonOpt
   deriving (Show)
 
-data Arg = CommandArg Command | QueryArg Query
+data Procedure
+  = Version JsonOpt
+  | Upgrade
+
+data Arg = CommandArg Command | QueryArg Query | ProcedureArg Procedure
 
 parseArgs :: IO Arg
 parseArgs = do
@@ -35,7 +37,7 @@ parseArgs = do
   let desc = fullDesc <> header "⏱ Unfog - Minimalist task & time manager"
   let queries' = queries now tzone
   let commands' = commands now tzone
-  let parser = helper <*> hsubparser (queries' <> commands')
+  let parser = helper <*> hsubparser (queries' <> commands' <> procedures)
   let prefs' = prefs showHelpOnError
   customExecParser prefs' (info parser desc)
 
@@ -48,9 +50,7 @@ queries now tzone =
     [ listQuery,
       infoQuery,
       wtimeQuery now tzone,
-      statusQuery,
-      upgradeQuery,
-      versionQuery
+      statusQuery
     ]
 
 listQuery :: Mod CommandFields Arg
@@ -83,18 +83,6 @@ statusQuery = command "status" (info parser infoMod)
   where
     infoMod = progDesc "Show the total amount of time spent on the current active task"
     parser = QueryArg <$> (Status <$> moreOptParser "Show more details about the task" <*> jsonOptParser)
-
-upgradeQuery :: Mod CommandFields Arg
-upgradeQuery = command "upgrade" (info parser infoMod)
-  where
-    infoMod = progDesc "Upgrade the CLI"
-    parser = pure $ QueryArg Upgrade
-
-versionQuery :: Mod CommandFields Arg
-versionQuery = command "version" (info parser infoMod)
-  where
-    infoMod = progDesc "Show the version"
-    parser = QueryArg <$> Version <$> jsonOptParser
 
 -- Commands
 
@@ -159,6 +147,28 @@ ctxCommand = command "context" (info parser infoMod)
   where
     infoMod = progDesc "Change the current context"
     parser = CommandArg <$> (Context <$> tagsParser <*> jsonOptParser)
+
+-- Procedures
+
+procedures :: Mod CommandFields Arg
+procedures =
+  foldr1
+    (<>)
+    [ upgradeProcedure,
+      versionProcedure
+    ]
+
+upgradeProcedure :: Mod CommandFields Arg
+upgradeProcedure = command "upgrade" (info parser infoMod)
+  where
+    infoMod = progDesc "Upgrade the CLI"
+    parser = pure $ ProcedureArg Upgrade
+
+versionProcedure :: Mod CommandFields Arg
+versionProcedure = command "version" (info parser infoMod)
+  where
+    infoMod = progDesc "Show the version"
+    parser = ProcedureArg <$> Version <$> jsonOptParser
 
 -- Readers
 
