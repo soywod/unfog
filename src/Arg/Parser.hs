@@ -16,14 +16,14 @@ data Query
   deriving (Show)
 
 data Command
-  = Add Desc
-  | Edit Id Desc
-  | Start [Id]
-  | Stop [Id]
-  | Do [Id]
-  | Undo [Id]
-  | Delete [Id]
-  | Ctx [Tag]
+  = Add Desc JsonOpt
+  | Edit Id Desc JsonOpt
+  | Start [Id] JsonOpt
+  | Stop [Id] JsonOpt
+  | Do [Id] JsonOpt
+  | Undo [Id] JsonOpt
+  | Delete [Id] JsonOpt
+  | Context [Tag] JsonOpt
   deriving (Show)
 
 data Arg = CommandArg Command | QueryArg Query
@@ -116,49 +116,49 @@ addCommand :: Mod CommandFields Arg
 addCommand = command "add" (info parser infoMod)
   where
     infoMod = progDesc "Add a new task"
-    parser = CommandArg <$> Add <$> descParser
+    parser = CommandArg <$> (Add <$> descParser <*> jsonOptParser)
 
 editCommand :: Mod CommandFields Arg
 editCommand = command "edit" (info parser infoMod)
   where
     infoMod = progDesc "Edit an existing task"
-    parser = CommandArg <$> (Edit <$> idParser <*> descParser)
+    parser = CommandArg <$> (Edit <$> idParser <*> descParser <*> jsonOptParser)
 
 startCommand :: Mod CommandFields Arg
 startCommand = command "start" (info parser infoMod)
   where
     infoMod = progDesc "Start a task"
-    parser = CommandArg <$> Start <$> idsParser
+    parser = CommandArg <$> (Start <$> idsParser <*> jsonOptParser)
 
 stopCommand :: Mod CommandFields Arg
 stopCommand = command "stop" (info parser infoMod)
   where
     infoMod = progDesc "Stop a task"
-    parser = CommandArg <$> Stop <$> idsParser
+    parser = CommandArg <$> (Stop <$> idsParser <*> jsonOptParser)
 
 doCommand :: Mod CommandFields Arg
 doCommand = command "do" (info parser infoMod)
   where
     infoMod = progDesc "Mark as done a task"
-    parser = CommandArg <$> Do <$> idsParser
+    parser = CommandArg <$> (Do <$> idsParser <*> jsonOptParser)
 
 undoCommand :: Mod CommandFields Arg
 undoCommand = command "undo" (info parser infoMod)
   where
     infoMod = progDesc "Unmark as done a task"
-    parser = CommandArg <$> Undo <$> idsParser
+    parser = CommandArg <$> (Undo <$> idsParser <*> jsonOptParser)
 
 deleteCommand :: Mod CommandFields Arg
 deleteCommand = command "delete" (info parser infoMod)
   where
     infoMod = progDesc "Delete a task"
-    parser = CommandArg <$> Delete <$> idsParser
+    parser = CommandArg <$> (Delete <$> idsParser <*> jsonOptParser)
 
 ctxCommand :: Mod CommandFields Arg
 ctxCommand = command "context" (info parser infoMod)
   where
     infoMod = progDesc "Change the current context"
-    parser = CommandArg <$> Ctx <$> tagsParser
+    parser = CommandArg <$> (Context <$> tagsParser <*> jsonOptParser)
 
 -- Readers
 

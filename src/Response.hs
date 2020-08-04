@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Response (Response (..), ResponseType (..), send) where
+module Response (Response (..), ResponseType (..), send, parseResponseType) where
 
+import Arg.Options
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.List
@@ -24,6 +25,7 @@ data Response
   | WtimeResponse UTCTime [DailyWorktime]
   | StatusResponse UTCTime (Maybe Task)
   | VersionResponse String
+  | MessageResponse String
   | ErrorResponse String String
 
 send :: ResponseType -> Response -> IO ()
@@ -32,13 +34,14 @@ send rtype (TaskResponse now task) = showTask now rtype task
 send rtype (WtimeResponse now wtimes) = showWtime now rtype wtimes
 send rtype (StatusResponse now task) = showStatus now rtype task
 send rtype (VersionResponse version) = showVersion rtype version
+send rtype (MessageResponse msg) = showMessage rtype msg
 send rtype (ErrorResponse cmd err) = showError rtype cmd err
 
 -- Tasks
 
 showTasks :: UTCTime -> ResponseType -> [Task] -> IO ()
 showTasks now Text tasks = putStrLn $ showTasksText now tasks
-showTasks now Json tasks = BL.putStr $ encode $ Array $ fromList $ map (showTaskJson now) tasks
+showTasks now Json tasks = BL.putStr $ encode $ showTasksJson now tasks
 
 showTasksText now tasks = render $ head : body
   where
@@ -50,6 +53,15 @@ showTasksText now tasks = render $ head : body
         blue $ cell $ unwords $ getTags task,
         green $ cell $ showApproxActiveRel now $ getActive task
       ]
+
+showTasksJson :: UTCTime -> [Task] -> Data.Aeson.Value
+showTasksJson now tasks =
+  object
+    [ "success" .= (1 :: Int),
+      "tasks" .= (Array $ fromList $ map (showTaskJson now) tasks)
+    ]
+
+-- Task
 
 showTask :: UTCTime -> ResponseType -> Task -> IO ()
 showTask now Text task = putStrLn $ showTaskText now task
@@ -71,11 +83,15 @@ showTaskText now task = render $ head : body
 showTaskJson :: UTCTime -> Task -> Data.Aeson.Value
 showTaskJson now task =
   object
-    [ "id" .= getId task,
-      "desc" .= getDesc task,
-      "tags" .= getTags task,
-      "active" .= showActiveJson now (getActive task),
-      "done" .= if isNothing (getDone task) then 1 else 0 :: Int
+    [ "success" .= (1 :: Int),
+      "task"
+        .= object
+          [ "id" .= getId task,
+            "desc" .= getDesc task,
+            "tags" .= getTags task,
+            "active" .= showActiveJson now (getActive task),
+            "done" .= if isNothing (getDone task) then 1 else 0 :: Int
+          ]
     ]
 
 -- Worktime
@@ -100,8 +116,12 @@ showDailyWtimeText now dwtimes = render $ head : body ++ foot
 showDailyWtimeJson :: UTCTime -> DailyWorktime -> Data.Aeson.Value
 showDailyWtimeJson now (day, wtimes) =
   object
-    [ "day" .= day,
-      "total" .= showWtimesJson wtimes
+    [ "success" .= (1 :: Int),
+      "worktime"
+        .= object
+          [ "day" .= day,
+            "total" .= showWtimesJson wtimes
+          ]
     ]
 
 -- Status
@@ -136,6 +156,23 @@ showVersionJson version = object ["version" .= version]
 showVersionText :: String -> String
 showVersionText version = version
 
+-- Message
+
+showMessage :: ResponseType -> String -> IO ()
+showMessage rtype msg = case rtype of
+  Json -> BL.putStr $ encode $ showMessageJson msg
+  Text -> putStrLn $ showMessageText msg
+
+showMessageJson :: String -> Data.Aeson.Value
+showMessageJson msg =
+  object
+    [ "success" .= (1 :: Int),
+      "message" .= msg
+    ]
+
+showMessageText :: String -> String
+showMessageText = (++) "unfog: "
+
 -- Error
 
 showError :: ResponseType -> String -> String -> IO ()
@@ -144,15 +181,15 @@ showError rtype cmd err = case rtype of
   Text -> putStrLn $ showErrorText cmd err
 
 showErrorJson :: String -> String -> Data.Aeson.Value
-showErrorJson cmd err =
+showErrorJson cmd msg =
   object
     [ "success" .= (0 :: Int),
-      "command" .= cmd,
-      "data" .= err
+      "type" .= cmd,
+      "message" .= msg
     ]
 
 showErrorText :: String -> String -> String
-showErrorText cmd err = "\x1b[31munfog: " ++ cmd ++ ": " ++ err ++ "\x1b[0m"
+showErrorText t msg = "\x1b[31munfog: " ++ t ++ ": " ++ msg ++ "\x1b[0m"
 
 -- Helpers
 
@@ -191,95 +228,6 @@ showWtimesJson wtimes = showDurationJson micro approx full
     approx = showApproxDuration micro
     full = showFullDuration micro
 
--- showWorktimeJson :: Worktime -> Data.Aeson.Value
--- showWorktimeJson date wtime =
---   object
---     ["date" .= date, "wtime" .= DurationRecord (sum $ map getWtime wtime)]
-
--- printMsg :: ResponseType -> String -> IO ()
--- printMsg rtype msg = case rtype of
---   Json -> BL.putStr $ encode $ ResponseMsg msg
---   Text -> putStrLn $ "unfog: " ++ msg
-
--- printTasksId :: ResponseType -> [Id] -> IO ()
--- printTasksId rtype ids = case rtype of
---   Json -> BL.putStr . encode . ResponseTasksId $ ids
---   Text -> putStr . unwords . map show $ ids
-
--- printTasksTags :: ResponseType -> [Tag] -> IO ()
--- printTasksTags rtype tags = case rtype of
---   Json -> BL.putStr . encode . ResponseTasksTags . map ((:) '+') $ tags
---   Text -> putStr . unwords . map ((:) '+') $ tags
-
--- printTasks :: ResponseType -> String -> [Task] -> IO ()
--- printTasks rtype msg tasks = case rtype of
---   Json -> BL.putStr $ encode $ ResponseTasks tasks
---   Text -> do
---     putStrLn msg
---     putStrLn ""
---     prettyPrintTasks tasks
---     putStrLn ""
-
--- printTask :: ResponseType -> Task -> IO ()
--- printTask rtype task = case rtype of
---   Json -> BL.putStr $ encode $ ResponseTask task
---   Text -> prettyPrintTask task
-
--- printWtime :: ResponseType -> Bool -> String -> [DailyWtime] -> IO ()
--- printWtime rtype more msg wtime = case rtype of
---   Json -> BL.putStr $ encode $ ResponseWtime wtime
---   Text -> do
---     let prettyPrint = if more then prettyPrintFullWtime else prettyPrintWtime
---     putStrLn msg
---     putStrLn ""
---     prettyPrint wtime
---     putStrLn ""
-
--- printEmptyStatus :: ResponseType -> IO ()
--- printEmptyStatus rtype = case rtype of
---   Json -> BL.putStr $ encode $ ResponseErr "no active task found"
---   Text -> putStrLn ""
-
--- printStatus :: ResponseType -> Task -> IO ()
--- printStatus rtype task = case rtype of
---   Json -> BL.putStr $ encode $ ResponseStatus task
---   Text -> putStrLn $ desc task ++ ": " ++ showApproxDuration (active task)
-
--- printVersion :: ResponseType -> String -> IO ()
--- printVersion rtype version = case rtype of
---   Json -> BL.putStr $ encode $ ResponseMsg version
---   Text -> putStrLn version
-
--- printErr :: ResponseType -> String -> IO ()
--- printErr rtype err = case rtype of
---   Json -> BL.putStr $ encode $ ResponseErr err
---   Text -> putStrLn $ "\x1b[31munfog: " ++ err ++ "\x1b[0m"
-
--- instance ToJson Response where
---   toJson (ResponseMsg msg) = object ["ok" .= (1 :: Int), "data" .= msg]
---   toJson (ResponseTask task) = object ["ok" .= (1 :: Int), "data" .= task]
---   toJson (ResponseTasksId ids) = object ["ok" .= (1 :: Int), "data" .= ids]
---   toJson (ResponseTasksTags tags) = object ["ok" .= (1 :: Int), "data" .= tags]
---   toJson (ResponseTasks tasks) = object ["ok" .= (1 :: Int), "data" .= tasks]
---   toJson (ResponseWtime wtime) =
---     object
---       [ "ok" .= (1 :: Int),
---         "data"
---           .= object
---             [ "wtimes" .= map DailyWtimeRecord wtime,
---               "total" .= DurationRecord (sum $ map getWtime $ concatMap snd wtime)
---             ]
---       ]
---   toJson (ResponseStatus task) =
---     object
---       [ "ok" .= (1 :: Int),
---         "data"
---           .= object
---             ["active" .= DurationRecord (active task), "desc" .= desc task]
---       ]
---   toJson (ResponseErr err) = object ["ok" .= (0 :: Int), "data" .= err]
-
--- getResponseType :: [String] -> ResponseType
--- getResponseType args
---   | "--json" `elem` args = Json
---   | otherwise = Text
+parseResponseType :: JsonOpt -> ResponseType
+parseResponseType True = Json
+parseResponseType False = Text

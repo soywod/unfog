@@ -1,231 +1,150 @@
 module Command where
 
--- import Control.Monad
--- import Data.Aeson hiding (Error)
--- import Data.List
--- import Data.Time
--- import Data.Time.Clock.POSIX
--- import Event
--- import Response
--- import State
--- import Task
+import Arg.Options
+import qualified Arg.Parser as Arg
+import Data.List
+import Data.Maybe
+import Data.Time
+import Data.UUID.V4
+import Event
+import Response
+import State
+import Task
+import Prelude hiding (id)
 
--- data Command
---   = CreateTask UTCTime Id Pos Desc [Tag] (Maybe UTCTime)
---   | UpdateTask UTCTime Id Pos Desc [Tag] (Maybe UTCTime)
---   | StartTask UTCTime Ref Id
---   | StopTask UTCTime Ref Id
---   | MarkAsDoneTask UTCTime Ref Id Id
---   | UnmarkAsDoneTask UTCTime Ref Id Id
---   | DeleteTask UTCTime Ref Id
---   | SetContext UTCTime [Tag]
---   | Error String String
---   | NoOp
---   deriving (Show, Read)
+data Command
+  = CreateTask UTCTime ResponseType Id Desc [Tag]
+  | UpdateTask UTCTime ResponseType Id Desc [Tag]
+  | StartTask UTCTime ResponseType Id
+  | StopTask UTCTime ResponseType Id
+  | MarkAsDoneTask UTCTime ResponseType Id
+  | UnmarkAsDoneTask UTCTime ResponseType Id
+  | DeleteTask UTCTime ResponseType Id
+  | UpdateContext UTCTime ResponseType [Tag]
+  | Error ResponseType String String
+  deriving (Show, Read)
 
--- type Subscriber = Parsec.Arg -> Command -> IO ()
+handle :: Arg.Command -> IO ()
+handle arg = do
+  now <- getCurrentTime
+  state <- rebuild <$> readEvents
+  nextId <- show <$> nextRandom
+  let cmds = parseCommands now state nextId arg
+  let evts = concatMap (execute state) cmds
+  writeEvents evts
+  notify cmds subscribers
 
--- subscribers :: [Subscriber]
--- subscribers = [logger]
+parseCommands :: UTCTime -> State -> Id -> Arg.Command -> [Command]
+parseCommands now state id (Arg.Add desc jsonOpt) = [createTask now (parseResponseType jsonOpt) state id desc]
+parseCommands now state _ (Arg.Edit id desc jsonOpt) = [updateTask now (parseResponseType jsonOpt) state id desc]
+parseCommands now state _ (Arg.Start ids jsonOpt) = map (startTask now (parseResponseType jsonOpt) state) ids
+parseCommands now state _ (Arg.Stop ids jsonOpt) = map (stopTask now (parseResponseType jsonOpt) state) ids
+parseCommands now state _ (Arg.Do ids jsonOpt) = map (doTask now (parseResponseType jsonOpt) state) ids
+parseCommands now state _ (Arg.Undo ids jsonOpt) = map (undoTask now (parseResponseType jsonOpt) state) ids
+parseCommands now state _ (Arg.Delete ids jsonOpt) = map (deleteTask now (parseResponseType jsonOpt) state) ids
 
--- handle :: Parsec.Arg -> IO ()
--- handle args = do
---   now   <- getCurrentTime
---   state <- applyEvents now <$> readEvents
---   let cmds = getCommands now args state
---   let evts = concatMap (execute state) cmds
---   writeEvents evts
---   mapM_ (forM_ cmds) $ map ($ args) subscribers
+execute :: State -> Command -> [Event]
+execute state cmd = case cmd of
+  CreateTask now rtype id desc tags -> [TaskCreated now id desc tags]
+  UpdateTask now rtype id desc tags -> [TaskUpdated now id desc tags]
+  StartTask now rtype id -> [TaskStarted now id]
+  StopTask now rtype id -> [TaskStopped now id]
+  MarkAsDoneTask now rtype id -> [TaskMarkedAsDone now id]
+  UnmarkAsDoneTask now rtype id -> [TaskUnmarkedAsDone now id]
+  DeleteTask now rtype id -> [TaskDeleted now id]
+  Error _ _ _ -> []
 
--- getCommands :: UTCTime -> Parsec.Arg -> State -> [Command]
--- getCommands t args state = case Parsec._cmd args of
---   "add"     -> [createTask t args state]
---   "edit"    -> map (updateTask t args state) (Parsec._ids args)
---   "set"     -> map (replaceTask t args state) (Parsec._ids args)
---   "start"   -> map (startTask t args state) (Parsec._ids args)
---   "stop"    -> map (stopTask t args state) (Parsec._ids args)
---   "toggle"  -> map (toggleTask t args state) (Parsec._ids args)
---   "done"    -> map (markAsDoneTask t args state) (Parsec._ids args)
---   "undone"  -> map (unmarkAsDoneTask t args state) (Parsec._ids args)
---   "delete"  -> map (deleteTask t args state) (Parsec._ids args)
---   "remove"  -> map (removeTask t args state) (Parsec._ids args)
---   "context" -> [setContext t args]
---   _         -> [Error "" "invalid arguments"]
+createTask :: UTCTime -> ResponseType -> State -> Id -> Desc -> Command
+createTask now rtype state id desc = CreateTask now rtype id desc (getContext state)
 
--- execute :: State -> Command -> [Event]
--- execute state command = case command of
---   CreateTask t r i p desc tags due -> [TaskCreated t r i p desc tags due]
---   UpdateTask t r i p desc tags due -> [TaskUpdated t r i p desc tags due]
---   StartTask t ref id               -> [TaskStarted t ref id]
---   StopTask  t ref id               -> [TaskStopped t ref id]
---   MarkAsDoneTask   t ref _ id      -> [TaskMarkedAsDone t ref id]
---   UnmarkAsDoneTask t ref _ id      -> [TaskUnmarkedAsDone t ref id]
---   DeleteTask t ref id              -> [TaskDeleted t ref id]
---   SetContext t ctx                 -> [ContextSet t ctx]
---   Error      _ _                   -> []
---   NoOp                             -> []
+updateTask :: UTCTime -> ResponseType -> State -> Id -> Desc -> Command
+updateTask now rtype state id desc = case maybeTask of
+  Nothing -> Error rtype "update" "task not found"
+  Just task -> validate task
+  where
+    maybeTask = findById id (getTasks state)
+    validate task
+      | isNothing $ getDone task = Error rtype "update" "task already done"
+      | otherwise = UpdateTask now rtype (getId task) desc (getTags task)
 
--- createTask :: UTCTime -> Parsec.Arg -> State -> Command
--- createTask t args state = CreateTask t ref id pos desc tags due
---  where
---   ref  = floor $ 1000 * utcTimeToPOSIXSeconds t :: Int
---   id   = generateId $ filter (not . _done) $ _tasks state
---   pos  = -1
---   desc = Parsec._desc args
---   tags = Parsec._tags args `union` _ctx state
---   due  = Parsec.parseDue t args
+startTask :: UTCTime -> ResponseType -> State -> Id -> Command
+startTask now rtype state id = case maybeTask of
+  Nothing -> Error rtype "start" "task not found"
+  Just task -> validate task
+  where
+    maybeTask = findById id (getTasks state)
+    validate task
+      | isNothing $ getDone task = Error rtype "start" "task already done"
+      | not $ isNothing $ getActive task = Error rtype "start" "task already started"
+      | otherwise = StartTask now rtype (getId task)
 
--- updateTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
--- updateTask t args state id = case maybeTask of
---   Nothing   -> Error "update" $ "task [" ++ show id ++ "] not found"
---   Just task -> validate task
---  where
---   tasks     = filterByDone ("done" `elem` _ctx state) (_tasks state)
---   maybeTask = findById id tasks
---   newDesc   = Parsec._desc args
---   nextDesc  = if null newDesc then maybe "" _desc maybeTask else newDesc
---   newTags   = Parsec._tags args
---   nextTags  = union newTags $ maybe [] _tags maybeTask
---   validate task
---     | _done task = Error "update" $ "task [" ++ show id ++ "] already done"
---     | otherwise  = update task
---   update task =
---     let ref = _ref task
---         id  = _id task
---         pos = -1
---         due = Parsec.parseDue t args
---     in  UpdateTask t ref id pos nextDesc nextTags due
+stopTask :: UTCTime -> ResponseType -> State -> Id -> Command
+stopTask now rtype state id = case maybeTask of
+  Nothing -> Error rtype "stop" "task not found"
+  Just task -> validate task
+  where
+    maybeTask = findById id (getTasks state)
+    validate task
+      | isNothing $ getDone task = Error rtype "stop" "task already done"
+      | isNothing $ getActive task = Error rtype "stop" "task already stopped"
+      | otherwise = StopTask now rtype (getId task)
 
--- replaceTask :: UTCTime -> Parsec.Arg -> State -> Int -> Command
--- replaceTask t args state id = case maybeTask of
---   Nothing   -> Error "replace" $ "task [" ++ show id ++ "] not found"
---   Just task -> validate task
---  where
---   tasks     = filterByDone ("done" `elem` _ctx state) (_tasks state)
---   maybeTask = findById id tasks
---   nextDesc  = Parsec._desc args
---   nextTags  = Parsec._tags args
---   validate task
---     | _done task = Error "replace" $ "task [" ++ show id ++ "] already done"
---     | otherwise  = update task
---   update task =
---     let ref = _ref task
---         id  = _id task
---         pos = -1
---         due = Parsec.parseDue t args
---     in  UpdateTask t ref id pos nextDesc nextTags due
+doTask :: UTCTime -> ResponseType -> State -> Id -> Command
+doTask now rtype state id = case maybeTask of
+  Nothing -> Error rtype "done" "task not found"
+  Just task -> validate task
+  where
+    maybeTask = findById id (getTasks state)
+    validate task
+      | isNothing $ getDone task = Error rtype "done" "task already done"
+      | otherwise = MarkAsDoneTask now rtype (getId task)
 
--- startTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
--- startTask t args state id = case maybeTask of
---   Nothing   -> Error "start" $ "task [" ++ show id ++ "] not found"
---   Just task -> validate task
---  where
---   tasks     = filterByDone ("done" `elem` _ctx state) (_tasks state)
---   maybeTask = findById id tasks
---   validate task
---     | _done task = Error "start" $ "task [" ++ show id ++ "] already done"
---     | _active task > 0 =  Error "start"
---     $  "task ["
---     ++ show id
---     ++ "] already started"
---     | otherwise = StartTask t (_ref task) (_id task)
+undoTask :: UTCTime -> ResponseType -> State -> Id -> Command
+undoTask now rtype state id = case maybeTask of
+  Nothing -> Error rtype "undone" "task not found"
+  Just task -> validate task
+  where
+    maybeTask = findById id (getTasks state)
+    validate task
+      | not $ isNothing $ getDone task = Error rtype "undone" "task not done"
+      | otherwise = UnmarkAsDoneTask now rtype (getId task)
 
--- stopTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
--- stopTask t args state id = case maybeTask of
---   Nothing   -> Error "stop" $ "task [" ++ show id ++ "] not found"
---   Just task -> validate task
---  where
---   tasks     = filterByDone ("done" `elem` _ctx state) (_tasks state)
---   maybeTask = findById id tasks
---   validate task
---     | _done task = Error "stop" $ "task [" ++ show id ++ "] already done"
---     | _active task == 0 =  Error "stop"
---     $  "task ["
---     ++ show id
---     ++ "] already stopped"
---     | otherwise = StopTask t (_ref task) (_id task)
+deleteTask :: UTCTime -> ResponseType -> State -> Id -> Command
+deleteTask now rtype state id = case findById id (getTasks state) of
+  Nothing -> Error rtype "delete" "task not found"
+  Just task -> DeleteTask now rtype (getId task)
 
--- toggleTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
--- toggleTask t args state id = case maybeTask of
---   Nothing   -> Error "toggle" $ "task [" ++ show id ++ "] not found"
---   Just task -> validate task
---  where
---   tasks     = filterByDone ("done" `elem` _ctx state) (_tasks state)
---   maybeTask = findById id tasks
---   validate task
---     | _done task = Error "toggle" $ "task [" ++ show id ++ "] already done"
---     | _active task > 0 = StopTask t (_ref task) (_id task)
---     | otherwise = StartTask t (_ref task) (_id task)
+-- Subscribers
 
--- markAsDoneTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
--- markAsDoneTask t args state id = case maybeTask of
---   Nothing   -> Error "done" $ "task [" ++ show id ++ "] not found"
---   Just task -> validate task
---  where
---   tasks      = filterByDone ("done" `elem` _ctx state) (_tasks state)
---   maybeTask  = findById id tasks
---   nextNumber = generateId $ filter _done $ _tasks state
---   validate task
---     | _done task = Error "done" $ "task [" ++ show id ++ "] already done"
---     | otherwise  = MarkAsDoneTask t (_ref task) (_id task) nextNumber
+type Subscriber = Command -> IO ()
 
--- unmarkAsDoneTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
--- unmarkAsDoneTask t args state id = case maybeTask of
---   Nothing   -> Error "done" $ "task [" ++ show id ++ "] not found"
---   Just task -> validate task
---  where
---   tasks      = filterByDone True (_tasks state)
---   maybeTask  = findById id tasks
---   nextNumber = generateId $ filter (not . _done) $ _tasks state
---   validate task
---     | (not . _done) task = Error "undone" $ "task [" ++ show id ++ "] not done"
---     | otherwise          = UnmarkAsDoneTask t (_ref task) (_id task) nextNumber
+subscribers :: [Subscriber]
+subscribers = [logger]
 
--- deleteTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
--- deleteTask t args state id = case maybeTask of
---   Nothing   -> Error "delete" $ "task [" ++ show id ++ "] not found"
---   Just task -> DeleteTask t (_ref task) (_id task)
---  where
---   tasks     = filterByDone ("done" `elem` _ctx state) (_tasks state)
---   maybeTask = findById id tasks
+notify :: [Command] -> [Subscriber] -> IO ()
+notify cmds subs = mapM_ (notify' cmds) subs
+  where
+    notify' cmds subscriber = mapM_ subscriber cmds
 
--- removeTask :: UTCTime -> Parsec.Arg -> State -> Id -> Command
--- removeTask t args state id = case maybeTask of
---   Just task -> MarkAsDoneTask t (_ref task) (_id task) nextNumber
---   Nothing   -> case maybeDoneTask of
---     Just task -> DeleteTask t (_ref task) (_id task)
---     Nothing   -> Error "remove" $ "task [" ++ show id ++ "] not found"
---  where
---   showDone      = "done" `elem` _ctx state
---   tasks         = if showDone then [] else filterByDone False (_tasks state)
---   doneTasks     = filterByDone True (_tasks state)
---   nextNumber    = generateId doneTasks
---   maybeTask     = findById id tasks
---   maybeDoneTask = findById id doneTasks
+logger :: Subscriber
+logger cmd = case cmd of
+  CreateTask _ rtype _ _ _ -> send rtype (MessageResponse "task created")
+  UpdateTask _ rtype _ _ _ -> send rtype (MessageResponse "task updated")
+  StartTask _ rtype _ -> send rtype (MessageResponse "task started")
+  StopTask _ rtype _ -> send rtype (MessageResponse "task stopped")
+  MarkAsDoneTask _ rtype _ -> send rtype (MessageResponse "task done")
+  UnmarkAsDoneTask _ rtype _ -> send rtype (MessageResponse "task undone")
+  DeleteTask _ rtype _ -> send rtype (MessageResponse "task deleted")
+  UpdateContext _ rtype _ -> send rtype (MessageResponse "context updated")
+  Error rtype cmd err -> send rtype (ErrorResponse cmd err)
 
--- setContext :: UTCTime -> Parsec.Arg -> Command
--- setContext t args = SetContext t (Parsec._tags args)
-
--- logger :: Subscriber
--- logger args cmd = case cmd of
---   CreateTask _ _ id _ _ _ _ -> printAction id "created"
---   UpdateTask _ _ id _ _ _ _ -> printAction id "updated"
---   StartTask _ _ id          -> printAction id "started"
---   StopTask  _ _ id          -> printAction id "stopped"
---   MarkAsDoneTask   _ _ id _ -> printAction id "done"
---   UnmarkAsDoneTask _ _ id _ -> printAction id "undone"
---   DeleteTask _ _ id         -> printAction id "deleted"
---   SetContext _ ctx          -> printCtx ctx
---   Error cmd msg ->
---     printErr rtype $ (if null cmd then "" else cmd ++ ": ") ++ msg
---  where
+-- where
 --   rtype = if Parsec._json (Parsec._opts args) then JSON else Text
 --   printAction id action =
 --     let msg = "task [" ++ show id ++ "] " ++ action in printMsg rtype msg
 --   printCtx ctx =
---     let
---       ctxStr = unwords ctx
---       msg    = "context "
---         ++ if null ctxStr then "cleared" else "[" ++ ctxStr ++ "] set"
---     in
---       printMsg rtype msg
+--     let ctxStr = unwords ctx
+--         msg =
+--           "context "
+--             ++ if null ctxStr then "cleared" else "[" ++ ctxStr ++ "] set"
+--      in printMsg rtype msg

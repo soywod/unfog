@@ -5,8 +5,8 @@ import Data.List
 type ColSize = Int
 
 type Style = String
-type Value = String
 
+type Value = String
 
 data Cell = Cell [Style] Value
 
@@ -50,75 +50,75 @@ defineStyle color bright shade (Cell styles val) = Cell (styles ++ [style]) val
     style = "\x1b[" ++ show color ++ bright' ++ shade' ++ "m"
 
 reset = defineStyle 0 0 0
-bold = defineStyle 1 0 0
-underline = defineStyle 4 0 0
-reversed = defineStyle 7 0 0
 
+bold = defineStyle 1 0 0
+
+underline = defineStyle 4 0 0
+
+reversed = defineStyle 7 0 0
 
 black = defineStyle 30 0 0
 
 red = defineStyle 31 0 0
+
 green = defineStyle 32 0 0
 
 yellow = defineStyle 33 0 0
+
 blue = defineStyle 34 0 0
+
 magenta = defineStyle 35 0 0
+
 cyan = defineStyle 36 0 0
 
 white = defineStyle 37 0 0
 
-
 brightBlack = defineStyle 30 1 0
+
 brightRed = defineStyle 31 1 0
 
 brightGreen = defineStyle 32 1 0
+
 brightyellow = defineStyle 33 1 0
 
 brightBlue = defineStyle 34 1 0
+
 brightMagenta = defineStyle 35 1 0
 
 brightCyan = defineStyle 36 1 0
-brightWhite = defineStyle 37 1 0
 
+brightWhite = defineStyle 37 1 0
 
 bgBlack = defineStyle 40 0 0
 
 bgRed = defineStyle 41 0 0
+
 bgGreen = defineStyle 42 0 0
+
 bgYellow = defineStyle 43 0 0
+
 bgBlue = defineStyle 44 0 0
 
 bgMagenta = defineStyle 45 0 0
+
 bgCyan = defineStyle 46 0 0
 
 bgWhite = defineStyle 47 0 0
 
-
 bgBrightBlack = defineStyle 40 1 0
+
 bgBrightRed = defineStyle 41 1 0
 
 bgBrightGreen = defineStyle 42 1 0
+
 bgBrightYellow = defineStyle 43 1 0
 
 bgBrightBlue = defineStyle 44 1 0
+
 bgBrightMagenta = defineStyle 45 1 0
 
 bgBrightCyan = defineStyle 46 1 0
+
 bgBrightWhite = defineStyle 47 1 0
 
-
 ext = defineStyle 38 5
-
-
-
-
-
-
-
-
-
-
-
-
-
-

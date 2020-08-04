@@ -1,8 +1,8 @@
 module Main where
 
 import Arg.Parser
-import qualified Command.Handler as Command
-import qualified Query.Handler as Query
+import qualified Command
+import qualified Query
 
 main :: IO ()
 main = parseArgs >>= dispatch

@@ -1,86 +1,81 @@
 module Query where
 
--- import Arg.Parser
--- import Control.Exception
--- import Data.Aeson hiding (Error)
--- import qualified Data.ByteString.Lazy.Char8 as BL
--- import Data.Fixed
--- import Data.List
--- import Data.Maybe
--- import Data.Time
--- import Event
--- import Response
--- import State
--- import Store
--- import System.Process (system)
--- import Task
--- import Text.Read
+import Arg.Options
+import qualified Arg.Parser as Arg
+import Data.List
+import Data.Time
+import Event
+import Response
+import State
+import System.Process (system)
+import Task
+import Worktime
 
--- handleQueryArg :: QueryArg -> IO ()
--- handleQueryArg query = do
---   now <- getCurrentTime
---   evts <- readEvents
---   let state = buildStateFromEvents now evts
---   execute state query
+data Query
+  = ShowTasks UTCTime ResponseType [Task]
+  | ShowTask UTCTime ResponseType Task
+  | ShowWtime UTCTime ResponseType [DailyWorktime]
+  | ShowStatus UTCTime ResponseType (Maybe Task)
+  | ShowVersion ResponseType String
+  | DoUpgrade
+  | Error ResponseType String String
+  deriving (Show, Read)
 
--- execute :: State -> QueryArg -> IO ()
--- execute state (List opts) = putStrLn $ show opts
+handle :: Arg.Query -> IO ()
+handle arg = do
+  now <- getCurrentTime
+  state <- rebuild <$> readEvents
+  let query = parseQuery now state arg
+  execute query
 
--- execute state query = do
---   let rtype = if Parsec._json (Parsec._opts args) then JSON else Text
---   let more = Parsec._more (Parsec._opts args)
---   case query of
---     List args -> listTasks args state query rtype
---     Info args -> do
---       now <- getCurrentTime
---       let ctx = _ctx state
---       let id = head $ Parsec._ids args
---       let fByTags = filterByTags $ _ctx state
---       let fByDone = filterByDone $ "done" `elem` ctx
---       let fByNumber = findById id
---       let maybeTask = fByNumber . fByTags . fByDone $ _tasks state
---       case maybeTask of
---         Nothing -> printErr rtype $ "show: task [" ++ show id ++ "] not found"
---         Just task -> printTask rtype task {_wtime = getTotalWtime now task}
---     Wtime args -> do
---       now <- getCurrentTime
---       let tags = Parsec._tags args `union` _ctx state
---       let min = Parsec.parseMinDate now args
---       let max = Parsec.parseMaxDate now args
---       let refs = map _ref $ filterByTags tags $ _tasks state
---       let tasks = filterByRefs refs $ _tasks state
---       let wtime = getWtimePerDay now min max tasks
---       let ctx = if null tags then "global" else "for [" ++ unwords tags ++ "]"
---       printWtime rtype more ("unfog: wtime " ++ ctx) wtime
---     Status -> do
---       now <- getCurrentTime
---       case filter ((> 0) . _active) $ _tasks state of
---         [] -> printEmptyStatus rtype
---         task : _ -> printStatus rtype task
---     Upgrade ->
---       system
---         "curl -sSL https://raw.githubusercontent.com/soywod/unfog.cli/master/bin/install.sh | sh"
---         >> return ()
---     Version -> printVersion rtype "0.4.5"
+parseQuery :: UTCTime -> State -> Arg.Query -> Query
+parseQuery now state (Arg.List onlyIdsOpt onlyTagsOpt moreOpt jsonOpt) = showTasks now state onlyIdsOpt onlyTagsOpt moreOpt jsonOpt
+parseQuery now state (Arg.Info id moreOpt jsonOpt) = showTask now state id jsonOpt
+parseQuery now state (Arg.Wtime tags fromOpt toOpt moreOpt jsonOpt) = showWtime now state tags fromOpt toOpt moreOpt jsonOpt
+parseQuery now state (Arg.Status moreOpt jsonOpt) = showStatus now state moreOpt jsonOpt
+parseQuery _ state (Arg.Version jsonOpt) = showVersion jsonOpt
+parseQuery _ state Arg.Upgrade = DoUpgrade
 
--- listTasks :: Parsec.Arg -> State -> Query -> ResponseType -> IO ()
--- listTasks args state query rtype
---   | Parsec._onlyIds (Parsec._opts args) =
---     printTasksId rtype . map Task._id . fByTags . fByDone $ allTasks
---   | Parsec._onlyTags (Parsec._opts args) =
---     printTasksTags rtype . nub . concatMap Task._tags $ allTasks
---   | otherwise =
---     do
---       now <- getCurrentTime
---       let ctx = _ctx state
---       let fByTags = filterByTags ctx
---       let fByDone = filterByDone $ "done" `elem` ctx
---       let tasks = mapWithWtime now . fByTags . fByDone $ _tasks state
---       let ctxStr = if null ctx then "" else " [" ++ unwords ctx ++ "]"
---       let onlyIds = Parsec._onlyIds (Parsec._opts args)
---       let onlyTags = Parsec._onlyTags (Parsec._opts args)
---       printTasks rtype ("unfog: list" ++ ctxStr) tasks
---   where
---     allTasks = _tasks state
---     fByTags = filterByTags . _ctx $ state
---     fByDone = filterByDone . elem "done" . _ctx $ state
+execute :: Query -> IO ()
+execute (ShowTasks now rtype tasks) = send rtype (TasksResponse now tasks)
+execute (ShowTask now rtype task) = send rtype (TaskResponse now task)
+execute (ShowWtime now rtype wtimes) = send rtype (WtimeResponse now wtimes)
+execute (ShowStatus now rtype task) = send rtype (StatusResponse now task)
+execute (ShowVersion rtype version) = send rtype (VersionResponse version)
+execute (DoUpgrade) = doUpgrade
+execute (Error rtype query err) = send rtype (ErrorResponse query err)
+
+showTasks :: UTCTime -> State -> OnlyIdsOpt -> OnlyTagsOpt -> MoreOpt -> JsonOpt -> Query
+showTasks now state onlyIdsOpt onlyTagsOpt moreOpt jsonOpt
+  | onlyIdsOpt = ShowTasks now rtype (getVisibleTasks state) -- TODO
+  | onlyTagsOpt = ShowTasks now rtype (getVisibleTasks state) -- TODO
+  | otherwise = ShowTasks now rtype (getVisibleTasks state)
+  where
+    rtype = if jsonOpt then Json else Text
+
+showTask :: UTCTime -> State -> Id -> JsonOpt -> Query
+showTask now state id jsonOpt = case findById id (getTasks state) of
+  Nothing -> Error rtype "info" "task not found"
+  Just task -> ShowTask now rtype task
+  where
+    rtype = if jsonOpt then Json else Text
+
+showWtime :: UTCTime -> State -> [Tag] -> FromOpt -> ToOpt -> MoreOpt -> JsonOpt -> Query
+showWtime now state tags fromOpt toOpt moreOpt jsonOpt = ShowWtime now rtype wtimes
+  where
+    tasks = getTasks state
+    wtimes = buildWtimePerDay now fromOpt toOpt tasks
+    rtype = if jsonOpt then Json else Text
+
+showStatus :: UTCTime -> State -> MoreOpt -> JsonOpt -> Query
+showStatus now state moreOpt jsonOpt = ShowStatus now rtype $ findFstActiveTask (getTasks state)
+  where
+    rtype = if jsonOpt then Json else Text
+
+showVersion :: JsonOpt -> Query
+showVersion jsonOpt = ShowVersion rtype "1.0.0"
+  where
+    rtype = if jsonOpt then Json else Text
+
+doUpgrade :: IO ()
+doUpgrade = system "curl -sSL https://raw.githubusercontent.com/soywod/unfog.cli/master/bin/install.sh | sh" >> return ()
