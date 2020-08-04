@@ -1,6 +1,6 @@
 module Main where
 
-import Arg.Parser
+import ArgParser
 import qualified Command
 import qualified Query
 

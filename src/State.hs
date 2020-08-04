@@ -59,7 +59,7 @@ apply state evt = case evt of
       update task
         | id == (getId task) = task {getDeleted = Just now}
         | otherwise = task
-  ContextUpdated _ ctx -> state {getContext = ctx}
+  ContextUpdated ctx -> state {getContext = ctx}
 
 getVisibleTasks :: State -> [Task]
 getVisibleTasks state = filter notDone $ filter notDeleted $ filter (matchContext ctx) $ tasks

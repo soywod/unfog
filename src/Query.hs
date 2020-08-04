@@ -1,7 +1,7 @@
 module Query where
 
-import Arg.Options
-import qualified Arg.Parser as Arg
+import ArgOptions
+import qualified ArgParser as Arg
 import Data.List
 import Data.Time
 import Event
@@ -18,7 +18,7 @@ data Query
   | ShowStatus UTCTime ResponseType (Maybe Task)
   | ShowVersion ResponseType String
   | DoUpgrade
-  | Error ResponseType String String
+  | Error ResponseType String
   deriving (Show, Read)
 
 handle :: Arg.Query -> IO ()
@@ -43,7 +43,7 @@ execute (ShowWtime now rtype wtimes) = send rtype (WtimeResponse now wtimes)
 execute (ShowStatus now rtype task) = send rtype (StatusResponse now task)
 execute (ShowVersion rtype version) = send rtype (VersionResponse version)
 execute (DoUpgrade) = doUpgrade
-execute (Error rtype query err) = send rtype (ErrorResponse query err)
+execute (Error rtype msg) = send rtype (ErrorResponse msg)
 
 showTasks :: UTCTime -> State -> OnlyIdsOpt -> OnlyTagsOpt -> MoreOpt -> JsonOpt -> Query
 showTasks now state onlyIdsOpt onlyTagsOpt moreOpt jsonOpt
@@ -55,7 +55,7 @@ showTasks now state onlyIdsOpt onlyTagsOpt moreOpt jsonOpt
 
 showTask :: UTCTime -> State -> Id -> JsonOpt -> Query
 showTask now state id jsonOpt = case findById id (getTasks state) of
-  Nothing -> Error rtype "info" "task not found"
+  Nothing -> Error rtype "Task not found"
   Just task -> ShowTask now rtype task
   where
     rtype = if jsonOpt then Json else Text

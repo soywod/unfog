@@ -2,7 +2,7 @@
 
 module Response (Response (..), ResponseType (..), send, parseResponseType) where
 
-import Arg.Options
+import ArgOptions
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.List
@@ -25,8 +25,10 @@ data Response
   | WtimeResponse UTCTime [DailyWorktime]
   | StatusResponse UTCTime (Maybe Task)
   | VersionResponse String
+  | ContextResponse [Tag]
+  | CommandResponse String String
   | MessageResponse String
-  | ErrorResponse String String
+  | ErrorResponse String
 
 send :: ResponseType -> Response -> IO ()
 send rtype (TasksResponse now tasks) = showTasks now rtype tasks
@@ -34,8 +36,10 @@ send rtype (TaskResponse now task) = showTask now rtype task
 send rtype (WtimeResponse now wtimes) = showWtime now rtype wtimes
 send rtype (StatusResponse now task) = showStatus now rtype task
 send rtype (VersionResponse version) = showVersion rtype version
+send rtype (ContextResponse ctx) = showContext rtype ctx
+send rtype (CommandResponse cat action) = showCommandMsg rtype cat action
 send rtype (MessageResponse msg) = showMessage rtype msg
-send rtype (ErrorResponse cmd err) = showError rtype cmd err
+send rtype (ErrorResponse msg) = showError rtype msg
 
 -- Tasks
 
@@ -156,12 +160,49 @@ showVersionJson version = object ["version" .= version]
 showVersionText :: String -> String
 showVersionText version = version
 
+-- Context
+
+showContext :: ResponseType -> [Tag] -> IO ()
+showContext rtype ctx = case rtype of
+  Json -> BL.putStr $ encode $ showMessageJson plainMsg
+  Text -> putStrLn styledMsg
+  where
+    plainMsg
+      | null ctx = "Context cleared"
+      | otherwise = "Context updated [" ++ intercalate ", " ctx ++ "]"
+    styledMsg
+      | null ctx = "Context \x1b[31mcleared\x1b[0m"
+      | otherwise = "Context \x1b[32mupdated\x1b[0m [\x1b[34m" ++ intercalate "\x1b[0m, \x1b[34m" ctx ++ "\x1b[0m]"
+
+-- Command message
+
+showCommandMsg :: ResponseType -> String -> String -> IO ()
+showCommandMsg Text cat action = putStrLn $ showCommandMsgText cat action
+showCommandMsg Json cat action = BL.putStr $ encode $ showCommandMsgJson cat action
+
+showCommandMsgText :: String -> String -> String
+showCommandMsgText cat "created" = cat ++ " \x1b[32mcreated\x1b[0m"
+showCommandMsgText cat "updated" = cat ++ " \x1b[34mupdated\x1b[0m"
+showCommandMsgText cat "started" = cat ++ " \x1b[33mstarted\x1b[0m"
+showCommandMsgText cat "stopped" = cat ++ " \x1b[31mstopped\x1b[0m"
+showCommandMsgText cat "done" = cat ++ " \x1b[35mdone\x1b[0m"
+showCommandMsgText cat "undone" = cat ++ " \x1b[36mundone\x1b[0m"
+showCommandMsgText cat "deleted" = cat ++ " \x1b[31mdeleted\x1b[0m"
+showCommandMsgText cat action = unwords [cat, action]
+
+showCommandMsgJson :: String -> String -> Data.Aeson.Value
+showCommandMsgJson cat action =
+  object
+    [ "success" .= (1 :: Int),
+      "message" .= (cat ++ action)
+    ]
+
 -- Message
 
 showMessage :: ResponseType -> String -> IO ()
 showMessage rtype msg = case rtype of
   Json -> BL.putStr $ encode $ showMessageJson msg
-  Text -> putStrLn $ showMessageText msg
+  Text -> putStrLn msg
 
 showMessageJson :: String -> Data.Aeson.Value
 showMessageJson msg =
@@ -170,26 +211,22 @@ showMessageJson msg =
       "message" .= msg
     ]
 
-showMessageText :: String -> String
-showMessageText = (++) "unfog: "
-
 -- Error
 
-showError :: ResponseType -> String -> String -> IO ()
-showError rtype cmd err = case rtype of
-  Json -> BL.putStr $ encode $ showErrorJson cmd err
-  Text -> putStrLn $ showErrorText cmd err
+showError :: ResponseType -> String -> IO ()
+showError rtype msg = case rtype of
+  Json -> BL.putStr $ encode $ showErrorJson msg
+  Text -> putStrLn $ showErrorText msg
 
-showErrorJson :: String -> String -> Data.Aeson.Value
-showErrorJson cmd msg =
+showErrorJson :: String -> Data.Aeson.Value
+showErrorJson msg =
   object
     [ "success" .= (0 :: Int),
-      "type" .= cmd,
-      "message" .= msg
+      "message" .= ("Error: " ++ msg)
     ]
 
-showErrorText :: String -> String -> String
-showErrorText t msg = "\x1b[31munfog: " ++ t ++ ": " ++ msg ++ "\x1b[0m"
+showErrorText :: String -> String
+showErrorText msg = "\x1b[31mError: " ++ msg ++ "\x1b[0m"
 
 -- Helpers
 

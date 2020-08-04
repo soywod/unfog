@@ -1,6 +1,6 @@
-module Arg.Parser where
+module ArgParser where
 
-import Arg.Options
+import ArgOptions
 import Control.Monad
 import Data.Time
 import Options.Applicative

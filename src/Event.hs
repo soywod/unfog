@@ -1,8 +1,8 @@
 module Event where
 
 import Data.Time (UTCTime)
-import Task
 import File
+import Task
 
 data Event
   = TaskCreated UTCTime Id Desc [Tag]
@@ -12,7 +12,7 @@ data Event
   | TaskMarkedAsDone UTCTime Id
   | TaskUnmarkedAsDone UTCTime Id
   | TaskDeleted UTCTime Id
-  | ContextUpdated UTCTime [Tag]
+  | ContextUpdated [Tag]
   deriving (Show, Read)
 
 readEvents :: IO [Event]

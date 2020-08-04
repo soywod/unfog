@@ -25,7 +25,7 @@ day = 24 * hour
 year :: Duration
 year = 365 * day
 
--- Show helpers
+-- Helpers
 
 showMs :: Duration -> String
 showMs = showDuration unit . flip div' ms

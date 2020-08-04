@@ -1,6 +1,6 @@
 module Worktime where
 
-import Arg.Options
+import ArgOptions
 import Data.List
 import Data.Maybe
 import Data.Time

@@ -1,4 +1,4 @@
-module Arg.Options where
+module ArgOptions where
 
 import Data.Time (UTCTime)
 
