@@ -22,21 +22,23 @@ data Command
   | Error String String
   deriving (Show, Read)
 
-handleCommand :: Arg.Command -> IO ()
-handleCommand cmd = do
+handle :: Arg.Command -> IO ()
+handle arg = do
   now <- getCurrentTime
   state <- rebuild <$> readEvents
-  evts <- case cmd of
-    Arg.Add desc -> do
-      id <- show <$> nextRandom
-      return . execute state $ createTask state now id desc
-    Arg.Edit id desc -> return . execute state $ updateTask state now id desc
-    Arg.Start ids -> return . concatMap (execute state) . map (startTask state now) $ ids
-    Arg.Stop ids -> return . concatMap (execute state) . map (stopTask state now) $ ids
-    Arg.Do ids -> return . concatMap (execute state) . map (doTask state now) $ ids
-    Arg.Undo ids -> return . concatMap (execute state) . map (undoTask state now) $ ids
-    Arg.Delete ids -> return . concatMap (execute state) . map (deleteTask state now) $ ids
+  nextId <- show <$> nextRandom
+  let commands = parseCommands now state nextId arg
+  let evts = concatMap (execute state) commands
   writeEvents evts
+
+parseCommands :: UTCTime -> State -> Id -> Arg.Command -> [Command]
+parseCommands now state id (Arg.Add desc) = [createTask now state id desc]
+parseCommands now state _ (Arg.Edit id desc) = [updateTask now state id desc]
+parseCommands now state _ (Arg.Start ids) = map (startTask now state) ids
+parseCommands now state _ (Arg.Stop ids) = map (stopTask now state) ids
+parseCommands now state _ (Arg.Do ids) = map (doTask now state) ids
+parseCommands now state _ (Arg.Undo ids) = map (undoTask now state) ids
+parseCommands now state _ (Arg.Delete ids) = map (deleteTask now state) ids
 
 execute :: State -> Command -> [Event]
 execute state cmd = case cmd of
@@ -49,62 +51,62 @@ execute state cmd = case cmd of
   DeleteTask now id -> [TaskDeleted now id]
   Error _ _ -> []
 
-createTask :: State -> UTCTime -> Id -> Desc -> Command
-createTask state now id desc = CreateTask now id desc (getContext state)
+createTask :: UTCTime -> State -> Id -> Desc -> Command
+createTask now state id desc = CreateTask now id desc (getContext state)
 
-updateTask :: State -> UTCTime -> Id -> Desc -> Command
-updateTask state now id desc = case maybeTask of
+updateTask :: UTCTime -> State -> Id -> Desc -> Command
+updateTask now state id desc = case maybeTask of
   Nothing -> Error "update" "task not found"
   Just task -> validate task
   where
     maybeTask = findById id (getTasks state)
     validate task
-      | getDone task = Error "update" "task already done"
+      | isNothing $ getDone task = Error "update" "task already done"
       | otherwise = UpdateTask now (getId task) desc (getTags task)
 
-startTask :: State -> UTCTime -> Id -> Command
-startTask state now id = case maybeTask of
+startTask :: UTCTime -> State -> Id -> Command
+startTask now state id = case maybeTask of
   Nothing -> Error "start" "task not found"
   Just task -> validate task
   where
     maybeTask = findById id (getTasks state)
     validate task
-      | getDone task = Error "start" "task already done"
+      | isNothing $ getDone task = Error "start" "task already done"
       | not $ isNothing $ getActive task = Error "start" "task already started"
       | otherwise = StartTask now (getId task)
 
-stopTask :: State -> UTCTime -> Id -> Command
-stopTask state now id = case maybeTask of
+stopTask :: UTCTime -> State -> Id -> Command
+stopTask now state id = case maybeTask of
   Nothing -> Error "stop" "task not found"
   Just task -> validate task
   where
     maybeTask = findById id (getTasks state)
     validate task
-      | getDone task = Error "stop" "task already done"
+      | isNothing $ getDone task = Error "stop" "task already done"
       | isNothing $ getActive task = Error "stop" "task already stopped"
       | otherwise = StopTask now (getId task)
 
-doTask :: State -> UTCTime -> Id -> Command
-doTask state now id = case maybeTask of
+doTask :: UTCTime -> State -> Id -> Command
+doTask now state id = case maybeTask of
   Nothing -> Error "done" "task not found"
   Just task -> validate task
   where
     maybeTask = findById id (getTasks state)
     validate task
-      | getDone task = Error "done" "task already done"
+      | isNothing $ getDone task = Error "done" "task already done"
       | otherwise = MarkAsDoneTask now (getId task)
 
-undoTask :: State -> UTCTime -> Id -> Command
-undoTask state now id = case maybeTask of
+undoTask :: UTCTime -> State -> Id -> Command
+undoTask now state id = case maybeTask of
   Nothing -> Error "undone" "task not found"
   Just task -> validate task
   where
     maybeTask = findById id (getTasks state)
     validate task
-      | (not . getDone) task = Error "undone" "task not done"
+      | not $ isNothing $ getDone task = Error "undone" "task not done"
       | otherwise = UnmarkAsDoneTask now (getId task)
 
-deleteTask :: State -> UTCTime -> Id -> Command
-deleteTask state now id = case findById id (getTasks state) of
+deleteTask :: UTCTime -> State -> Id -> Command
+deleteTask now state id = case findById id (getTasks state) of
   Nothing -> Error "delete" "task not found"
   Just task -> DeleteTask now (getId task)

@@ -7,7 +7,7 @@ import Data.Fixed
 import Data.List
 import Data.Maybe
 import Data.Time
-import Data.UUID
+import Data.UUID hiding (null)
 import Duration
 import Table
 
@@ -21,21 +21,31 @@ type Tag = String
 
 type Active = Maybe UTCTime
 
-type Done = Bool
+type Done = Maybe UTCTime
+
+type Deleted = Maybe UTCTime
 
 data Task = Task
   { getId :: Id,
     getDesc :: Desc,
     getTags :: [Tag],
+    getStarts :: [UTCTime],
+    getStops :: [UTCTime],
     getActive :: Active,
     getDone :: Done,
-    getStarts :: [UTCTime],
-    getStops :: [UTCTime]
+    getDeleted :: Deleted
   }
   deriving (Show, Read, Eq)
 
 findById :: Id -> [Task] -> Maybe Task
 findById id = find $ isPrefixOf id . getId
+
+findFstActiveTask :: [Task] -> Maybe Task
+findFstActiveTask tasks
+  | null activeTasks = Nothing
+  | otherwise = Just (head activeTasks)
+  where
+    activeTasks = filter (not . isNothing . getActive) tasks
 
 -- data WtimeTask = WtimeTask Desc Duration deriving (Show, Read, Eq)
 -- type DailyWtime = (String, [WtimeTask])

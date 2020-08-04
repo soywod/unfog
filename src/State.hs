@@ -1,4 +1,4 @@
-module State where
+module State (State (..), Context, rebuild, apply, getVisibleTasks) where
 
 import Data.List
 import Data.Maybe
@@ -6,8 +6,10 @@ import Data.Time
 import Event
 import Task
 
+type Context = [Tag]
+
 data State = State
-  { getContext :: [Tag],
+  { getContext :: Context,
     getTasks :: [Task]
   }
   deriving (Show, Read)
@@ -19,7 +21,7 @@ apply :: State -> Event -> State
 apply state evt = case evt of
   TaskCreated _ id desc tags -> state {getTasks = tasks}
     where
-      task = Task id desc tags Nothing False [] []
+      task = Task id desc tags [] [] Nothing Nothing Nothing
       tasks = getTasks state ++ [task]
   TaskUpdated _ id desc tags -> state {getTasks = tasks}
     where
@@ -39,19 +41,39 @@ apply state evt = case evt of
       update task
         | id == (getId task) = task {getActive = Nothing, getStops = getStops task ++ [stop]}
         | otherwise = task
-  TaskMarkedAsDone _ id -> state {getTasks = tasks}
+  TaskMarkedAsDone now id -> state {getTasks = tasks}
     where
       tasks = map update (getTasks state)
       update task
-        | id == (getId task) = task {getDone = True}
+        | id == (getId task) = task {getDone = Just now}
         | otherwise = task
   TaskUnmarkedAsDone _ id -> state {getTasks = tasks}
     where
       tasks = map update (getTasks state)
       update task
-        | id == (getId task) = task {getDone = False}
+        | id == (getId task) = task {getDone = Nothing}
         | otherwise = task
-  TaskDeleted _ id -> state {getTasks = tasks}
+  TaskDeleted now id -> state {getTasks = tasks}
     where
-      tasks = filter (not . (==) id . getId) (getTasks state)
+      tasks = map update (getTasks state)
+      update task
+        | id == (getId task) = task {getDeleted = Just now}
+        | otherwise = task
   ContextUpdated _ ctx -> state {getContext = ctx}
+
+getVisibleTasks :: State -> [Task]
+getVisibleTasks state = filter notDone $ filter notDeleted $ filter (matchContext ctx) $ tasks
+  where
+    ctx = getContext state
+    tasks = getTasks state
+
+matchContext :: Context -> Task -> Bool
+matchContext ctx task
+  | null ctx = True
+  | otherwise = not $ null $ intersect ctx $ getTags task
+
+notDone :: Task -> Bool
+notDone = isNothing . getDone
+
+notDeleted :: Task -> Bool
+notDeleted = isNothing . getDeleted

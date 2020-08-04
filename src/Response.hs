@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Response where
+module Response (Response (..), ResponseType (..), send) where
 
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -11,6 +11,7 @@ import Duration
 import GHC.Exts
 import Table
 import Task
+import Worktime
 
 data ResponseType
   = Json
@@ -20,40 +21,140 @@ data ResponseType
 data Response
   = TasksResponse UTCTime [Task]
   | TaskResponse UTCTime Task
+  | WtimeResponse UTCTime [DailyWorktime]
+  | StatusResponse UTCTime (Maybe Task)
+  | VersionResponse String
+  | ErrorResponse String String
 
-instance ToJSON Response where
-  toJSON (TasksResponse now tasks) = Array $ fromList $ map (taskToJson now) tasks
-    where
-      taskToJson now task =
-        object
-          [ "id" .= getId task,
-            "desc" .= getDesc task,
-            "tags" .= getTags task,
-            "active" .= ActiveResponse now (getActive task),
-            "done" .= if getDone task then 1 else 0 :: Int
+send :: ResponseType -> Response -> IO ()
+send rtype (TasksResponse now tasks) = showTasks now rtype tasks
+send rtype (TaskResponse now task) = showTask now rtype task
+send rtype (WtimeResponse now wtimes) = showWtime now rtype wtimes
+send rtype (StatusResponse now task) = showStatus now rtype task
+send rtype (VersionResponse version) = showVersion rtype version
+send rtype (ErrorResponse cmd err) = showError rtype cmd err
+
+-- Tasks
+
+showTasks :: UTCTime -> ResponseType -> [Task] -> IO ()
+showTasks now Text tasks = putStrLn $ showTasksText now tasks
+showTasks now Json tasks = BL.putStr $ encode $ Array $ fromList $ map (showTaskJson now) tasks
+
+showTasksText now tasks = render $ head : body
+  where
+    head = map (bold . underline . cell) ["ID", "DESC", "TAGS", "ACTIVE"]
+    body = map rows tasks
+    rows task =
+      [ red $ cell $ getId task,
+        cell $ getDesc task,
+        blue $ cell $ unwords $ getTags task,
+        green $ cell $ showApproxActiveRel now $ getActive task
+      ]
+
+showTask :: UTCTime -> ResponseType -> Task -> IO ()
+showTask now Text task = putStrLn $ showTaskText now task
+showTask now Json task = BL.putStr $ encode $ showTaskJson now task
+
+showTaskText now task = render $ head : body
+  where
+    head = map (bold . underline . cell) ["KEY", "VALUE"]
+    body =
+      transpose
+        [ map cell ["ID", "DESC", "TAGS", "ACTIVE"],
+          [ red $ cell $ getId task,
+            cell $ getDesc task,
+            blue $ cell $ unwords $ getTags task,
+            green $ cell $ showFullActiveRel now $ getActive task
           ]
-  toJSON (TaskResponse now task) =
-    object
-      [ "id" .= getId task,
-        "desc" .= getDesc task,
-        "tags" .= getTags task,
-        "active" .= ActiveResponse now (getActive task),
-        "done" .= if getDone task then 1 else 0 :: Int
+        ]
+
+showTaskJson :: UTCTime -> Task -> Data.Aeson.Value
+showTaskJson now task =
+  object
+    [ "id" .= getId task,
+      "desc" .= getDesc task,
+      "tags" .= getTags task,
+      "active" .= showActiveJson now (getActive task),
+      "done" .= if isNothing (getDone task) then 1 else 0 :: Int
+    ]
+
+-- Worktime
+
+showWtime :: UTCTime -> ResponseType -> [DailyWorktime] -> IO ()
+showWtime now Text dwtimes = putStrLn $ showDailyWtimeText now dwtimes
+showWtime now Json dwtimes = BL.putStr $ encode $ Array $ fromList $ map (showDailyWtimeJson now) dwtimes
+
+showDailyWtimeText :: UTCTime -> [DailyWorktime] -> String
+showDailyWtimeText now dwtimes = render $ head : body ++ foot
+  where
+    head = map (underline . bold . cell) ["DATE", "WORKTIME"]
+    body = map rows dwtimes
+    foot =
+      [ replicate 2 $ ext 8 . cell $ replicate 3 '-',
+        [bold . cell $ "TOTAL RAW", bold . cell $ showFullDuration total],
+        [bold . cell $ "TOTAL WDAY", bold . cell $ showFullDuration (total * 3.2)]
       ]
+    rows dwtime = [cell $ fst dwtime, yellow $ cell $ showFullDuration $ sum $ map getWtimeDuration $ snd dwtime]
+    total = sum $ map getWtimeDuration $ concatMap snd dwtimes
 
-data ActiveResponse = ActiveResponse UTCTime Active
+showDailyWtimeJson :: UTCTime -> DailyWorktime -> Data.Aeson.Value
+showDailyWtimeJson now (day, wtimes) =
+  object
+    [ "day" .= day,
+      "total" .= showWtimesJson wtimes
+    ]
 
-instance ToJSON ActiveResponse where
-  toJSON (ActiveResponse now active) =
-    object
-      [ "micro" .= showMicroActive now active,
-        "approx" .= showApproxActiveRel now active,
-        "full" .= showFullActiveRel now active
-      ]
+-- Status
 
-response :: ResponseType -> Response -> String
-response rtype (TasksResponse now tasks) = showTasksTable now rtype tasks
-response rtype (TaskResponse now task) = showTaskTable now rtype task
+showStatus :: UTCTime -> ResponseType -> Maybe Task -> IO ()
+showStatus now Text task = putStrLn $ showStatusText now task
+showStatus now Json task = BL.putStr $ encode $ showStatusJson now task
+
+showStatusJson :: UTCTime -> Maybe Task -> Maybe Data.Aeson.Value
+showStatusJson now = fmap showStatusJson'
+  where
+    showStatusJson' task =
+      object
+        [ "desc" .= getDesc task,
+          "active" .= showActiveJson now (getActive task)
+        ]
+
+showStatusText :: UTCTime -> Maybe Task -> String
+showStatusText now task = case task of
+  Nothing -> ""
+  Just task -> getDesc task ++ ": " ++ showApproxActiveRel now (getActive task)
+
+-- Version
+
+showVersion :: ResponseType -> String -> IO ()
+showVersion Text version = putStrLn $ showVersionText version
+showVersion Json version = BL.putStr $ encode $ showVersionJson version
+
+showVersionJson :: String -> Data.Aeson.Value
+showVersionJson version = object ["version" .= version]
+
+showVersionText :: String -> String
+showVersionText version = version
+
+-- Error
+
+showError :: ResponseType -> String -> String -> IO ()
+showError rtype cmd err = case rtype of
+  Json -> BL.putStr $ encode $ showErrorJson cmd err
+  Text -> putStrLn $ showErrorText cmd err
+
+showErrorJson :: String -> String -> Data.Aeson.Value
+showErrorJson cmd err =
+  object
+    [ "success" .= (0 :: Int),
+      "command" .= cmd,
+      "data" .= err
+    ]
+
+showErrorText :: String -> String -> String
+showErrorText cmd err = "\x1b[31munfog: " ++ cmd ++ ": " ++ err ++ "\x1b[0m"
+
+-- Helpers
 
 showMicroActive :: UTCTime -> Active -> Duration
 showMicroActive _ Nothing = 0
@@ -67,33 +168,33 @@ showFullActiveRel :: UTCTime -> Active -> String
 showFullActiveRel _ Nothing = ""
 showFullActiveRel now (Just active) = showFullDurationRel $ showMicroActive now (Just active)
 
-showTasksTable :: UTCTime -> ResponseType -> [Task] -> String
-showTasksTable now Json tasks = BL.unpack $ encode $ TasksResponse now tasks
-showTasksTable now Text tasks = render $ tableTasks tasks
-  where
-    tableTasks tasks = tableTaskHead : map tableTaskRow tasks
-    tableTaskHead = map (bold . underline . cell) ["ID", "DESC", "TAGS", "ACTIVE"]
-    tableTaskRow task =
-      [ red $ cell $ getId task,
-        cell $ getDesc task,
-        blue $ cell $ unwords $ getTags task,
-        green $ cell $ showApproxActiveRel now $ getActive task
-      ]
+showDurationJson :: Duration -> String -> String -> Data.Aeson.Value
+showDurationJson micro approx full =
+  object
+    [ "micro" .= micro,
+      "approx" .= approx,
+      "full" .= full
+    ]
 
-showTaskTable :: UTCTime -> ResponseType -> Task -> String
-showTaskTable now Json task = BL.unpack $ encode $ TaskResponse now task
-showTaskTable now Text task = render $ tableTaskHead : tableTaskRow
+showActiveJson :: UTCTime -> Active -> Maybe Data.Aeson.Value
+showActiveJson _ Nothing = Nothing
+showActiveJson now active = Just $ showDurationJson micro approx full
   where
-    tableTask now task = tableTaskHead : tableTaskRow
-    tableTaskHead = map (bold . underline . cell) ["KEY", "VALUE"]
-    keys = map cell ["ID", "DESC", "TAGS", "ACTIVE"]
-    values =
-      [ red $ cell $ getId task,
-        cell $ getDesc task,
-        blue $ cell $ unwords $ getTags task,
-        green $ cell $ showFullActiveRel now $ getActive task
-      ]
-    tableTaskRow = transpose [keys, values]
+    micro = showMicroActive now active
+    approx = showApproxActiveRel now active
+    full = showFullActiveRel now active
+
+showWtimesJson :: [Worktime] -> Data.Aeson.Value
+showWtimesJson wtimes = showDurationJson micro approx full
+  where
+    micro = sum $ map getWtimeDuration wtimes
+    approx = showApproxDuration micro
+    full = showFullDuration micro
+
+-- showWorktimeJson :: Worktime -> Data.Aeson.Value
+-- showWorktimeJson date wtime =
+--   object
+--     ["date" .= date, "wtime" .= DurationRecord (sum $ map getWtime wtime)]
 
 -- printMsg :: ResponseType -> String -> IO ()
 -- printMsg rtype msg = case rtype of
@@ -182,4 +283,3 @@ showTaskTable now Text task = render $ tableTaskHead : tableTaskRow
 -- getResponseType args
 --   | "--json" `elem` args = Json
 --   | otherwise = Text
-
