@@ -27,7 +27,6 @@ data Response
   | VersionResponse String
   | ContextResponse [Tag]
   | CommandResponse String String
-  | MessageResponse String
   | ErrorResponse String
 
 send :: ResponseType -> Response -> IO ()
@@ -38,7 +37,6 @@ send rtype (StatusResponse now task) = showStatus now rtype task
 send rtype (VersionResponse version) = showVersion rtype version
 send rtype (ContextResponse ctx) = showContext rtype ctx
 send rtype (CommandResponse cat action) = showCommandMsg rtype cat action
-send rtype (MessageResponse msg) = showMessage rtype msg
 send rtype (ErrorResponse msg) = showError rtype msg
 
 -- Tasks
@@ -50,12 +48,13 @@ showTasks now Json tasks = BL.putStr $ encode $ showTasksJson now tasks
 showTasksText :: UTCTime -> [Task] -> String
 showTasksText now tasks = render $ head : body
   where
-    head = map (bold . underline . cell) ["ID", "DESC", "TAGS", "ACTIVE"]
+    head = map (bold . underline . cell) ["ID", "DESC", "TAGS", "WORKTIME", "ACTIVE"]
     body = map rows tasks
     rows task =
       [ red $ cell $ getId task,
         cell $ getDesc task,
         blue $ cell $ unwords $ getTags task,
+        yellow $ cell $ showApproxDuration $ getTaskWtime now task,
         green $ cell $ showApproxActiveRel now $ getActive task
       ]
 
@@ -78,11 +77,14 @@ showTaskText now task = render $ head : body
     head = map (bold . underline . cell) ["KEY", "VALUE"]
     body =
       transpose
-        [ map cell ["ID", "DESC", "TAGS", "ACTIVE"],
+        [ map cell ["ID", "DESC", "TAGS", "WORKTIME", "ACTIVE", "DONE", "DELETED"],
           [ red $ cell $ getId task,
             cell $ getDesc task,
             blue $ cell $ unwords $ getTags task,
-            green $ cell $ showFullActiveRel now $ getActive task
+            yellow $ cell $ showFullDuration $ getTaskWtime now task,
+            green $ cell $ fromMaybe "" (show <$> getActive task),
+            cell $ fromMaybe "" (show <$> getDone task),
+            cell $ fromMaybe "" (show <$> getDeleted task)
           ]
         ]
 
@@ -96,6 +98,7 @@ showTaskJson now task =
             "desc" .= getDesc task,
             "tags" .= getTags task,
             "active" .= showActiveJson now (getActive task),
+            "wtime" .= showTaskWtimeJson (getTaskWtime now task),
             "done" .= if isNothing (getDone task) then 1 else 0 :: Int
           ]
     ]
@@ -195,11 +198,6 @@ showCommandMsgJson cat action =
 
 -- Message
 
-showMessage :: ResponseType -> String -> IO ()
-showMessage rtype msg = case rtype of
-  Json -> BL.putStr $ encode $ showMessageJson msg
-  Text -> putStrLn msg
-
 showMessageJson :: String -> Data.Aeson.Value
 showMessageJson msg =
   object
@@ -253,6 +251,12 @@ showActiveJson now active = Just $ showDurationJson micro approx full
     micro = showMicroActive now active
     approx = showApproxActiveRel now active
     full = showFullActiveRel now active
+
+showTaskWtimeJson :: Duration -> Data.Aeson.Value
+showTaskWtimeJson micro = showDurationJson micro approx full
+  where
+    approx = showApproxDuration micro
+    full = showFullDuration micro
 
 showWtimesJson :: [Worktime] -> Data.Aeson.Value
 showWtimesJson wtimes = showDurationJson micro approx full
