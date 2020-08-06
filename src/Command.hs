@@ -7,6 +7,7 @@ import Data.Maybe
 import Data.Time
 import Data.UUID.V4
 import Event
+import qualified Query
 import Response
 import State
 import Task
@@ -170,5 +171,9 @@ logger cmd = case cmd of
   MarkAsDoneTask _ rtype _ -> send rtype $ CommandResponse "task" "done"
   UnmarkAsDoneTask _ rtype _ -> send rtype $ CommandResponse "task" "undone"
   DeleteTask _ rtype _ -> send rtype $ CommandResponse "task" "deleted"
-  UpdateContext rtype ctx -> send rtype $ ContextResponse ctx
+  UpdateContext Json ctx -> send Json $ ContextResponse ctx
+  UpdateContext Text ctx -> do
+    send Text $ ContextResponse ctx
+    putStrLn ""
+    Query.handle $ Arg.List False False False
   Error rtype msg -> send rtype $ ErrorResponse msg
