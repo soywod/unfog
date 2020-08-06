@@ -19,15 +19,15 @@ rebuild = foldl apply (State [] [])
 
 apply :: State -> Event -> State
 apply state evt = case evt of
-  TaskCreated _ id desc tags -> state {getTasks = tasks}
+  TaskCreated _ id desc tags due -> state {getTasks = tasks}
     where
-      task = Task id desc tags [] [] Nothing Nothing Nothing
+      task = Task id desc tags [] [] due Nothing Nothing Nothing
       tasks = getTasks state ++ [task]
-  TaskUpdated _ id desc tags -> state {getTasks = tasks}
+  TaskUpdated _ id desc tags due -> state {getTasks = tasks}
     where
       tasks = map update (getTasks state)
       update task
-        | id == (getId task) = task {getDesc = desc}
+        | id == (getId task) = task {getDesc = desc, getTags = tags, getDue = due}
         | otherwise = task
   TaskStarted start id -> state {getTasks = tasks}
     where

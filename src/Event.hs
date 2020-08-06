@@ -5,8 +5,8 @@ import File
 import Task
 
 data Event
-  = TaskCreated UTCTime Id Desc [Tag]
-  | TaskUpdated UTCTime Id Desc [Tag]
+  = TaskCreated UTCTime Id Desc [Tag] Due
+  | TaskUpdated UTCTime Id Desc [Tag] Due
   | TaskStarted UTCTime Id
   | TaskStopped UTCTime Id
   | TaskMarkedAsDone UTCTime Id
