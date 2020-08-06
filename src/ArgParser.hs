@@ -6,6 +6,7 @@ import Data.Char
 import Data.List
 import Data.Maybe
 import Data.Time
+import Event
 import Options.Applicative
 import Task (Desc, Due, Id, Tag)
 import Text.ParserCombinators.ReadP hiding (many, option)
@@ -60,21 +61,21 @@ queries now tzone =
     ]
 
 listQuery :: Mod CommandFields Arg
-listQuery = command "list" (info parser infoMod)
+listQuery = aliasedCommand ["list", "l"] (info parser infoMod)
   where
     infoMod = progDesc "Show tasks filtered by current context"
     parser = QueryArg <$> (List <$> onlyIdsOptParser <*> onlyTagsOptParser <*> jsonOptParser)
 
 infoQuery :: Mod CommandFields Arg
-infoQuery = command "info" (info parser infoMod)
+infoQuery = aliasedCommand ["info", "i"] (info parser infoMod)
   where
     infoMod = progDesc "Show task details"
     parser = QueryArg <$> (Info <$> idParser <*> jsonOptParser)
 
 wtimeQuery :: UTCTime -> TimeZone -> Mod CommandFields Arg
-wtimeQuery now tzone = command "worktime" (info parser infoMod)
+wtimeQuery now tzone = aliasedCommand ["worktime", "wtime", "w"] (info parser infoMod)
   where
-    infoMod = progDesc "Show task details"
+    infoMod = progDesc "Show worktime report"
     parser =
       QueryArg
         <$> ( Wtime <$> many (argument str (metavar "TAGS..."))
@@ -87,7 +88,7 @@ wtimeQuery now tzone = command "worktime" (info parser infoMod)
 statusQuery :: Mod CommandFields Arg
 statusQuery = command "status" (info parser infoMod)
   where
-    infoMod = progDesc "Show the total amount of time spent on the current active task"
+    infoMod = progDesc "Show time spent on current active task"
     parser = QueryArg <$> (Status <$> moreOptParser "Show more details about the task" <*> jsonOptParser)
 
 -- Commands
@@ -108,19 +109,19 @@ commands now tzone =
     ]
 
 addCommand :: Mod CommandFields Arg
-addCommand = command "add" (info parser infoMod)
+addCommand = aliasedCommand ["add", "a"] (info parser infoMod)
   where
     infoMod = progDesc "Add a new task"
     parser = CommandArg <$> (Add <$> customArgParser <*> jsonOptParser)
 
 editCommand :: Mod CommandFields Arg
-editCommand = command "edit" (info parser infoMod)
+editCommand = aliasedCommand ["edit", "e"] (info parser infoMod)
   where
     infoMod = progDesc "Edit an existing task"
     parser = CommandArg <$> (Edit <$> idParser <*> customArgParser <*> jsonOptParser)
 
 setCommand :: Mod CommandFields Arg
-setCommand = command "set" (info parser infoMod)
+setCommand = aliasedCommand ["set", "s"] (info parser infoMod)
   where
     infoMod = progDesc "Replace an existing task"
     parser = CommandArg <$> (Set <$> idParser <*> customArgParser <*> jsonOptParser)
@@ -138,25 +139,25 @@ stopCommand = command "stop" (info parser infoMod)
     parser = CommandArg <$> (Stop <$> idsParser <*> jsonOptParser)
 
 doCommand :: Mod CommandFields Arg
-doCommand = command "do" (info parser infoMod)
+doCommand = aliasedCommand ["done", "do", "d"] (info parser infoMod)
   where
     infoMod = progDesc "Mark as done a task"
     parser = CommandArg <$> (Do <$> idsParser <*> jsonOptParser)
 
 undoCommand :: Mod CommandFields Arg
-undoCommand = command "undo" (info parser infoMod)
+undoCommand = aliasedCommand ["undone", "undo", "u"] (info parser infoMod)
   where
     infoMod = progDesc "Unmark as done a task"
     parser = CommandArg <$> (Undo <$> idsParser <*> jsonOptParser)
 
 deleteCommand :: Mod CommandFields Arg
-deleteCommand = command "delete" (info parser infoMod)
+deleteCommand = aliasedCommand ["delete", "del", "D"] (info parser infoMod)
   where
     infoMod = progDesc "Delete a task"
     parser = CommandArg <$> (Delete <$> idsParser <*> jsonOptParser)
 
 ctxCommand :: Mod CommandFields Arg
-ctxCommand = command "context" (info parser infoMod)
+ctxCommand = aliasedCommand ["context", "ctx", "c"] (info parser infoMod)
   where
     infoMod = progDesc "Change the current context"
     parser = CommandArg <$> (Context <$> tagsParser <*> jsonOptParser)
@@ -209,7 +210,7 @@ toDateReader = dateReader "23:59:59"
 -- Parsers
 
 idParser :: Parser Id
-idParser = argument str (metavar "ID")
+idParser = argument str (metavar "ID" <> completer idsCompleter)
 
 idsParser :: Parser [Id]
 idsParser = some idParser
@@ -218,7 +219,7 @@ customArgParser :: Parser CustomArgs
 customArgParser = parseCustomArgs <$> many (argument str (metavar "ARGS..."))
 
 tagsParser :: Parser [Tag]
-tagsParser = many (argument str (metavar "TAGS..."))
+tagsParser = many (argument str (metavar "TAGS..." <> completer tagsCompleter))
 
 fromOptParser :: UTCTime -> TimeZone -> Parser FromOpt
 fromOptParser now tzone =
@@ -249,6 +250,29 @@ moreOptParser h = switch $ long "more" <> help h
 
 jsonOptParser :: Parser MoreOpt
 jsonOptParser = switch $ long "json" <> help "Show result as JSON string"
+
+-- Completers
+
+idsCompleter :: Completer
+idsCompleter = mkCompleter idsCompleter'
+  where
+    idsCompleter' str = sort <$> filter (isPrefixOf str) <$> foldl extractIds [] <$> readEvents
+    extractIds ids (TaskCreated _ id _ _ _) = ids ++ [id]
+    extractIds ids _ = ids
+
+tagsCompleter :: Completer
+tagsCompleter = mkCompleter tagsCompleter'
+  where
+    tagsCompleter' str = sort <$> filter (isPrefixOf str) <$> foldl extractTags [] <$> readEvents
+    extractTags allTags (TaskCreated _ _ _ tags _) = allTags `union` tags
+    extractTags allTags (TaskUpdated _ _ _ tags _) = allTags `union` tags
+    extractTags allTags (ContextUpdated tags) = allTags `union` tags
+    extractIds allTags _ = allTags
+
+-- Helpers
+
+aliasedCommand :: [String] -> ParserInfo Arg -> Mod CommandFields Arg
+aliasedCommand aliases fields = foldr1 (<>) $ map (flip command fields) aliases
 
 -- Custom parsers
 
