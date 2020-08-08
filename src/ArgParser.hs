@@ -38,40 +38,48 @@ parseArgs = do
   now <- getCurrentTime
   tzone <- getCurrentTimeZone
   let desc = fullDesc <> header "⏱ Unfog - Minimalist task & time manager"
-  let queries' = queries now tzone
-  let commands' = commands now tzone
-  let parser = helper <*> hsubparser (queries' <> commands' <> procedures)
   let prefs' = prefs showHelpOnError
-  customExecParser prefs' (info parser desc)
+  let mainQueries' = mainQueries now tzone
+  let aliasesQueries' = aliasesQueries now tzone
+  let mainCommands' = mainCommands now tzone
+  let aliasesCommands' = aliasesCommands now tzone
+  let mainParser = helper <*> hsubparser (mainQueries' <> mainCommands' <> procedures)
+  let aliasesParser = subparser (aliasesQueries' <> aliasesCommands' <> internal)
+  let parser = mainParser <|> aliasesParser
+  customExecParser prefs' $ info parser desc
 
 -- Queries
 
-queries :: UTCTime -> TimeZone -> Mod CommandFields Arg
+queries :: UTCTime -> TimeZone -> [(Mod CommandFields Arg, Mod CommandFields Arg)]
 queries now tzone =
-  foldr1
-    (<>)
-    [ listQuery,
-      infoQuery,
-      wtimeQuery now tzone,
-      statusQuery
-    ]
+  [ listQueries,
+    infoQueries,
+    wtimeQueries now tzone,
+    statusQueries
+  ]
 
-listQuery :: Mod CommandFields Arg
-listQuery = aliasedCommand parser infoMod ["list", "l"]
+mainQueries :: UTCTime -> TimeZone -> Mod CommandFields Arg
+mainQueries now tzone = foldr1 (<>) $ map fst $ queries now tzone
+
+aliasesQueries :: UTCTime -> TimeZone -> Mod CommandFields Arg
+aliasesQueries now tzone = foldr1 (<>) $ map snd $ queries now tzone
+
+listQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
+listQueries = aliasedCommand parser desc ["list", "l"]
   where
-    infoMod = progDesc "Show tasks filtered by current context"
+    desc = "Show current project tasks"
     parser = QueryArg <$> (List <$> onlyIdsOptParser <*> onlyProjsOptParser <*> jsonOptParser)
 
-infoQuery :: Mod CommandFields Arg
-infoQuery = aliasedCommand parser infoMod ["info", "i"]
+infoQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
+infoQueries = aliasedCommand parser desc ["info", "i"]
   where
-    infoMod = progDesc "Show task details"
+    desc = "Show task details"
     parser = QueryArg <$> (Info <$> idParser <*> jsonOptParser)
 
-wtimeQuery :: UTCTime -> TimeZone -> Mod CommandFields Arg
-wtimeQuery now tzone = aliasedCommand parser infoMod ["worktime", "wtime", "w"]
+wtimeQueries :: UTCTime -> TimeZone -> (Mod CommandFields Arg, Mod CommandFields Arg)
+wtimeQueries now tzone = aliasedCommand parser desc ["worktime", "wtime", "w"]
   where
-    infoMod = progDesc "Show worktime report"
+    desc = "Show worktime report"
     parser =
       QueryArg
         <$> ( Wtime
@@ -82,74 +90,78 @@ wtimeQuery now tzone = aliasedCommand parser infoMod ["worktime", "wtime", "w"]
                 <*> jsonOptParser
             )
 
-statusQuery :: Mod CommandFields Arg
-statusQuery = command "status" (info parser infoMod)
+statusQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
+statusQueries = aliasedCommand parser desc ["status", "stat"]
   where
-    infoMod = progDesc "Show time spent on current active task"
+    desc = "Show active task info"
     parser = QueryArg <$> (Status <$> moreOptParser "Show more details about the task" <*> jsonOptParser)
 
 -- Commands
 
-commands :: UTCTime -> TimeZone -> Mod CommandFields Arg
+commands :: UTCTime -> TimeZone -> [(Mod CommandFields Arg, Mod CommandFields Arg)]
 commands now tzone =
-  foldr1
-    (<>)
-    [ addCommand now tzone,
-      editCommand now tzone,
-      startCommand,
-      stopCommand,
-      doCommand,
-      undoCommand,
-      deleteCommand,
-      ctxCommand
-    ]
+  [ addCommands now tzone,
+    editCommands now tzone,
+    startCommands,
+    stopCommands,
+    doCommands,
+    undoCommands,
+    deleteCommands,
+    ctxCommands
+  ]
 
-addCommand :: UTCTime -> TimeZone -> Mod CommandFields Arg
-addCommand now tzone = aliasedCommand parser infoMod ["add", "a"]
+mainCommands :: UTCTime -> TimeZone -> Mod CommandFields Arg
+mainCommands now tzone = foldr1 (<>) $ map fst $ commands now tzone
+
+aliasesCommands :: UTCTime -> TimeZone -> Mod CommandFields Arg
+aliasesCommands now tzone = foldr1 (<>) $ map snd $ commands now tzone
+
+addCommands :: UTCTime -> TimeZone -> (Mod CommandFields Arg, Mod CommandFields Arg)
+addCommands now tzone = aliasedCommand parser desc ["add", "a"]
   where
-    infoMod = progDesc "Add a new task"
+    desc = "Add a new task"
     parser = CommandArg <$> (Add <$> descParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
 
-editCommand :: UTCTime -> TimeZone -> Mod CommandFields Arg
-editCommand now tzone = aliasedCommand parser infoMod ["edit", "e"]
+editCommands :: UTCTime -> TimeZone -> (Mod CommandFields Arg, Mod CommandFields Arg)
+editCommands now tzone = aliasedCommand parser desc ["edit", "e"]
   where
-    infoMod = progDesc "Edit an existing task"
+    desc = "Edit an existing task"
     parser = CommandArg <$> (Edit <$> idParser <*> descParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
 
-startCommand :: Mod CommandFields Arg
-startCommand = command "start" (info parser infoMod)
+startCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
+startCommands = aliasedCommand parser desc ["start", "sta"]
   where
-    infoMod = progDesc "Start a task"
+    desc = "Start a task"
     parser = CommandArg <$> (Start <$> idsParser <*> jsonOptParser)
 
-stopCommand :: Mod CommandFields Arg
-stopCommand = command "stop" (info parser infoMod)
+stopCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
+stopCommands = aliasedCommand parser desc ["stop", "sto"]
   where
-    infoMod = progDesc "Stop a task"
+    desc = "Stop a task"
     parser = CommandArg <$> (Stop <$> idsParser <*> jsonOptParser)
 
-doCommand :: Mod CommandFields Arg
-doCommand = aliasedCommand parser infoMod ["done", "do", "d"]
+doCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
+doCommands = aliasedCommand parser desc ["done", "do", "d"]
   where
-    infoMod = progDesc "Mark as done a task"
+    desc = "Mark as done a task"
     parser = CommandArg <$> (Do <$> idsParser <*> jsonOptParser)
 
-undoCommand :: Mod CommandFields Arg
-undoCommand = aliasedCommand parser infoMod ["undone", "undo", "u"]
+undoCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
+undoCommands = aliasedCommand parser desc ["undone", "undo", "u"]
   where
-    infoMod = progDesc "Unmark as done a task"
+    desc = "Unmark as done a task"
     parser = CommandArg <$> (Undo <$> idsParser <*> jsonOptParser)
 
-deleteCommand :: Mod CommandFields Arg
-deleteCommand = aliasedCommand parser infoMod ["delete", "del", "D"]
+deleteCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
+deleteCommands = aliasedCommand parser desc ["delete", "del", "D"]
   where
-    infoMod = progDesc "Delete a task"
+    desc = "Delete a task"
     parser = CommandArg <$> (Delete <$> idsParser <*> jsonOptParser)
 
-ctxCommand :: Mod CommandFields Arg
-ctxCommand = aliasedCommand parser infoMod ["context", "ctx", "c"]
+ctxCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
+ctxCommands = aliasedCommand parser desc ["context", "ctx", "c"]
   where
-    infoMod = progDesc "Change the current context"
+    desc = "Change the current project"
     parser = CommandArg <$> (Context <$> projParser <*> jsonOptParser)
 
 -- Procedures
@@ -163,13 +175,13 @@ procedures =
     ]
 
 upgradeProcedure :: Mod CommandFields Arg
-upgradeProcedure = command "upgrade" (info parser infoMod)
+upgradeProcedure = command "upgrade" $ info parser infoMod
   where
     infoMod = progDesc "Upgrade the CLI"
     parser = pure $ ProcedureArg Upgrade
 
 versionProcedure :: Mod CommandFields Arg
-versionProcedure = command "version" (info parser infoMod)
+versionProcedure = command "version" $ info parser infoMod
   where
     infoMod = progDesc "Show the version"
     parser = ProcedureArg <$> Version <$> jsonOptParser
@@ -293,8 +305,11 @@ projCompleter = mkCompleter projectCompleter'
 
 -- Helpers
 
-aliasedCommand :: Parser Arg -> InfoMod Arg -> [String] -> Mod CommandFields Arg
-aliasedCommand parser infoMod (cmd : aliases) = aliases' <> cmd'
+aliasedCommand :: Parser Arg -> String -> [String] -> (Mod CommandFields Arg, Mod CommandFields Arg)
+aliasedCommand parser desc (cmd : aliases) = (cmd', aliases')
   where
-    cmd' = command cmd (info parser infoMod)
-    aliases' = foldr1 (<>) $ reverse $ map (flip command (info parser idm)) aliases
+    cmd' = command cmd $ info parser $ progDesc $ desc ++ aliasesDesc
+    aliases' = foldr1 (<>) $ map (flip command (info parser idm)) aliases
+    aliasesDesc
+      | null aliases = ""
+      | otherwise = " \x1b[38;5;8m[" ++ intercalate ", " aliases ++ "]\x1b[0m"
