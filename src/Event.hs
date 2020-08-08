@@ -1,25 +1,27 @@
 module Event where
 
+import Control.Monad
 import Data.Time (UTCTime)
 import File
 import Task
 
 data Event
-  = TaskCreated UTCTime Id Desc [Tag] Due
-  | TaskUpdated UTCTime Id Desc [Tag] Due
+  = TaskAdded UTCTime Id Desc Project Due
+  | TaskEdited UTCTime Id Desc Project Due
   | TaskStarted UTCTime Id
   | TaskStopped UTCTime Id
-  | TaskMarkedAsDone UTCTime Id
-  | TaskUnmarkedAsDone UTCTime Id
+  | TaskDid UTCTime Id
+  | TaskUndid UTCTime Id
   | TaskDeleted UTCTime Id
-  | ContextUpdated [Tag]
+  | TaskUndeleted UTCTime Id
+  | ContextEdited Project
   deriving (Show, Read)
 
 readEvents :: IO [Event]
 readEvents = map read . lines <$> getFileContent "store"
 
 writeEvents :: [Event] -> IO ()
-writeEvents = foldr write' (return ())
+writeEvents = mapM_ writeEvent
   where
-    write' evt _ = getFilePath "store" >>= appendToStore evt
-    appendToStore evt = flip appendFile $ show evt ++ "\n"
+    writeEvent evt = appendToStore evt =<< getFilePath "store"
+    appendToStore evt store = appendFile store $ show evt ++ "\n"

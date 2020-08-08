@@ -1,12 +1,17 @@
 module ArgOptions where
 
 import Data.Time (UTCTime)
+import Task (Due, Project)
+
+type ProjOpt = Project
+
+type DueOpt = Due
 
 type FromOpt = Maybe UTCTime
 
 type ToOpt = Maybe UTCTime
 
-type OnlyTagsOpt = Bool
+type OnlyProjsOpt = Bool
 
 type OnlyIdsOpt = Bool
 

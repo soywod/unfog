@@ -2,33 +2,29 @@ module ArgParser where
 
 import ArgOptions
 import Control.Monad
-import Data.Char
 import Data.List
-import Data.Maybe
 import Data.Time
 import Event
 import Options.Applicative
-import Task (Desc, Due, Id, Tag)
-import Text.ParserCombinators.ReadP hiding (many, option)
-import Text.Printf
+import Task (Desc, Due, Id, Project)
 
 data Query
-  = List OnlyIdsOpt OnlyTagsOpt JsonOpt
+  = List OnlyIdsOpt OnlyProjsOpt JsonOpt
   | Info Id JsonOpt
-  | Wtime [Tag] FromOpt ToOpt MoreOpt JsonOpt
+  | Wtime Project FromOpt ToOpt MoreOpt JsonOpt
   | Status MoreOpt JsonOpt
   deriving (Show)
 
 data Command
-  = Add CustomArgs JsonOpt
-  | Edit Id CustomArgs JsonOpt
-  | Set Id CustomArgs JsonOpt
+  = Add Desc ProjOpt DueOpt JsonOpt
+  | Edit Id Desc ProjOpt DueOpt JsonOpt
   | Start [Id] JsonOpt
   | Stop [Id] JsonOpt
   | Do [Id] JsonOpt
   | Undo [Id] JsonOpt
   | Delete [Id] JsonOpt
-  | Context [Tag] JsonOpt
+  | Undelete [Id] JsonOpt
+  | Context Project JsonOpt
   deriving (Show)
 
 data Procedure
@@ -61,24 +57,25 @@ queries now tzone =
     ]
 
 listQuery :: Mod CommandFields Arg
-listQuery = aliasedCommand ["list", "l"] (info parser infoMod)
+listQuery = aliasedCommand parser infoMod ["list", "l"]
   where
     infoMod = progDesc "Show tasks filtered by current context"
-    parser = QueryArg <$> (List <$> onlyIdsOptParser <*> onlyTagsOptParser <*> jsonOptParser)
+    parser = QueryArg <$> (List <$> onlyIdsOptParser <*> onlyProjsOptParser <*> jsonOptParser)
 
 infoQuery :: Mod CommandFields Arg
-infoQuery = aliasedCommand ["info", "i"] (info parser infoMod)
+infoQuery = aliasedCommand parser infoMod ["info", "i"]
   where
     infoMod = progDesc "Show task details"
     parser = QueryArg <$> (Info <$> idParser <*> jsonOptParser)
 
 wtimeQuery :: UTCTime -> TimeZone -> Mod CommandFields Arg
-wtimeQuery now tzone = aliasedCommand ["worktime", "wtime", "w"] (info parser infoMod)
+wtimeQuery now tzone = aliasedCommand parser infoMod ["worktime", "wtime", "w"]
   where
     infoMod = progDesc "Show worktime report"
     parser =
       QueryArg
-        <$> ( Wtime <$> many (argument str (metavar "TAGS..."))
+        <$> ( Wtime
+                <$> projParser
                 <*> fromOptParser now tzone
                 <*> toOptParser now tzone
                 <*> moreOptParser "Show more details about worktime"
@@ -97,9 +94,8 @@ commands :: UTCTime -> TimeZone -> Mod CommandFields Arg
 commands now tzone =
   foldr1
     (<>)
-    [ addCommand,
-      editCommand,
-      setCommand,
+    [ addCommand now tzone,
+      editCommand now tzone,
       startCommand,
       stopCommand,
       doCommand,
@@ -108,23 +104,17 @@ commands now tzone =
       ctxCommand
     ]
 
-addCommand :: Mod CommandFields Arg
-addCommand = aliasedCommand ["add", "a"] (info parser infoMod)
+addCommand :: UTCTime -> TimeZone -> Mod CommandFields Arg
+addCommand now tzone = aliasedCommand parser infoMod ["add", "a"]
   where
     infoMod = progDesc "Add a new task"
-    parser = CommandArg <$> (Add <$> customArgParser <*> jsonOptParser)
+    parser = CommandArg <$> (Add <$> descParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
 
-editCommand :: Mod CommandFields Arg
-editCommand = aliasedCommand ["edit", "e"] (info parser infoMod)
+editCommand :: UTCTime -> TimeZone -> Mod CommandFields Arg
+editCommand now tzone = aliasedCommand parser infoMod ["edit", "e"]
   where
     infoMod = progDesc "Edit an existing task"
-    parser = CommandArg <$> (Edit <$> idParser <*> customArgParser <*> jsonOptParser)
-
-setCommand :: Mod CommandFields Arg
-setCommand = aliasedCommand ["set", "s"] (info parser infoMod)
-  where
-    infoMod = progDesc "Replace an existing task"
-    parser = CommandArg <$> (Set <$> idParser <*> customArgParser <*> jsonOptParser)
+    parser = CommandArg <$> (Edit <$> idParser <*> descParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
 
 startCommand :: Mod CommandFields Arg
 startCommand = command "start" (info parser infoMod)
@@ -139,28 +129,28 @@ stopCommand = command "stop" (info parser infoMod)
     parser = CommandArg <$> (Stop <$> idsParser <*> jsonOptParser)
 
 doCommand :: Mod CommandFields Arg
-doCommand = aliasedCommand ["done", "do", "d"] (info parser infoMod)
+doCommand = aliasedCommand parser infoMod ["done", "do", "d"]
   where
     infoMod = progDesc "Mark as done a task"
     parser = CommandArg <$> (Do <$> idsParser <*> jsonOptParser)
 
 undoCommand :: Mod CommandFields Arg
-undoCommand = aliasedCommand ["undone", "undo", "u"] (info parser infoMod)
+undoCommand = aliasedCommand parser infoMod ["undone", "undo", "u"]
   where
     infoMod = progDesc "Unmark as done a task"
     parser = CommandArg <$> (Undo <$> idsParser <*> jsonOptParser)
 
 deleteCommand :: Mod CommandFields Arg
-deleteCommand = aliasedCommand ["delete", "del", "D"] (info parser infoMod)
+deleteCommand = aliasedCommand parser infoMod ["delete", "del", "D"]
   where
     infoMod = progDesc "Delete a task"
     parser = CommandArg <$> (Delete <$> idsParser <*> jsonOptParser)
 
 ctxCommand :: Mod CommandFields Arg
-ctxCommand = aliasedCommand ["context", "ctx", "c"] (info parser infoMod)
+ctxCommand = aliasedCommand parser infoMod ["context", "ctx", "c"]
   where
     infoMod = progDesc "Change the current context"
-    parser = CommandArg <$> (Context <$> tagsParser <*> jsonOptParser)
+    parser = CommandArg <$> (Context <$> projParser <*> jsonOptParser)
 
 -- Procedures
 
@@ -187,39 +177,71 @@ versionProcedure = command "version" (info parser infoMod)
 -- Readers
 
 readUTCTime :: TimeZone -> String -> Maybe UTCTime
-readUTCTime tzone = parseLocalTime >=> toUTC
+readUTCTime tzone = toUTC <=< parseLocalTime
   where
-    parseLocalTime = parseTimeM True defaultTimeLocale "%Y-%m-%d %H:%M:%s"
+    parseLocalTime = parseTimeM True defaultTimeLocale "%Y-%m-%d %H:%M"
     toUTC = return . localTimeToUTC tzone
 
 dateReader :: String -> UTCTime -> TimeZone -> ReadM (Maybe UTCTime)
-dateReader timefmt now tzone = maybeReader parseDate
+dateReader timefmt now tzone = eitherReader reader
   where
-    parseDate str = Just $ parseDate' <|> parseTime' <|> parseDateTime'
+    reader str = case parseDate str of
+      Nothing -> Left $ "invalid date format `" ++ str ++ "' (should match YYYY-MM-DD HH:MM)"
+      Just date -> Right $ Just date
+    parseDate str = Nothing <|> parseDate' <|> parseTime' <|> parseDateTime'
       where
-        parseDate' = readUTCTime tzone (str ++ " " ++ timefmt)
-        parseTime' = readUTCTime tzone (formatTime defaultTimeLocale "%Y-%m-%d " now ++ str)
+        parseDate' = readUTCTime tzone $ str ++ " " ++ timefmt
+        parseTime' = readUTCTime tzone $ formatTime defaultTimeLocale "%Y-%m-%d " now ++ str
         parseDateTime' = readUTCTime tzone str
 
+dueDateReader :: UTCTime -> TimeZone -> ReadM FromOpt
+dueDateReader = dateReader "00:00"
+
 fromDateReader :: UTCTime -> TimeZone -> ReadM FromOpt
-fromDateReader = dateReader "00:00:00"
+fromDateReader = dateReader "00:00"
 
 toDateReader :: UTCTime -> TimeZone -> ReadM ToOpt
-toDateReader = dateReader "23:59:59"
+toDateReader = dateReader "23:59"
+
+projectReader :: ReadM (Maybe String)
+projectReader = maybeReader projectReader'
+  where
+    projectReader' str
+      | null str = pure Nothing
+      | otherwise = pure $ Just str
 
 -- Parsers
 
 idParser :: Parser Id
-idParser = argument str (metavar "ID" <> completer idsCompleter)
+idParser = argument str $ metavar "ID" <> completer idsCompleter
 
 idsParser :: Parser [Id]
 idsParser = some idParser
 
-customArgParser :: Parser CustomArgs
-customArgParser = parseCustomArgs <$> many (argument str (metavar "ARGS..."))
+descParser :: Parser Desc
+descParser = unwords <$> (many $ argument str $ metavar "DESC")
 
-tagsParser :: Parser [Tag]
-tagsParser = many (argument str (metavar "TAGS..." <> completer tagsCompleter))
+projParser :: Parser Project
+projParser = argument projectReader $ metavar "PROJECT" <> value Nothing <> completer projCompleter
+
+-- instance IsString (Maybe String)
+
+projOptParser :: Parser ProjOpt
+projOptParser = readMaybeProj <$> parser
+  where
+    parser = option str $ long "project" <> short 'p' <> metavar "PROJECT" <> value "" <> help "Override task project"
+    readMaybeProj proj
+      | null proj = Nothing
+      | otherwise = Just proj
+
+dueOptParser :: UTCTime -> TimeZone -> Parser FromOpt
+dueOptParser now tzone =
+  option (dueDateReader now tzone) $
+    long "due"
+      <> short 'd'
+      <> metavar "DATE"
+      <> value Nothing
+      <> help "Due date"
 
 fromOptParser :: UTCTime -> TimeZone -> Parser FromOpt
 fromOptParser now tzone =
@@ -228,7 +250,7 @@ fromOptParser now tzone =
       <> short 'f'
       <> metavar "DATE"
       <> value Nothing
-      <> help "Start date of interval"
+      <> help "Interval start date"
 
 toOptParser :: UTCTime -> TimeZone -> Parser FromOpt
 toOptParser now tzone =
@@ -237,13 +259,13 @@ toOptParser now tzone =
       <> short 't'
       <> metavar "DATE"
       <> value Nothing
-      <> help "End date of interval"
+      <> help "Interval end date"
 
 onlyIdsOptParser :: Parser OnlyIdsOpt
 onlyIdsOptParser = switch $ long "only-ids" <> help "Show only tasks id"
 
-onlyTagsOptParser :: Parser OnlyTagsOpt
-onlyTagsOptParser = switch $ long "only-tags" <> help "Show only tasks tags"
+onlyProjsOptParser :: Parser OnlyProjsOpt
+onlyProjsOptParser = switch $ long "only-projects" <> help "Show only tasks projects"
 
 moreOptParser :: String -> Parser MoreOpt
 moreOptParser h = switch $ long "more" <> help h
@@ -256,146 +278,23 @@ jsonOptParser = switch $ long "json" <> help "Show result as JSON string"
 idsCompleter :: Completer
 idsCompleter = mkCompleter idsCompleter'
   where
-    idsCompleter' str = sort <$> filter (isPrefixOf str) <$> foldl extractIds [] <$> readEvents
-    extractIds ids (TaskCreated _ id _ _ _) = ids ++ [id]
+    idsCompleter' str = sort . filter (isPrefixOf str) . foldl extractIds [] <$> readEvents
+    extractIds ids (TaskAdded _ id _ _ _) = ids ++ [id]
     extractIds ids _ = ids
 
-tagsCompleter :: Completer
-tagsCompleter = mkCompleter tagsCompleter'
+projCompleter :: Completer
+projCompleter = mkCompleter projectCompleter'
   where
-    tagsCompleter' str = sort <$> filter (isPrefixOf str) <$> foldl extractTags [] <$> readEvents
-    extractTags allTags (TaskCreated _ _ _ tags _) = allTags `union` tags
-    extractTags allTags (TaskUpdated _ _ _ tags _) = allTags `union` tags
-    extractTags allTags (ContextUpdated tags) = allTags `union` tags
-    extractIds allTags _ = allTags
+    projectCompleter' str = sort . nub . filter (isPrefixOf str) . foldl extractProjects [] <$> readEvents
+    extractProjects projs (TaskAdded _ _ _ (Just proj) _) = projs ++ [proj]
+    extractProjects projs (TaskEdited _ _ _ (Just proj) _) = projs ++ [proj]
+    extractProjects projs (ContextEdited (Just proj)) = projs ++ [proj]
+    extractProjects projs _ = projs
 
 -- Helpers
 
-aliasedCommand :: [String] -> ParserInfo Arg -> Mod CommandFields Arg
-aliasedCommand aliases fields = foldr1 (<>) $ map (flip command fields) aliases
-
--- Custom parsers
-
-type CustomArgs = ([String], [Tag], Maybe ArgDate)
-
-runCustomParser :: ReadP [CustomArgExpr] -> String -> CustomArgs
-runCustomParser p "" = ([], [], Nothing)
-runCustomParser p s = case readP_to_S p s of
-  [] -> ([], [], Nothing)
-  res -> foldl eval ([], [], Nothing) $ fst . last $ res
-
-eval :: CustomArgs -> CustomArgExpr -> CustomArgs
-eval (desc, tags, due) arg = case arg of
-  AddTag tag -> (desc, tags ++ [tag], due)
-  DelTag tag -> (desc, tags \\ [tag], due)
-  AddWord word -> (desc ++ [word], tags, due)
-  SetDue due -> (desc, tags, Just due)
-
-parseCustomArgs :: [String] -> CustomArgs
-parseCustomArgs = runCustomParser (setExpr <++ editExpr) . unwords
-
-data CustomArgExpr
-  = AddTag String
-  | DelTag String
-  | AddWord String
-  | SetDue ArgDate
-  deriving (Show)
-
-data ArgDateType = Rel | Abs deriving (Show, Eq)
-
-data ArgDate = ArgDate
-  { _dateType :: ArgDateType,
-    _months :: Int,
-    _days :: Int,
-    _years :: Int,
-    _hours :: Int,
-    _mins :: Int
-  }
-  deriving (Show, Eq)
-
-parseDate :: UTCTime -> TimeZone -> Int -> Int -> Maybe ArgDate -> Maybe UTCTime
-parseDate now tzone defHours defMins Nothing = Nothing
-parseDate now tzone defHours defMins (Just (ArgDate Rel d mo y h m)) =
-  readUTCTime tzone $ unwords [dateStr, timeStr]
+aliasedCommand :: Parser Arg -> InfoMod Arg -> [String] -> Mod CommandFields Arg
+aliasedCommand parser infoMod (cmd : aliases) = aliases' <> cmd'
   where
-    (y', mo', d') = toGregorian $ utctDay now
-    mins = if m > 0 then m else defMins
-    hours = if h > 0 then h else defHours
-    days = if d > 0 then d else d'
-    months = if mo > 0 then mo else mo'
-    years =
-      if y == 0
-        then fromInteger y'
-        else if y < 100 then y + truncate (realToFrac y' / 100) * 100 else y
-    dateStr = printf "%.4d-%.2d-%.2d" years months days
-    timeStr = printf "%.2d:%.2d:%.2d" hours mins defMins
-
-setExpr :: ReadP [CustomArgExpr]
-setExpr = do
-  args <- many1 $ addTagExpr <++ dueExpr <++ wordExpr
-  guard $ isJust $ find hasAddWordExpr args
-  return args
-
-editExpr :: ReadP [CustomArgExpr]
-editExpr = many1 $ addTagExpr <++ dueExpr <++ wordExpr
-
-wordExpr :: ReadP CustomArgExpr
-wordExpr = do
-  skipSpaces
-  fchar <- get
-  rest <- munch (/= ' ')
-  eofOrSpaces
-  return $ AddWord $ fchar : rest
-
-addTagExpr :: ReadP CustomArgExpr
-addTagExpr = do
-  skipSpaces
-  char '+'
-  tag <- munch1 isTag
-  return $ AddTag tag
-
-isTag :: Char -> Bool
-isTag c
-  | isAlphaNum c = True
-  | c `elem` "-_" = True
-  | otherwise = False
-
-hasAddWordExpr :: CustomArgExpr -> Bool
-hasAddWordExpr (AddWord _) = True
-hasAddWordExpr _ = False
-
-dueExpr :: ReadP CustomArgExpr
-dueExpr = SetDue <$> (dateTimeExpr ':' <++ dateExpr ':')
-
-dateTimeExpr :: Char -> ReadP ArgDate
-dateTimeExpr ord = do
-  skipSpaces
-  char ord
-  days <- int 2 <++ int 1 <++ int 0
-  months <- int 2 <++ int 1 <++ int 0
-  years <- int 2 <++ int 0
-  char ':'
-  hours <- int 2 <++ int 1 <++ int 0
-  mins <- int 2 <++ int 1 <++ int 0
-  eofOrSpaces
-  return $ ArgDate Rel days months years hours mins
-
-dateExpr :: Char -> ReadP ArgDate
-dateExpr ord = do
-  skipSpaces
-  char ord
-  days <- int 2 <++ int 1
-  months <- int 2 <++ int 1 <++ int 0
-  years <- int 2 <++ int 0
-  eofOrSpaces
-  return $ ArgDate Rel days months years 0 0
-
-int :: Int -> ReadP Int
-int c = do
-  n <- count c (satisfy isDigit)
-  return $ if null n then 0 else read n
-
-eofOrSpaces :: ReadP ()
-eofOrSpaces = eof <++ atLeastOneSpace
-  where
-    atLeastOneSpace = munch1 (== ' ') >> return ()
+    cmd' = command cmd (info parser infoMod)
+    aliases' = foldr1 (<>) $ reverse $ map (flip command (info parser idm)) aliases

@@ -3,6 +3,7 @@ module Query where
 import ArgOptions
 import qualified ArgParser as Arg
 import Data.List
+import Data.Maybe
 import Data.Time
 import Event
 import Response
@@ -28,7 +29,7 @@ handle arg = do
 parseQuery :: UTCTime -> State -> Arg.Query -> Query
 parseQuery now state (Arg.List onlyIdsOpt onlyTagsOpt jsonOpt) = showTasks now state onlyIdsOpt onlyTagsOpt jsonOpt
 parseQuery now state (Arg.Info id jsonOpt) = showTask now state id jsonOpt
-parseQuery now state (Arg.Wtime tags fromOpt toOpt moreOpt jsonOpt) = showWtime now state tags fromOpt toOpt moreOpt jsonOpt
+parseQuery now state (Arg.Wtime proj fromOpt toOpt moreOpt jsonOpt) = showWtime now state proj fromOpt toOpt moreOpt jsonOpt
 parseQuery now state (Arg.Status moreOpt jsonOpt) = showStatus now state moreOpt jsonOpt
 
 execute :: Query -> IO ()
@@ -38,29 +39,28 @@ execute (ShowWtime now rtype wtimes) = send rtype (WtimeResponse now wtimes)
 execute (ShowStatus now rtype task) = send rtype (StatusResponse now task)
 execute (Error rtype msg) = send rtype (ErrorResponse msg)
 
-showTasks :: UTCTime -> State -> OnlyIdsOpt -> OnlyTagsOpt -> JsonOpt -> Query
-showTasks now state onlyIdsOpt onlyTagsOpt jsonOpt
-  | onlyIdsOpt = ShowTasks now rtype (getVisibleTasks state) -- TODO
-  | onlyTagsOpt = ShowTasks now rtype (getVisibleTasks state) -- TODO
-  | otherwise = ShowTasks now rtype (getVisibleTasks state)
+showTasks :: UTCTime -> State -> OnlyIdsOpt -> OnlyProjsOpt -> JsonOpt -> Query
+showTasks now (State ctx tasks) onlyIdsOpt onlyTagsOpt jsonOpt = ShowTasks now rtype tasks'
   where
     rtype = parseResponseType jsonOpt
+    tasks' = filterWith [notDone, notDeleted, matchContext ctx] tasks
 
 showTask :: UTCTime -> State -> Id -> JsonOpt -> Query
-showTask now state id jsonOpt = case findById id (getTasks state) of
+showTask now (State _ tasks) id jsonOpt = case findById id tasks of
   Nothing -> Error rtype "task not found"
   Just task -> ShowTask now rtype task
   where
     rtype = parseResponseType jsonOpt
 
-showWtime :: UTCTime -> State -> [Tag] -> FromOpt -> ToOpt -> MoreOpt -> JsonOpt -> Query
-showWtime now state tags fromOpt toOpt moreOpt jsonOpt = ShowWtime now rtype wtimes
+showWtime :: UTCTime -> State -> Project -> FromOpt -> ToOpt -> MoreOpt -> JsonOpt -> Query
+showWtime now (State ctx tasks) proj fromOpt toOpt moreOpt jsonOpt = ShowWtime now rtype wtimes
   where
-    tasks = getTasks state
-    wtimes = buildWtimePerDay now fromOpt toOpt tasks
+    ctx' = if isNothing proj then ctx else proj
+    tasks' = filterWith [notDeleted, matchContext ctx'] tasks
+    wtimes = buildWtimePerDay now fromOpt toOpt tasks'
     rtype = parseResponseType jsonOpt
 
 showStatus :: UTCTime -> State -> MoreOpt -> JsonOpt -> Query
-showStatus now state moreOpt jsonOpt = ShowStatus now rtype $ findFstActiveTask (getTasks state)
+showStatus now (State _ tasks) moreOpt jsonOpt = ShowStatus now rtype $ findFstActive tasks
   where
     rtype = parseResponseType jsonOpt

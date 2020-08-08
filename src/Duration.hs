@@ -1,6 +1,7 @@
 module Duration where
 
 import Data.Fixed
+import Data.Time
 import Prelude hiding (min)
 
 -- Durations
@@ -102,3 +103,15 @@ showApproxDurationRel d
   | d < 0 = unwords [showApproxDuration (abs d), "ago"]
   | d > 0 = unwords ["in", showApproxDuration (abs d)]
   | otherwise = ""
+
+showApproxTimeRel :: UTCTime -> Maybe UTCTime -> String
+showApproxTimeRel _ Nothing = ""
+showApproxTimeRel now (Just date) = showApproxDurationRel $ showMicroTime now $ Just date
+
+showMicroTime :: UTCTime -> Maybe UTCTime -> Duration
+showMicroTime _ Nothing = 0
+showMicroTime now (Just active) = realToFrac $ diffUTCTime active now
+
+showFullTimeRel :: UTCTime -> Maybe UTCTime -> String
+showFullTimeRel _ Nothing = ""
+showFullTimeRel now (Just active) = showFullDurationRel $ showMicroTime now (Just active)

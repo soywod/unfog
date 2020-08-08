@@ -25,7 +25,7 @@ data Response
   | WtimeResponse UTCTime [DailyWorktime]
   | StatusResponse UTCTime (Maybe Task)
   | VersionResponse String
-  | ContextResponse [Tag]
+  | ContextResponse Project
   | CommandResponse String String
   | ErrorResponse String
 
@@ -35,7 +35,7 @@ send rtype (TaskResponse now task) = showTask now rtype task
 send rtype (WtimeResponse now wtimes) = showWtime now rtype wtimes
 send rtype (StatusResponse now task) = showStatus now rtype task
 send rtype (VersionResponse version) = showVersion rtype version
-send rtype (ContextResponse ctx) = showContext rtype ctx
+send rtype (ContextResponse proj) = showContext rtype proj
 send rtype (CommandResponse cat action) = showCommandMsg rtype cat action
 send rtype (ErrorResponse msg) = showError rtype msg
 
@@ -48,14 +48,15 @@ showTasks now Json tasks = BL.putStr $ encode $ showTasksJson now tasks
 showTasksText :: UTCTime -> [Task] -> String
 showTasksText now tasks = render $ head : body
   where
-    head = map (bold . underline . cell) ["ID", "DESC", "TAGS", "WORKTIME", "ACTIVE"]
+    head = map (bold . underline . cell) ["ID", "DESC", "PROJECT", "ACTIVE", "DUE", "WORKTIME"]
     body = map rows tasks
     rows task =
       [ red $ cell $ getId task,
         cell $ getDesc task,
-        blue $ cell $ unwords $ getTags task,
-        yellow $ cell $ showApproxDuration $ getTaskWtime now task,
-        green $ cell $ showApproxActiveRel now $ getActive task
+        blue $ cell $ fromMaybe "" $ getProject task,
+        green $ cell $ showApproxTimeRel now $ getActive task,
+        (if isDuePassed now task then bgRed . white else yellow) $ cell $ showApproxTimeRel now $ getDue task,
+        yellow $ cell $ showApproxDuration $ getTaskWtime now task
       ]
 
 showTasksJson :: UTCTime -> [Task] -> Data.Aeson.Value
@@ -77,14 +78,15 @@ showTaskText now task = render $ head : body
     head = map (bold . underline . cell) ["KEY", "VALUE"]
     body =
       transpose
-        [ map cell ["ID", "DESC", "TAGS", "WORKTIME", "ACTIVE", "DONE", "DELETED"],
+        [ map cell ["ID", "DESC", "PROJECT", "ACTIVE", "DUE", "WORKTIME", "DONE", "DELETED"],
           [ red $ cell $ getId task,
             cell $ getDesc task,
-            blue $ cell $ unwords $ getTags task,
+            blue $ cell $ fromMaybe "" $ getProject task,
+            green $ cell $ fromMaybe "" $ show <$> getActive task,
+            (if isDuePassed now task then bgRed . white else yellow) $ cell $ fromMaybe "" $ show <$> getDue task,
             yellow $ cell $ showFullDuration $ getTaskWtime now task,
-            green $ cell $ fromMaybe "" (show <$> getActive task),
-            cell $ fromMaybe "" (show <$> getDone task),
-            cell $ fromMaybe "" (show <$> getDeleted task)
+            cell $ fromMaybe "" $ show <$> getDone task,
+            cell $ fromMaybe "" $ show <$> getDeleted task
           ]
         ]
 
@@ -96,7 +98,7 @@ showTaskJson now task =
         .= object
           [ "id" .= getId task,
             "desc" .= getDesc task,
-            "tags" .= getTags task,
+            "project" .= getProject task,
             "active" .= showActiveJson now (getActive task),
             "wtime" .= showTaskWtimeJson (getTaskWtime now task),
             "done" .= if isNothing (getDone task) then 1 else 0 :: Int
@@ -141,7 +143,7 @@ showStatus now Json task = BL.putStr $ encode $ showStatusJson now task
 
 showStatusText :: UTCTime -> Maybe Task -> String
 showStatusText now Nothing = ""
-showStatusText now (Just task) = getDesc task ++ ": " ++ showApproxActiveRel now (getActive task)
+showStatusText now (Just task) = getDesc task ++ ": " ++ showApproxTimeRel now (getActive task)
 
 showStatusJson :: UTCTime -> Maybe Task -> Maybe Data.Aeson.Value
 showStatusJson now = fmap showStatusJson'
@@ -161,17 +163,17 @@ showVersion Json version = BL.putStr $ encode $ object ["success" .= (1 :: Int),
 
 -- Context
 
-showContext :: ResponseType -> [Tag] -> IO ()
-showContext rtype ctx = case rtype of
+showContext :: ResponseType -> Project -> IO ()
+showContext rtype proj = case rtype of
   Json -> BL.putStr $ encode $ showMessageJson plainMsg
   Text -> putStrLn styledMsg
   where
-    plainMsg
-      | null ctx = "Context cleared"
-      | otherwise = "Context updated [" ++ intercalate ", " ctx ++ "]"
-    styledMsg
-      | null ctx = "Context \x1b[31mcleared\x1b[0m"
-      | otherwise = "Context \x1b[32mupdated\x1b[0m [\x1b[34m" ++ intercalate "\x1b[0m, \x1b[34m" ctx ++ "\x1b[0m]"
+    plainMsg = case proj of
+      Nothing -> "Context cleared"
+      Just proj -> "Context changed [" ++ proj ++ "]"
+    styledMsg = case proj of
+      Nothing -> "Context \x1b[31mcleared\x1b[0m"
+      Just proj -> "Context \x1b[32mupdated\x1b[0m [\x1b[34m" ++ proj ++ "\x1b[0m]"
 
 -- Command message
 
@@ -224,18 +226,6 @@ showErrorText msg = "\x1b[31mError: " ++ msg ++ "\x1b[0m"
 
 -- Helpers
 
-showMicroActive :: UTCTime -> Active -> Duration
-showMicroActive _ Nothing = 0
-showMicroActive now (Just active) = realToFrac $ diffUTCTime active now
-
-showApproxActiveRel :: UTCTime -> Active -> String
-showApproxActiveRel _ Nothing = ""
-showApproxActiveRel now (Just active) = showApproxDurationRel $ showMicroActive now (Just active)
-
-showFullActiveRel :: UTCTime -> Active -> String
-showFullActiveRel _ Nothing = ""
-showFullActiveRel now (Just active) = showFullDurationRel $ showMicroActive now (Just active)
-
 showDurationJson :: Duration -> String -> String -> Data.Aeson.Value
 showDurationJson micro approx full =
   object
@@ -248,9 +238,9 @@ showActiveJson :: UTCTime -> Active -> Maybe Data.Aeson.Value
 showActiveJson _ Nothing = Nothing
 showActiveJson now active = Just $ showDurationJson micro approx full
   where
-    micro = showMicroActive now active
-    approx = showApproxActiveRel now active
-    full = showFullActiveRel now active
+    micro = showMicroTime now active
+    approx = showApproxTimeRel now active
+    full = showFullTimeRel now active
 
 showTaskWtimeJson :: Duration -> Data.Aeson.Value
 showTaskWtimeJson micro = showDurationJson micro approx full

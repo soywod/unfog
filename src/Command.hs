@@ -14,14 +14,15 @@ import Task
 import Prelude hiding (id)
 
 data Command
-  = CreateTask UTCTime ResponseType Id Desc [Tag] Due
-  | UpdateTask UTCTime ResponseType Id Desc [Tag] Due
+  = AddTask UTCTime ResponseType Id Desc Project Due
+  | EditTask UTCTime ResponseType Id Desc Project Due
   | StartTask UTCTime ResponseType Id
   | StopTask UTCTime ResponseType Id
-  | MarkAsDoneTask UTCTime ResponseType Id
-  | UnmarkAsDoneTask UTCTime ResponseType Id
+  | DoTask UTCTime ResponseType Id
+  | UndoTask UTCTime ResponseType Id
   | DeleteTask UTCTime ResponseType Id
-  | UpdateContext ResponseType Context
+  | UndeleteTask UTCTime ResponseType Id
+  | EditContext ResponseType Project
   | Error ResponseType String
   deriving (Show, Read)
 
@@ -37,64 +38,47 @@ handle arg = do
   notify cmds subscribers
 
 parseCommands :: UTCTime -> TimeZone -> State -> Id -> Arg.Command -> [Command]
-parseCommands now tzone state id (Arg.Add args jsonOpt) = [createTask now tzone (parseResponseType jsonOpt) state id args]
-parseCommands now tzone state _ (Arg.Edit id args jsonOpt) = [updateTask now tzone (parseResponseType jsonOpt) state id args]
-parseCommands now tzone state _ (Arg.Set id args jsonOpt) = [replaceTask now tzone (parseResponseType jsonOpt) state id args]
+parseCommands now tzone state id (Arg.Add desc proj due jsonOpt) = [addTask now tzone (parseResponseType jsonOpt) state id desc proj due]
+parseCommands now tzone state _ (Arg.Edit id desc proj due jsonOpt) = [editTask now tzone (parseResponseType jsonOpt) state id desc proj due]
 parseCommands now _ state _ (Arg.Start ids jsonOpt) = map (startTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.Stop ids jsonOpt) = map (stopTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.Do ids jsonOpt) = map (doTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.Undo ids jsonOpt) = map (undoTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.Delete ids jsonOpt) = map (deleteTask now (parseResponseType jsonOpt) state) ids
-parseCommands now _ state _ (Arg.Context ctx jsonOpt) = [updateContext (parseResponseType jsonOpt) ctx]
+parseCommands now _ state _ (Arg.Undelete ids jsonOpt) = map (undeleteTask now (parseResponseType jsonOpt) state) ids
+parseCommands now _ state _ (Arg.Context ctx jsonOpt) = [editContext (parseResponseType jsonOpt) ctx]
 
 execute :: State -> Command -> [Event]
 execute state cmd = case cmd of
-  CreateTask now rtype id desc tags due -> [TaskCreated now id desc tags due]
-  UpdateTask now rtype id desc tags due -> [TaskUpdated now id desc tags due]
+  AddTask now rtype id desc proj due -> [TaskAdded now id desc proj due]
+  EditTask now rtype id desc proj due -> [TaskEdited now id desc proj due]
   StartTask now rtype id -> [TaskStarted now id]
   StopTask now rtype id -> [TaskStopped now id]
-  MarkAsDoneTask now rtype id -> [TaskMarkedAsDone now id]
-  UnmarkAsDoneTask now rtype id -> [TaskUnmarkedAsDone now id]
+  DoTask now rtype id -> [TaskDid now id]
+  UndoTask now rtype id -> [TaskUndid now id]
   DeleteTask now rtype id -> [TaskDeleted now id]
-  UpdateContext rtype ctx -> [ContextUpdated ctx]
+  UndeleteTask now rtype id -> [TaskUndeleted now id]
+  EditContext rtype ctx -> [ContextEdited ctx]
   Error _ _ -> []
 
-createTask :: UTCTime -> TimeZone -> ResponseType -> State -> Id -> Arg.CustomArgs -> Command
-createTask now tzone rtype state id (desc, tags, due)
+addTask :: UTCTime -> TimeZone -> ResponseType -> State -> Id -> Desc -> Project -> Due -> Command
+addTask now tzone rtype (State ctx tasks) id desc proj due
   | null desc = Error rtype "desc missing"
-  | otherwise = CreateTask now rtype id desc' tags' due'
+  | otherwise = AddTask now rtype id desc proj' due
   where
-    desc' = unwords desc
-    tags' = getContext state `union` tags
-    due' = Arg.parseDate now tzone 0 0 due
+    proj' = if isNothing proj then ctx else proj
 
-updateTask :: UTCTime -> TimeZone -> ResponseType -> State -> Id -> Arg.CustomArgs -> Command
-updateTask now tzone rtype state id (desc, tags, due) = case findById id (getTasks state) of
+editTask :: UTCTime -> TimeZone -> ResponseType -> State -> Id -> Desc -> Project -> Due -> Command
+editTask now tzone rtype (State ctx tasks) id desc proj due = case findById id tasks of
   Nothing -> Error rtype "task not found"
   Just task -> validate task
   where
     validate task
       | isJust $ getDeleted task = Error rtype "task already deleted"
       | isJust $ getDone task = Error rtype "task already done"
-      | otherwise = UpdateTask now rtype (getId task) desc' tags' due'
+      | otherwise = EditTask now rtype (getId task) desc proj' due
       where
-        desc' = if null desc then (getDesc task) else unwords desc
-        tags' = getContext state `union` getTags task `union` tags
-        due' = Arg.parseDate now tzone 0 0 due
-
-replaceTask :: UTCTime -> TimeZone -> ResponseType -> State -> Id -> Arg.CustomArgs -> Command
-replaceTask now tzone rtype state id (desc, tags, due) = case findById id (getTasks state) of
-  Nothing -> Error rtype "task not found"
-  Just task -> validate task
-  where
-    validate task
-      | isJust $ getDeleted task = Error rtype "task already deleted"
-      | isJust $ getDone task = Error rtype "task already done"
-      | otherwise = UpdateTask now rtype (getId task) desc' tags' due'
-      where
-        desc' = unwords desc
-        tags' = getContext state `union` tags
-        due' = Arg.parseDate now tzone 0 0 due
+        proj' = if isNothing proj then ctx else proj
 
 startTask :: UTCTime -> ResponseType -> State -> Id -> Command
 startTask now rtype state id = case findById id (getTasks state) of
@@ -126,7 +110,7 @@ doTask now rtype state id = case findById id (getTasks state) of
     validate task
       | isJust $ getDeleted task = Error rtype "task already deleted"
       | isJust $ getDone task = Error rtype "task already done"
-      | otherwise = MarkAsDoneTask now rtype (getId task)
+      | otherwise = DoTask now rtype (getId task)
 
 undoTask :: UTCTime -> ResponseType -> State -> Id -> Command
 undoTask now rtype state id = case findById id (getTasks state) of
@@ -135,8 +119,8 @@ undoTask now rtype state id = case findById id (getTasks state) of
   where
     validate task
       | isJust $ getDeleted task = Error rtype "task already deleted"
-      | isNothing $ getDone task = Error rtype "task not done"
-      | otherwise = UnmarkAsDoneTask now rtype (getId task)
+      | isNothing $ getDone task = Error rtype "task not yet done"
+      | otherwise = UndoTask now rtype (getId task)
 
 deleteTask :: UTCTime -> ResponseType -> State -> Id -> Command
 deleteTask now rtype state id = case findById id (getTasks state) of
@@ -147,8 +131,17 @@ deleteTask now rtype state id = case findById id (getTasks state) of
       | isJust $ getDeleted task = Error rtype "task already deleted"
       | otherwise = DeleteTask now rtype (getId task)
 
-updateContext :: ResponseType -> Context -> Command
-updateContext rtype ctx = UpdateContext rtype ctx
+undeleteTask :: UTCTime -> ResponseType -> State -> Id -> Command
+undeleteTask now rtype state id = case findById id (getTasks state) of
+  Nothing -> Error rtype "task not found"
+  Just task -> validate task
+  where
+    validate task
+      | isNothing $ getDeleted task = Error rtype "task not yet deleted"
+      | otherwise = UndeleteTask now rtype (getId task)
+
+editContext :: ResponseType -> Project -> Command
+editContext = EditContext
 
 -- Subscribers
 
@@ -164,15 +157,15 @@ subscribers = [logger]
 
 logger :: Subscriber
 logger cmd = case cmd of
-  CreateTask _ rtype _ _ _ _ -> send rtype $ CommandResponse "task" "created"
-  UpdateTask _ rtype _ _ _ _ -> send rtype $ CommandResponse "task" "updated"
+  AddTask _ rtype _ _ _ _ -> send rtype $ CommandResponse "task" "created"
+  EditTask _ rtype _ _ _ _ -> send rtype $ CommandResponse "task" "updated"
   StartTask _ rtype _ -> send rtype $ CommandResponse "task" "started"
   StopTask _ rtype _ -> send rtype $ CommandResponse "task" "stopped"
-  MarkAsDoneTask _ rtype _ -> send rtype $ CommandResponse "task" "done"
-  UnmarkAsDoneTask _ rtype _ -> send rtype $ CommandResponse "task" "undone"
+  DoTask _ rtype _ -> send rtype $ CommandResponse "task" "done"
+  UndoTask _ rtype _ -> send rtype $ CommandResponse "task" "undone"
   DeleteTask _ rtype _ -> send rtype $ CommandResponse "task" "deleted"
-  UpdateContext Json ctx -> send Json $ ContextResponse ctx
-  UpdateContext Text ctx -> do
+  UndeleteTask _ rtype _ -> send rtype $ CommandResponse "task" "undeleted"
+  EditContext Text ctx -> do
     send Text $ ContextResponse ctx
     putStrLn ""
     Query.handle $ Arg.List False False False

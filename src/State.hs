@@ -1,4 +1,4 @@
-module State (State (..), Context, rebuild, apply, getVisibleTasks) where
+module State (State (..), getContext, getTasks, rebuild, apply) where
 
 import Data.List
 import Data.Maybe
@@ -6,74 +6,67 @@ import Data.Time
 import Event
 import Task
 
-type Context = [Tag]
-
 data State = State
-  { getContext :: Context,
-    getTasks :: [Task]
+  { _ctx :: Project,
+    _tasks :: [Task]
   }
   deriving (Show, Read)
 
+getContext :: State -> Project
+getContext = _ctx
+
+getTasks :: State -> [Task]
+getTasks = _tasks
+
 rebuild :: [Event] -> State
-rebuild = foldl apply (State [] [])
+rebuild = foldl apply $ State Nothing []
 
 apply :: State -> Event -> State
 apply state evt = case evt of
-  TaskCreated _ id desc tags due -> state {getTasks = tasks}
+  TaskAdded _ id desc project due -> state {_tasks = tasks}
     where
-      task = Task id desc tags [] [] due Nothing Nothing Nothing
+      task = Task id desc project [] [] due Nothing Nothing Nothing
       tasks = getTasks state ++ [task]
-  TaskUpdated _ id desc tags due -> state {getTasks = tasks}
+  TaskEdited _ id desc project due -> state {_tasks = tasks}
     where
-      tasks = map update (getTasks state)
+      tasks = map update $ getTasks state
       update task
-        | id == (getId task) = task {getDesc = desc, getTags = tags, getDue = due}
+        | id == getId task = task {_desc = desc, _project = project, _due = due}
         | otherwise = task
-  TaskStarted start id -> state {getTasks = tasks}
+  TaskStarted start id -> state {_tasks = tasks}
     where
-      tasks = map update (getTasks state)
+      tasks = map update $ getTasks state
       update task
-        | id == (getId task) = task {getActive = Just start, getStarts = getStarts task ++ [start]}
+        | id == getId task = task {_active = Just start, _starts = getStarts task ++ [start]}
         | otherwise = task
-  TaskStopped stop id -> state {getTasks = tasks}
+  TaskStopped stop id -> state {_tasks = tasks}
     where
-      tasks = map update (getTasks state)
+      tasks = map update $ getTasks state
       update task
-        | id == (getId task) = task {getActive = Nothing, getStops = getStops task ++ [stop]}
+        | id == getId task = task {_active = Nothing, _stops = getStops task ++ [stop]}
         | otherwise = task
-  TaskMarkedAsDone now id -> state {getTasks = tasks}
+  TaskDid now id -> state {_tasks = tasks}
     where
-      tasks = map update (getTasks state)
+      tasks = map update $ getTasks state
       update task
-        | id == (getId task) = task {getDone = Just now}
+        | id == getId task = task {_done = Just now}
         | otherwise = task
-  TaskUnmarkedAsDone _ id -> state {getTasks = tasks}
+  TaskUndid _ id -> state {_tasks = tasks}
     where
-      tasks = map update (getTasks state)
+      tasks = map update $ getTasks state
       update task
-        | id == (getId task) = task {getDone = Nothing}
+        | id == getId task = task {_done = Nothing}
         | otherwise = task
-  TaskDeleted now id -> state {getTasks = tasks}
+  TaskDeleted now id -> state {_tasks = tasks}
     where
-      tasks = map update (getTasks state)
+      tasks = map update $ getTasks state
       update task
-        | id == (getId task) = task {getDeleted = Just now}
+        | id == getId task = task {_deleted = Just now}
         | otherwise = task
-  ContextUpdated ctx -> state {getContext = ctx}
-
-getVisibleTasks :: State -> [Task]
-getVisibleTasks state = filter notDone $ filter notDeleted $ filter (matchContext ctx) $ tasks
-  where
-    ctx = getContext state
-    tasks = getTasks state
-
-matchContext :: Context -> Task -> Bool
-matchContext ctx task
-  | null ctx = True
-  | otherwise = not $ null $ intersect ctx $ getTags task
-
-notDone :: Task -> Bool
-notDone = isNothing . getDone
-
-notDeleted :: Task -> Bool
-notDeleted = isNothing . getDeleted
+  TaskUndeleted now id -> state {_tasks = tasks}
+    where
+      tasks = map update $ getTasks state
+      update task
+        | id == getId task = task {_deleted = Nothing}
+        | otherwise = task
+  ContextEdited ctx -> state {_ctx = ctx}
