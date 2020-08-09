@@ -22,7 +22,7 @@ data ResponseType
 data Response
   = TasksResponse UTCTime [Task]
   | TaskResponse UTCTime Task
-  | WtimeResponse UTCTime [DailyWorktime]
+  | WtimeResponse UTCTime MoreOpt [DailyWorktime]
   | StatusResponse UTCTime (Maybe Task)
   | VersionResponse String
   | ContextResponse Project
@@ -32,7 +32,7 @@ data Response
 send :: ResponseType -> Response -> IO ()
 send rtype (TasksResponse now tasks) = showTasks now rtype tasks
 send rtype (TaskResponse now task) = showTask now rtype task
-send rtype (WtimeResponse now wtimes) = showWtime now rtype wtimes
+send rtype (WtimeResponse now moreOpt wtimes) = showWtime now rtype moreOpt wtimes
 send rtype (StatusResponse now task) = showStatus now rtype task
 send rtype (VersionResponse version) = showVersion rtype version
 send rtype (ContextResponse proj) = showContext rtype proj
@@ -107,21 +107,65 @@ showTaskJson now task =
 
 -- Worktime
 
-showWtime :: UTCTime -> ResponseType -> [DailyWorktime] -> IO ()
-showWtime now Text dwtimes = putStrLn $ showDailyWtimeText now dwtimes
-showWtime now Json dwtimes = BL.putStr $ encode $ Array $ fromList $ map (showDailyWtimeJson now) dwtimes
+showWtime :: UTCTime -> ResponseType -> MoreOpt -> [DailyWorktime] -> IO ()
+showWtime now Text False dwtimes = putStrLn $ showDailyWtimeText now dwtimes
+showWtime now Text True dwtimes = putStrLn $ showFullDailyWtimeText now dwtimes
+showWtime now Json _ dwtimes = BL.putStr $ encode $ Array $ fromList $ map (showDailyWtimeJson now) dwtimes
 
 showDailyWtimeText :: UTCTime -> [DailyWorktime] -> String
 showDailyWtimeText now dwtimes = render $ head : body ++ foot
   where
     head = map (underline . bold . cell) ["DATE", "WORKTIME"]
     body = map rows dwtimes
-    foot =
-      [ replicate 2 $ ext 8 . cell $ replicate 3 '-',
-        [bold . cell $ "TOTAL RAW", bold . cell $ showFullDuration total],
-        [bold . cell $ "TOTAL WDAY", bold . cell $ showFullDuration (total * 3.2)]
+    rows dwtime =
+      [ cell $ fst dwtime,
+        yellow $ cell $ showFullDuration $ sum $ map getWtimeDuration $ snd dwtime
       ]
-    rows dwtime = [cell $ fst dwtime, yellow $ cell $ showFullDuration $ sum $ map getWtimeDuration $ snd dwtime]
+    foot =
+      [ replicate 2 $ ext 8 . cell $ "—",
+        [ bold . cell $ "TOTAL RAW",
+          bold . cell $ showFullDuration total
+        ],
+        [ bold . cell $ "TOTAL WDAY",
+          bold . cell $ showFullDuration (total * 3.2)
+        ]
+      ]
+    total = sum $ map getWtimeDuration $ concatMap snd dwtimes
+
+showFullDailyWtimeText :: UTCTime -> [DailyWorktime] -> String
+showFullDailyWtimeText now dwtimes = render $ head : body ++ foot
+  where
+    head = map (underline . bold . cell) ["DATE", "ID", "DESC", "WORKTIME"]
+    body = concatMap rows dwtimes
+
+    rows dwtime = (map rows' $ snd dwtime) ++ subtotal
+      where
+        subtotal =
+          [ [ bold $ cell "SUBTOTAL",
+              cell "",
+              cell "",
+              bold $ cell $ showFullDuration $ sum $ map getWtimeDuration $ snd dwtime
+            ],
+            replicate 4 $ ext 8 . cell $ "—"
+          ]
+        rows' wtime =
+          [ cell $ fst dwtime,
+            red $ cell $ getWtimeId wtime,
+            cell $ getWtimeDesc wtime,
+            yellow $ cell $ showFullDuration $ getWtimeDuration wtime
+          ]
+    foot =
+      [ [ bold $ cell $ "TOTAL RAW",
+          cell "",
+          cell "",
+          bold $ cell $ showFullDuration total
+        ],
+        [ bold $ cell $ "TOTAL WDAY",
+          cell "",
+          cell "",
+          bold $ cell $ showFullDuration (total * 3.2)
+        ]
+      ]
     total = sum $ map getWtimeDuration $ concatMap snd dwtimes
 
 showDailyWtimeJson :: UTCTime -> DailyWorktime -> Data.Aeson.Value

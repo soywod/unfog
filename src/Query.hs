@@ -14,7 +14,7 @@ import Worktime
 data Query
   = ShowTasks UTCTime ResponseType [Task]
   | ShowTask UTCTime ResponseType Task
-  | ShowWtime UTCTime ResponseType [DailyWorktime]
+  | ShowWtime UTCTime ResponseType MoreOpt [DailyWorktime]
   | ShowStatus UTCTime ResponseType (Maybe Task)
   | Error ResponseType String
   deriving (Show, Read)
@@ -35,7 +35,7 @@ parseQuery now state (Arg.Status moreOpt jsonOpt) = showStatus now state moreOpt
 execute :: Query -> IO ()
 execute (ShowTasks now rtype tasks) = send rtype (TasksResponse now tasks)
 execute (ShowTask now rtype task) = send rtype (TaskResponse now task)
-execute (ShowWtime now rtype wtimes) = send rtype (WtimeResponse now wtimes)
+execute (ShowWtime now rtype moreOpt wtimes) = send rtype (WtimeResponse now moreOpt wtimes)
 execute (ShowStatus now rtype task) = send rtype (StatusResponse now task)
 execute (Error rtype msg) = send rtype (ErrorResponse msg)
 
@@ -53,7 +53,7 @@ showTask now (State _ tasks) id jsonOpt = case findById id tasks of
     rtype = parseResponseType jsonOpt
 
 showWtime :: UTCTime -> State -> Project -> FromOpt -> ToOpt -> MoreOpt -> JsonOpt -> Query
-showWtime now (State ctx tasks) proj fromOpt toOpt moreOpt jsonOpt = ShowWtime now rtype wtimes
+showWtime now (State ctx tasks) proj fromOpt toOpt moreOpt jsonOpt = ShowWtime now rtype moreOpt wtimes
   where
     ctx' = if isNothing proj then ctx else proj
     tasks' = filterWith [notDeleted, matchContext ctx'] tasks

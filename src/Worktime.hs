@@ -34,7 +34,7 @@ buildWtimePerDay now from to = reverse . sortOn fst . foldl buildWtimePerDay' []
       where
         wtime = Worktime (getId task) (getDesc task) 0
         starts' = map (clampTime from to) $ getStarts task
-        stops' = map (clampTime from to) $ getStops task ++ [now | not $ isNothing $ getActive task]
+        stops' = map (clampTime from to) $ getStops task ++ [now | isJust $ getActive task]
 
 wtimePerDay :: Worktime -> (UTCTime, UTCTime) -> [DailyWorktime]
 wtimePerDay (Worktime id desc _) (start, stop)
