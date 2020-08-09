@@ -35,85 +35,85 @@ spec = parallel $ do
       parseCommands' (Arg.Edit "id" "desc" (Just "proj") Nothing False) `shouldBe` [EditTask now Text "id" "desc" (Just "proj") Nothing]
       parseCommands' (Arg.Edit "id" "desc" Nothing (Just now) False) `shouldBe` [EditTask now Text "id" "desc" Nothing (Just now)]
       parseCommands' (Arg.Edit "id" "desc" Nothing (Just now) False) `shouldBe` [EditTask now Text "id" "desc" Nothing (Just now)]
-      parseCommands' (Arg.Edit "id-unknown" "desc" Nothing Nothing False) `shouldBe` [Error Text "task not found"]
+      parseCommands' (Arg.Edit "idunknown" "desc" Nothing Nothing False) `shouldBe` [Error Text "task not found"]
 
     it "parse start command" $ do
       let taskA = Task.new {_id = "id"}
-      let taskB = Task.new {_id = "id-started", _active = Just now}
-      let taskC = Task.new {_id = "id-done", _done = Just now}
-      let taskD = Task.new {_id = "id-deleted", _deleted = Just now}
+      let taskB = Task.new {_id = "idstarted", _active = Just now}
+      let taskC = Task.new {_id = "iddone", _done = Just now}
+      let taskD = Task.new {_id = "iddeleted", _deleted = Just now}
       let state = State.new {_tasks = [taskA, taskB, taskC, taskD]}
       let parseCommands' = parseCommands now tzone state ""
       parseCommands' (Arg.Start [] False) `shouldBe` []
       parseCommands' (Arg.Start ["id"] False) `shouldBe` [StartTask now Text "id"]
       parseCommands' (Arg.Start ["id"] True) `shouldBe` [StartTask now Json "id"]
-      parseCommands' (Arg.Start ["id-started"] False) `shouldBe` [Error Text "task already started"]
-      parseCommands' (Arg.Start ["id-done"] False) `shouldBe` [Error Text "task already done"]
-      parseCommands' (Arg.Start ["id-deleted"] False) `shouldBe` [Error Text "task already deleted"]
-      parseCommands' (Arg.Start ["id-unknown"] False) `shouldBe` [Error Text "task not found"]
+      parseCommands' (Arg.Start ["idstarted"] False) `shouldBe` [Error Text "task already started"]
+      parseCommands' (Arg.Start ["iddone"] False) `shouldBe` [Error Text "task already done"]
+      parseCommands' (Arg.Start ["iddeleted"] False) `shouldBe` [Error Text "task already deleted"]
+      parseCommands' (Arg.Start ["idunknown"] False) `shouldBe` [Error Text "task not found"]
 
     it "parse stop command" $ do
       let taskA = Task.new {_id = "id", _active = Just now}
-      let taskB = Task.new {_id = "id-stopped"}
-      let taskC = Task.new {_id = "id-done", _done = Just now}
-      let taskD = Task.new {_id = "id-deleted", _deleted = Just now}
+      let taskB = Task.new {_id = "idstopped"}
+      let taskC = Task.new {_id = "iddone", _done = Just now}
+      let taskD = Task.new {_id = "iddeleted", _deleted = Just now}
       let state = State.new {_tasks = [taskA, taskB, taskC, taskD]}
       let parseCommands' = parseCommands now tzone state ""
       parseCommands' (Arg.Stop [] False) `shouldBe` []
       parseCommands' (Arg.Stop ["id"] False) `shouldBe` [StopTask now Text "id"]
       parseCommands' (Arg.Stop ["id"] True) `shouldBe` [StopTask now Json "id"]
-      parseCommands' (Arg.Stop ["id-stopped"] False) `shouldBe` [Error Text "task already stopped"]
-      parseCommands' (Arg.Stop ["id-done"] False) `shouldBe` [Error Text "task already done"]
-      parseCommands' (Arg.Stop ["id-deleted"] False) `shouldBe` [Error Text "task already deleted"]
-      parseCommands' (Arg.Stop ["id-unknown"] False) `shouldBe` [Error Text "task not found"]
+      parseCommands' (Arg.Stop ["idstopped"] False) `shouldBe` [Error Text "task already stopped"]
+      parseCommands' (Arg.Stop ["iddone"] False) `shouldBe` [Error Text "task already done"]
+      parseCommands' (Arg.Stop ["iddeleted"] False) `shouldBe` [Error Text "task already deleted"]
+      parseCommands' (Arg.Stop ["idunknown"] False) `shouldBe` [Error Text "task not found"]
 
     it "parse do command" $ do
       let taskA = Task.new {_id = "id"}
-      let taskB = Task.new {_id = "id-done", _done = Just now}
-      let taskC = Task.new {_id = "id-deleted", _deleted = Just now}
+      let taskB = Task.new {_id = "iddone", _done = Just now}
+      let taskC = Task.new {_id = "iddeleted", _deleted = Just now}
       let state = State.new {_tasks = [taskA, taskB, taskC]}
       let parseCommands' = parseCommands now tzone state ""
       parseCommands' (Arg.Do [] False) `shouldBe` []
       parseCommands' (Arg.Do ["id"] False) `shouldBe` [DoTask now Text "id"]
       parseCommands' (Arg.Do ["id"] True) `shouldBe` [DoTask now Json "id"]
-      parseCommands' (Arg.Do ["id-done"] False) `shouldBe` [Error Text "task already done"]
-      parseCommands' (Arg.Do ["id-deleted"] False) `shouldBe` [Error Text "task already deleted"]
-      parseCommands' (Arg.Do ["id-unknown"] False) `shouldBe` [Error Text "task not found"]
+      parseCommands' (Arg.Do ["iddone"] False) `shouldBe` [Error Text "task already done"]
+      parseCommands' (Arg.Do ["iddeleted"] False) `shouldBe` [Error Text "task already deleted"]
+      parseCommands' (Arg.Do ["idunknown"] False) `shouldBe` [Error Text "task not found"]
 
     it "parse undo command" $ do
       let taskA = Task.new {_id = "id", _done = Just now}
-      let taskB = Task.new {_id = "id-undone"}
-      let taskC = Task.new {_id = "id-deleted", _deleted = Just now}
+      let taskB = Task.new {_id = "idundone"}
+      let taskC = Task.new {_id = "iddeleted", _deleted = Just now}
       let state = State.new {_tasks = [taskA, taskB, taskC]}
       let parseCommands' = parseCommands now tzone state ""
       parseCommands' (Arg.Undo [] False) `shouldBe` []
       parseCommands' (Arg.Undo ["id"] False) `shouldBe` [UndoTask now Text "id"]
       parseCommands' (Arg.Undo ["id"] True) `shouldBe` [UndoTask now Json "id"]
-      parseCommands' (Arg.Undo ["id-undone"] False) `shouldBe` [Error Text "task not yet done"]
-      parseCommands' (Arg.Undo ["id-deleted"] False) `shouldBe` [Error Text "task already deleted"]
-      parseCommands' (Arg.Undo ["id-unknown"] False) `shouldBe` [Error Text "task not found"]
+      parseCommands' (Arg.Undo ["idundone"] False) `shouldBe` [Error Text "task not yet done"]
+      parseCommands' (Arg.Undo ["iddeleted"] False) `shouldBe` [Error Text "task already deleted"]
+      parseCommands' (Arg.Undo ["idunknown"] False) `shouldBe` [Error Text "task not found"]
 
     it "parse delete command" $ do
       let taskA = Task.new {_id = "id"}
-      let taskB = Task.new {_id = "id-deleted", _deleted = Just now}
+      let taskB = Task.new {_id = "iddeleted", _deleted = Just now}
       let state = State.new {_tasks = [taskA, taskB]}
       let parseCommands' = parseCommands now tzone state ""
       parseCommands' (Arg.Delete [] False) `shouldBe` []
       parseCommands' (Arg.Delete ["id"] False) `shouldBe` [DeleteTask now Text "id"]
       parseCommands' (Arg.Delete ["id"] True) `shouldBe` [DeleteTask now Json "id"]
-      parseCommands' (Arg.Delete ["id-deleted"] False) `shouldBe` [Error Text "task already deleted"]
-      parseCommands' (Arg.Delete ["id-unknown"] False) `shouldBe` [Error Text "task not found"]
+      parseCommands' (Arg.Delete ["iddeleted"] False) `shouldBe` [Error Text "task already deleted"]
+      parseCommands' (Arg.Delete ["idunknown"] False) `shouldBe` [Error Text "task not found"]
 
     it "parse undelete command" $ do
       let taskA = Task.new {_id = "id", _deleted = Just now}
-      let taskB = Task.new {_id = "id-undeleted"}
+      let taskB = Task.new {_id = "idundeleted"}
       let state = State.new {_tasks = [taskA, taskB]}
       let parseCommands' = parseCommands now tzone state ""
       parseCommands' (Arg.Undelete [] False) `shouldBe` []
       parseCommands' (Arg.Undelete ["id"] False) `shouldBe` [UndeleteTask now Text "id"]
       parseCommands' (Arg.Undelete ["id"] True) `shouldBe` [UndeleteTask now Json "id"]
-      parseCommands' (Arg.Undelete ["id-undeleted"] False) `shouldBe` [Error Text "task not yet deleted"]
-      parseCommands' (Arg.Undelete ["id-unknown"] False) `shouldBe` [Error Text "task not found"]
+      parseCommands' (Arg.Undelete ["idundeleted"] False) `shouldBe` [Error Text "task not yet deleted"]
+      parseCommands' (Arg.Undelete ["idunknown"] False) `shouldBe` [Error Text "task not found"]
 
   it "execute" $ do
     execute State.new (AddTask now Text "id" "desc" Nothing Nothing) `shouldBe` [TaskAdded now "id" "desc" Nothing Nothing]

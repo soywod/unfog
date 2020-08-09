@@ -36,6 +36,7 @@ library:
   - random
   - time
   - uuid
+  - containers
 
 executables:
   unfog:

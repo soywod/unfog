@@ -2,11 +2,15 @@ module Task where
 
 import Data.List
 import Data.Maybe
+import Data.Set (Set)
 import Data.Time
+import qualified Data.Set as Set
 
 -- Model
 
 type Id = String
+
+type ShortId = String
 
 type Desc = String
 
@@ -100,15 +104,20 @@ isDuePassed now task = case getDue task of
   Nothing -> False
   Just due -> due < now
 
+both :: Predicate -> Predicate -> Predicate
+both f g x = f x && g x
+
 filterWith :: [Predicate] -> [Task] -> [Task]
 filterWith predicates = filter matchAll
   where
-    matchAll task = foldl1 (&&) $ map ($ task) predicates
+    matchAll = foldl1 both predicates
 
 -- Finders
 
 findById :: Id -> [Task] -> Maybe Task
-findById id = find $ isPrefixOf id . getId
+findById id = find $ isPrefixOf id' . getId
+  where
+    id' = filter (/= '-') id
 
 findFstActive :: [Task] -> Maybe Task
 findFstActive tasks
@@ -116,3 +125,20 @@ findFstActive tasks
   | otherwise = Just $ head activeTasks
   where
     activeTasks = filter (not . isNothing . getActive) tasks
+
+shortenId :: Int -> String -> ShortId
+shortenId len id = take len $ filter (/= '-') id
+
+getShortIdLength :: [Task] -> Int
+getShortIdLength tasks = loop 4
+  where
+    ids = map getId tasks
+    loop len =
+      if len >= 32
+        then 32
+        else
+          if Set.size distinctIds == length tasks
+            then len
+            else loop (len + 1)
+      where
+        distinctIds = Set.fromList $ map (take len) ids
