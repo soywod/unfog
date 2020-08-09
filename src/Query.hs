@@ -2,12 +2,13 @@ module Query where
 
 import ArgOptions
 import qualified ArgParser as Arg
-import Data.List
-import Data.Maybe
-import Data.Time
-import Event
+import Control.Applicative ((<|>))
+import Data.Maybe (isJust, isNothing)
+import Data.Time (TimeZone, UTCTime, getCurrentTime, getCurrentTimeZone)
+import qualified Event (readFile)
 import Response
-import State
+import State (State (..))
+import qualified State (new, readFile, rebuild)
 import Task
 import Worktime
 
@@ -22,7 +23,7 @@ data Query
 handle :: Arg.Query -> IO ()
 handle arg = do
   now <- getCurrentTime
-  state <- rebuild <$> readEvents
+  state <- State.readFile <|> (State.rebuild <$> Event.readFile) <|> return State.new
   let query = parseQuery now state arg
   execute query
 

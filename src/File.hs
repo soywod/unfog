@@ -1,49 +1,26 @@
-module File (getFileContent, getFilePath) where
+module File where
 
-import Control.Exception
-import System.Directory
+import Control.Applicative ((<|>))
+import Data.Maybe (fromMaybe)
+import System.Directory (copyFile, createDirectoryIfMissing, getTemporaryDirectory, removeFile)
 import System.Environment (lookupEnv)
-import System.IO.Error
 
-getFileContent :: String -> IO String
-getFileContent fname = do
-  fpath <- getFilePath fname
+getPath :: String -> IO String
+getPath fname = do
+  xdgPath <- lookupEnv "XDG_CONFIG_HOME"
+  homePath <- lookupEnv "HOME"
+  tpmPath <- getTemporaryDirectory
+  let configPathFromXDG = (++ "/unfog") <$> xdgPath
+  let configPathFromHome = (++ "/.config/unfog") <$> homePath
+  let configPath = fromMaybe tpmPath (configPathFromXDG <|> configPathFromHome)
+  createDirectoryIfMissing True configPath
+  return $ configPath ++ "/" ++ fname
+
+getContent :: String -> IO String
+getContent fname = do
+  fpath <- getPath fname
   fpath' <- (++ "/unfog." ++ fname) <$> getTemporaryDirectory
-  copyFile' fpath fpath'
-  fcontent <- readFile' fpath'
-  removeFile' fpath'
+  copyFile fpath fpath'
+  fcontent <- readFile fpath'
+  removeFile fpath'
   return fcontent
-
-getFilePath :: String -> IO String
-getFilePath fname = do
-  fpath <- lookupEnv "XDG_CONFIG_HOME" >>= bindXDGConfigDirPath
-  createDirectoryIfMissing True fpath
-  return $ fpath ++ "/" ++ fname
-  where
-    bindXDGConfigDirPath maybePath = case maybePath of
-      Just path -> return $ path ++ "/unfog"
-      Nothing -> lookupEnv "HOME" >>= bindHomeDirPath
-    bindHomeDirPath maybePath = case maybePath of
-      Just home -> return $ home ++ "/.config/unfog"
-      Nothing -> return "/tmp"
-
-copyFile' :: String -> String -> IO ()
-copyFile' src dest = copyFile src dest `catch` handleErrors
-  where
-    handleErrors err
-      | isDoesNotExistError err = return ()
-      | otherwise = throwIO err
-
-readFile' :: String -> IO String
-readFile' path = readFile path `catch` handleErrors
-  where
-    handleErrors err
-      | isDoesNotExistError err = return ""
-      | otherwise = throwIO err
-
-removeFile' :: String -> IO ()
-removeFile' path = removeFile path `catch` handleErrors
-  where
-    handleErrors err
-      | isDoesNotExistError err = return ()
-      | otherwise = throwIO err

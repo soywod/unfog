@@ -1,10 +1,13 @@
-module State (State (..), getContext, getTasks, rebuild, apply) where
+module State where
 
 import Data.List
 import Data.Maybe
 import Data.Time
-import Event
+import Event (Event (..))
+import qualified File
 import Task
+
+-- Model
 
 data State = State
   { _ctx :: Project,
@@ -12,14 +15,39 @@ data State = State
   }
   deriving (Show, Read)
 
+new :: State
+new =
+  State
+    { _ctx = Nothing,
+      _tasks = []
+    }
+
+-- Getters
+
 getContext :: State -> Project
 getContext = _ctx
 
 getTasks :: State -> [Task]
 getTasks = _tasks
 
+-- File
+
+readFile :: IO State
+readFile = read <$> File.getContent "state"
+
+writeFile :: State -> IO ()
+writeFile state = writeFile' state' =<< File.getPath "state"
+  where
+    state' = show state
+    writeFile' = flip Prelude.writeFile
+
+-- Event sourcing methods
+
 rebuild :: [Event] -> State
-rebuild = foldl apply $ State Nothing []
+rebuild = applyAll $ State Nothing []
+
+applyAll :: State -> [Event] -> State
+applyAll = foldl apply
 
 apply :: State -> Event -> State
 apply state evt = case evt of

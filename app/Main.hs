@@ -1,9 +1,9 @@
 module Main where
 
 import ArgParser
-import qualified Command
-import qualified Procedure
-import qualified Query
+import qualified Command (handle)
+import qualified Procedure (handle)
+import qualified Query (handle)
 
 main :: IO ()
 main = parseArgs >>= dispatch

@@ -2,7 +2,7 @@ module Event where
 
 import Control.Monad
 import Data.Time (UTCTime)
-import File
+import qualified File
 import Task
 
 data Event
@@ -17,11 +17,11 @@ data Event
   | ContextEdited Project
   deriving (Show, Read)
 
-readEvents :: IO [Event]
-readEvents = map read . lines <$> getFileContent "store"
+readFile :: IO [Event]
+readFile = map read . lines <$> File.getContent "store"
 
-writeEvents :: [Event] -> IO ()
-writeEvents = mapM_ writeEvent
+writeFile :: [Event] -> IO ()
+writeFile = mapM_ writeEvent
   where
-    writeEvent evt = appendToStore evt =<< getFilePath "store"
+    writeEvent evt = appendToStore evt =<< File.getPath "store"
     appendToStore evt store = appendFile store $ show evt ++ "\n"

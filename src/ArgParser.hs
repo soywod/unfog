@@ -4,7 +4,8 @@ import ArgOptions
 import Control.Monad
 import Data.List
 import Data.Time
-import Event
+import Event (Event (..))
+import qualified Event (readFile)
 import Options.Applicative
 import Task (Desc, Due, Id, Project)
 
@@ -290,14 +291,14 @@ jsonOptParser = switch $ long "json" <> help "Show result as JSON string"
 idsCompleter :: Completer
 idsCompleter = mkCompleter idsCompleter'
   where
-    idsCompleter' str = sort . filter (isPrefixOf str) . foldl extractIds [] <$> readEvents
+    idsCompleter' str = sort . filter (isPrefixOf str) . foldl extractIds [] <$> Event.readFile
     extractIds ids (TaskAdded _ id _ _ _) = ids ++ [id]
     extractIds ids _ = ids
 
 projCompleter :: Completer
 projCompleter = mkCompleter projectCompleter'
   where
-    projectCompleter' str = sort . nub . filter (isPrefixOf str) . foldl extractProjects [] <$> readEvents
+    projectCompleter' str = sort . nub . filter (isPrefixOf str) . foldl extractProjects [] <$> Event.readFile
     extractProjects projs (TaskAdded _ _ _ (Just proj) _) = projs ++ [proj]
     extractProjects projs (TaskEdited _ _ _ (Just proj) _) = projs ++ [proj]
     extractProjects projs (ContextEdited (Just proj)) = projs ++ [proj]
