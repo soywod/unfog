@@ -5,12 +5,12 @@ import Control.Applicative ((<|>))
 import Data.Maybe (isJust, isNothing)
 import Data.Time (TimeZone, UTCTime, getCurrentTime, getCurrentTimeZone)
 import qualified Data.UUID.V4 as UUID (nextRandom)
-import Event (Event (..))
-import qualified Event (readFile, writeFile)
+import Event.Type (Event (..))
 import qualified Query (handle)
 import Response
 import State (State (..))
 import qualified State (applyAll, getTasks, new, readFile, rebuild, writeFile)
+import qualified Store (appendFile, readFile)
 import Task
 
 data Command
@@ -22,7 +22,7 @@ data Command
   | UndoTask UTCTime ResponseType Id
   | DeleteTask UTCTime ResponseType Id
   | UndeleteTask UTCTime ResponseType Id
-  | EditContext ResponseType Project
+  | EditContext UTCTime ResponseType Project
   | Error ResponseType String
   deriving (Show, Read)
 
@@ -30,12 +30,12 @@ handle :: Arg.Command -> IO ()
 handle arg = do
   now <- getCurrentTime
   tzone <- getCurrentTimeZone
-  state <- State.readFile <|> (State.rebuild <$> Event.readFile) <|> return State.new
+  state <- State.readFile <|> (State.rebuild <$> Store.readFile) <|> return State.new
   rndId <- show <$> UUID.nextRandom
   let cmds = parseCommands now tzone state rndId arg
   let evts = concatMap (execute state) cmds
   let state' = State.applyAll state evts
-  Event.writeFile evts
+  Store.appendFile evts
   State.writeFile state'
   notify cmds subscribers
 
@@ -48,7 +48,7 @@ parseCommands now _ state _ (Arg.Do ids jsonOpt) = map (doTask now (parseRespons
 parseCommands now _ state _ (Arg.Undo ids jsonOpt) = map (undoTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.Delete ids jsonOpt) = map (deleteTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.Undelete ids jsonOpt) = map (undeleteTask now (parseResponseType jsonOpt) state) ids
-parseCommands now _ state _ (Arg.Context ctx jsonOpt) = [editContext (parseResponseType jsonOpt) ctx]
+parseCommands now _ state _ (Arg.Context ctx jsonOpt) = [editContext now (parseResponseType jsonOpt) ctx]
 
 execute :: State -> Command -> [Event]
 execute state cmd = case cmd of
@@ -60,7 +60,7 @@ execute state cmd = case cmd of
   UndoTask now rtype id -> [TaskUndid now id]
   DeleteTask now rtype id -> [TaskDeleted now id]
   UndeleteTask now rtype id -> [TaskUndeleted now id]
-  EditContext rtype ctx -> [ContextEdited ctx]
+  EditContext now rtype ctx -> [ContextEdited now ctx]
   Error _ _ -> []
 
 addTask :: UTCTime -> TimeZone -> ResponseType -> State -> Id -> Desc -> Project -> Due -> Command
@@ -142,7 +142,7 @@ undeleteTask now rtype state id = case findById id (State.getTasks state) of
       | isNothing $ getDeleted task = Error rtype "task not yet deleted"
       | otherwise = UndeleteTask now rtype (getId task)
 
-editContext :: ResponseType -> Project -> Command
+editContext :: UTCTime -> ResponseType -> Project -> Command
 editContext = EditContext
 
 -- Subscribers
@@ -167,7 +167,7 @@ logger cmd = case cmd of
   UndoTask _ rtype _ -> send rtype $ CommandResponse "task" "undone"
   DeleteTask _ rtype _ -> send rtype $ CommandResponse "task" "deleted"
   UndeleteTask _ rtype _ -> send rtype $ CommandResponse "task" "undeleted"
-  EditContext Text ctx -> do
+  EditContext _ Text ctx -> do
     send Text $ ContextResponse ctx
     putStrLn ""
     Query.handle $ Arg.List False False False

@@ -28,9 +28,11 @@ library:
   - aeson
   - base-compat
   - bytestring
+  - containers
   - directory
   - optparse-applicative
   - process
+  - random
   - time
   - uuid
 

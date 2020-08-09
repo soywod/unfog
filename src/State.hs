@@ -3,7 +3,7 @@ module State where
 import Data.List
 import Data.Maybe
 import Data.Time
-import Event (Event (..))
+import Event.Type (Event (..))
 import qualified File
 import Task
 
@@ -30,7 +30,7 @@ getContext = _ctx
 getTasks :: State -> [Task]
 getTasks = _tasks
 
--- File
+-- Read & Write
 
 readFile :: IO State
 readFile = read <$> File.getContent "state"
@@ -41,7 +41,7 @@ writeFile state = writeFile' state' =<< File.getPath "state"
     state' = show state
     writeFile' = flip Prelude.writeFile
 
--- Event sourcing methods
+-- Event sourcing
 
 rebuild :: [Event] -> State
 rebuild = applyAll $ State Nothing []
@@ -77,7 +77,7 @@ apply state evt = case evt of
     where
       tasks = map update $ getTasks state
       update task
-        | id == getId task = task {_done = Just now}
+        | id == getId task = task {_done = Just now, _stops = getStops task ++ [now | isJust $ getActive task]}
         | otherwise = task
   TaskUndid _ id -> state {_tasks = tasks}
     where
@@ -89,12 +89,12 @@ apply state evt = case evt of
     where
       tasks = map update $ getTasks state
       update task
-        | id == getId task = task {_deleted = Just now}
+        | id == getId task = task {_deleted = Just now, _stops = getStops task ++ [now | isJust $ getActive task]}
         | otherwise = task
-  TaskUndeleted now id -> state {_tasks = tasks}
+  TaskUndeleted _ id -> state {_tasks = tasks}
     where
       tasks = map update $ getTasks state
       update task
         | id == getId task = task {_deleted = Nothing}
         | otherwise = task
-  ContextEdited ctx -> state {_ctx = ctx}
+  ContextEdited _ ctx -> state {_ctx = ctx}

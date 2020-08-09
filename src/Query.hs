@@ -5,10 +5,10 @@ import qualified ArgParser as Arg
 import Control.Applicative ((<|>))
 import Data.Maybe (isJust, isNothing)
 import Data.Time (TimeZone, UTCTime, getCurrentTime, getCurrentTimeZone)
-import qualified Event (readFile)
 import Response
 import State (State (..))
 import qualified State (new, readFile, rebuild)
+import qualified Store (readFile)
 import Task
 import Worktime
 
@@ -23,7 +23,7 @@ data Query
 handle :: Arg.Query -> IO ()
 handle arg = do
   now <- getCurrentTime
-  state <- State.readFile <|> (State.rebuild <$> Event.readFile) <|> return State.new
+  state <- State.readFile <|> (State.rebuild <$> Store.readFile) <|> return State.new
   let query = parseQuery now state arg
   execute query
 
