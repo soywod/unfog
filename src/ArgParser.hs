@@ -121,13 +121,13 @@ addCommands :: UTCTime -> TimeZone -> (Mod CommandFields Arg, Mod CommandFields 
 addCommands now tzone = aliasedCommand parser desc ["add", "a"]
   where
     desc = "Add a new task"
-    parser = CommandArg <$> (Add <$> descParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
+    parser = CommandArg <$> (Add <$> addDescParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
 
 editCommands :: UTCTime -> TimeZone -> (Mod CommandFields Arg, Mod CommandFields Arg)
 editCommands now tzone = aliasedCommand parser desc ["edit", "e"]
   where
     desc = "Edit an existing task"
-    parser = CommandArg <$> (Edit <$> idParser <*> descParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
+    parser = CommandArg <$> (Edit <$> idParser <*> editDescParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
 
 startCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
 startCommands = aliasedCommand parser desc ["start", "sta"]
@@ -229,10 +229,13 @@ idParser :: Parser Id
 idParser = argument str $ metavar "ID" <> completer idsCompleter
 
 idsParser :: Parser [Id]
-idsParser = some idParser
+idsParser = some $ argument str $ metavar "IDs..." <> completer idsCompleter
 
-descParser :: Parser Desc
-descParser = unwords <$> (many $ argument str $ metavar "DESC")
+addDescParser :: Parser Desc
+addDescParser = unwords <$> (some $ argument str $ metavar "DESC")
+
+editDescParser :: Parser Desc
+editDescParser = unwords <$> (many $ argument str $ metavar "DESC")
 
 projParser :: Parser Project
 projParser = argument projectReader $ metavar "PROJECT" <> value Nothing <> completer projCompleter

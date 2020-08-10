@@ -12,6 +12,7 @@ import Duration
 import GHC.Exts
 import Table
 import Task
+import Text.Printf (printf)
 import Worktime
 
 data ResponseType
@@ -20,33 +21,52 @@ data ResponseType
   deriving (Show, Read)
 
 data Response
-  = TasksResponse UTCTime [Task]
+  = TasksResponse UTCTime Project [Task]
   | TaskResponse UTCTime Task
   | WtimeResponse UTCTime MoreOpt [DailyWorktime]
   | StatusResponse UTCTime (Maybe Task)
   | VersionResponse String
   | ContextResponse Project
-  | CommandResponse String String
+  | MessageResponse String
   | ErrorResponse String
 
 send :: ResponseType -> Response -> IO ()
-send rtype (TasksResponse now tasks) = showTasks now rtype tasks
+send rtype (TasksResponse now ctx tasks) = showTasks now rtype ctx tasks
 send rtype (TaskResponse now task) = showTask now rtype task
 send rtype (WtimeResponse now moreOpt wtimes) = showWtime now rtype moreOpt wtimes
 send rtype (StatusResponse now task) = showStatus now rtype task
 send rtype (VersionResponse version) = showVersion rtype version
 send rtype (ContextResponse proj) = showContext rtype proj
-send rtype (CommandResponse cat action) = showCommandMsg rtype cat action
+send rtype (MessageResponse msg) = showMessage rtype msg
 send rtype (ErrorResponse msg) = showError rtype msg
 
 -- Tasks
 
-showTasks :: UTCTime -> ResponseType -> [Task] -> IO ()
-showTasks now Text tasks = putStrLn $ showTasksText now tasks
-showTasks now Json tasks = BL.putStr $ encode $ showTasksJson now tasks
+showTasks :: UTCTime -> ResponseType -> Project -> [Task] -> IO ()
+showTasks now Text Nothing tasks = do
+  putStrLn ""
+  putStrLn $ showTasksWithProjText now tasks
+showTasks now Text (Just ctx) tasks = do
+  putStrLn $ "Tasks from \x1b[34m" ++ ctx ++ "\x1b[0m project:"
+  putStrLn ""
+  putStrLn $ showTasksText now tasks
+showTasks now Json _ tasks = BL.putStr $ encode $ showTasksJson now tasks
 
 showTasksText :: UTCTime -> [Task] -> String
 showTasksText now tasks = render $ head : body
+  where
+    head = map (bold . underline . cell) ["ID", "DESC", "ACTIVE", "DUE", "WORKTIME"]
+    body = map rows tasks
+    rows task =
+      [ red $ cell $ getId task,
+        cell $ getDesc task,
+        green $ cell $ showApproxTimeDiff now $ getActive task,
+        (if isDuePassed now task then bgRed . white else yellow) $ cell $ showApproxTimeDiffRel now $ getDue task,
+        yellow $ cell $ showApproxDuration $ getTaskWtime now task
+      ]
+
+showTasksWithProjText :: UTCTime -> [Task] -> String
+showTasksWithProjText now tasks = render $ head : body
   where
     head = map (bold . underline . cell) ["ID", "DESC", "PROJECT", "ACTIVE", "DUE", "WORKTIME"]
     body = map rows tasks
@@ -54,8 +74,8 @@ showTasksText now tasks = render $ head : body
       [ red $ cell $ getId task,
         cell $ getDesc task,
         blue $ cell $ fromMaybe "" $ getProject task,
-        green $ cell $ showApproxTimeRel now $ getActive task,
-        (if isDuePassed now task then bgRed . white else yellow) $ cell $ showApproxTimeRel now $ getDue task,
+        green $ cell $ showApproxTimeDiff now $ getActive task,
+        (if isDuePassed now task then bgRed . white else yellow) $ cell $ showApproxTimeDiffRel now $ getDue task,
         yellow $ cell $ showApproxDuration $ getTaskWtime now task
       ]
 
@@ -69,7 +89,9 @@ showTasksJson now tasks =
 -- Task
 
 showTask :: UTCTime -> ResponseType -> Task -> IO ()
-showTask now Text task = putStrLn $ showTaskText now task
+showTask now Text task = do
+  putStrLn ""
+  putStrLn $ showTaskText now task
 showTask now Json task = BL.putStr $ encode $ showTaskJson now task
 
 showTaskText :: UTCTime -> Task -> String
@@ -187,7 +209,7 @@ showStatus now Json task = BL.putStr $ encode $ showStatusJson now task
 
 showStatusText :: UTCTime -> Maybe Task -> String
 showStatusText now Nothing = ""
-showStatusText now (Just task) = getDesc task ++ ": " ++ showApproxTimeRel now (getActive task)
+showStatusText now (Just task) = getDesc task ++ ": " ++ showApproxTimeDiff now (getActive task)
 
 showStatusJson :: UTCTime -> Maybe Task -> Maybe Data.Aeson.Value
 showStatusJson now = fmap showStatusJson'
@@ -214,35 +236,16 @@ showContext rtype proj = case rtype of
   where
     plainMsg = case proj of
       Nothing -> "Context cleared"
-      Just proj -> "Context changed [" ++ proj ++ "]"
+      Just proj -> printf "Project \x1b[32mupdated\x1b[0m set to " ++ proj
     styledMsg = case proj of
       Nothing -> "Context \x1b[31mcleared\x1b[0m"
       Just proj -> "Context \x1b[32mupdated\x1b[0m [\x1b[34m" ++ proj ++ "\x1b[0m]"
 
 -- Command message
 
-showCommandMsg :: ResponseType -> String -> String -> IO ()
-showCommandMsg Text cat action = putStrLn $ showCommandMsgText cat action
-showCommandMsg Json cat action = BL.putStr $ encode $ showCommandMsgJson cat action
-
-showCommandMsgText :: String -> String -> String
-showCommandMsgText cat "created" = cat ++ " \x1b[32mcreated\x1b[0m"
-showCommandMsgText cat "updated" = cat ++ " \x1b[34mupdated\x1b[0m"
-showCommandMsgText cat "started" = cat ++ " \x1b[33mstarted\x1b[0m"
-showCommandMsgText cat "stopped" = cat ++ " \x1b[31mstopped\x1b[0m"
-showCommandMsgText cat "done" = cat ++ " \x1b[35mdone\x1b[0m"
-showCommandMsgText cat "undone" = cat ++ " \x1b[36mundone\x1b[0m"
-showCommandMsgText cat "deleted" = cat ++ " \x1b[31mdeleted\x1b[0m"
-showCommandMsgText cat action = unwords [cat, action]
-
-showCommandMsgJson :: String -> String -> Data.Aeson.Value
-showCommandMsgJson cat action =
-  object
-    [ "success" .= (1 :: Int),
-      "message" .= (cat ++ action)
-    ]
-
--- Message
+showMessage :: ResponseType -> String -> IO ()
+showMessage Text msg = putStrLn msg
+showMessage Json msg = BL.putStr $ encode $ showMessageJson msg
 
 showMessageJson :: String -> Data.Aeson.Value
 showMessageJson msg =
@@ -283,7 +286,7 @@ showActiveJson _ Nothing = Nothing
 showActiveJson now active = Just $ showDurationJson micro approx full
   where
     micro = showMicroTime now active
-    approx = showApproxTimeRel now active
+    approx = showApproxTimeDiff now active
     full = showFullTimeRel now active
 
 showTaskWtimeJson :: Duration -> Data.Aeson.Value

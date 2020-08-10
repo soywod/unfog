@@ -2,7 +2,7 @@ module Command where
 
 import qualified ArgParser as Arg
 import Control.Applicative ((<|>))
-import Data.Maybe (isJust, isNothing)
+import Data.Maybe (fromMaybe, isJust, isNothing)
 import Data.Time (TimeZone, UTCTime, getCurrentTime, getCurrentTimeZone)
 import qualified Data.UUID.V4 as UUID (nextRandom)
 import Event.Type (Event (..))
@@ -12,6 +12,7 @@ import State (State (..))
 import qualified State (applyAll, getTasks, new, readFile, rebuild, writeFile)
 import qualified Store (appendFile, readFile)
 import Task
+import Text.Printf (printf)
 
 data Command
   = AddTask UTCTime ResponseType Id Desc Project Due
@@ -78,9 +79,11 @@ editTask now tzone rtype (State ctx tasks) id desc proj due = case findById id t
     validate task
       | isJust $ getDeleted task = Error rtype "task already deleted"
       | isJust $ getDone task = Error rtype "task already done"
-      | otherwise = EditTask now rtype (getId task) desc proj' due
+      | otherwise = EditTask now rtype (getId task) desc' proj' due
       where
-        proj' = if isNothing proj then ctx else proj
+        desc' = if null desc then (getDesc task) else desc
+        proj' = if isNothing proj then (getProject task) else proj
+        due' = if isNothing due then (getDue task) else due
 
 startTask :: UTCTime -> ResponseType -> State -> Id -> Command
 startTask now rtype state id = case findById id (State.getTasks state) of
@@ -159,16 +162,26 @@ subscribers = [logger]
 
 logger :: Subscriber
 logger cmd = case cmd of
-  AddTask _ rtype _ _ _ _ -> send rtype $ CommandResponse "task" "created"
-  EditTask _ rtype _ _ _ _ -> send rtype $ CommandResponse "task" "updated"
-  StartTask _ rtype _ -> send rtype $ CommandResponse "task" "started"
-  StopTask _ rtype _ -> send rtype $ CommandResponse "task" "stopped"
-  DoTask _ rtype _ -> send rtype $ CommandResponse "task" "done"
-  UndoTask _ rtype _ -> send rtype $ CommandResponse "task" "undone"
-  DeleteTask _ rtype _ -> send rtype $ CommandResponse "task" "deleted"
-  UndeleteTask _ rtype _ -> send rtype $ CommandResponse "task" "undeleted"
-  EditContext _ Text ctx -> do
-    send Text $ ContextResponse ctx
-    putStrLn ""
-    Query.handle $ Arg.List False False False
+  AddTask _ Text id _ proj _ -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m added%s" id $ showIfJust " to project \x1b[34m%s\x1b[0m" proj
+  AddTask _ Json id _ proj _ -> send Json $ MessageResponse $ printf "Task %s added%s" id $ showIfJust " to project %s" proj
+  EditTask _ Text id _ _ _ -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m edited" id
+  EditTask _ Json id _ _ _ -> send Json $ MessageResponse $ printf "Task %s edited" id
+  StartTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m started" id
+  StartTask _ Json id -> send Json $ MessageResponse $ printf "Task %s started" id
+  StopTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m stopped" id
+  StopTask _ Json id -> send Json $ MessageResponse $ printf "Task %s stopped" id
+  DoTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m done" id
+  DoTask _ Json id -> send Json $ MessageResponse $ printf "Task %s done" id
+  UndoTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m undone" id
+  UndoTask _ Json id -> send Json $ MessageResponse $ printf "Task %s undone" id
+  DeleteTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m deleted" id
+  DeleteTask _ Json id -> send Json $ MessageResponse $ printf "Task %s deleted" id
+  UndeleteTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m undeleted" id
+  UndeleteTask _ Json id -> send Json $ MessageResponse $ printf "Task %s undeleted" id
+  EditContext _ rtype Nothing -> send rtype $ MessageResponse "Context cleared"
+  EditContext _ Text (Just ctx) -> send Text $ MessageResponse $ printf "Project \x1b[34m%s\x1b[0m defined as context" ctx
+  EditContext _ Json (Just ctx) -> send Json $ MessageResponse $ printf "Project %s defined as context" ctx
   Error rtype msg -> send rtype $ ErrorResponse msg
+  where
+    showIfJust msg Nothing = ""
+    showIfJust msg (Just a) = printf msg a

@@ -104,9 +104,13 @@ showApproxDurationRel d
   | d > 0 = unwords ["in", showApproxDuration (abs d)]
   | otherwise = ""
 
-showApproxTimeRel :: UTCTime -> Maybe UTCTime -> String
-showApproxTimeRel _ Nothing = ""
-showApproxTimeRel now (Just date) = showApproxDurationRel $ showMicroTime now $ Just date
+showApproxTimeDiff :: UTCTime -> Maybe UTCTime -> String
+showApproxTimeDiff _ Nothing = ""
+showApproxTimeDiff now (Just date) = showApproxDuration $ abs $ showMicroTime now $ Just date
+
+showApproxTimeDiffRel :: UTCTime -> Maybe UTCTime -> String
+showApproxTimeDiffRel _ Nothing = ""
+showApproxTimeDiffRel now (Just date) = showApproxDurationRel $ showMicroTime now $ Just date
 
 showMicroTime :: UTCTime -> Maybe UTCTime -> Duration
 showMicroTime _ Nothing = 0
