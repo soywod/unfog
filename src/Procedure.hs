@@ -12,4 +12,4 @@ data Procedure
 
 handle :: Arg.Procedure -> IO ()
 handle (Arg.Version jsonOpt) = send (parseResponseType jsonOpt) (VersionResponse "1.0.0")
-handle (Arg.Upgrade) = system "curl -sSL https://raw.githubusercontent.com/soywod/unfog.cli/master/bin/install.sh | sh" >> return ()
+handle (Arg.Upgrade) = system "curl -sSL https://raw.githubusercontent.com/soywod/unfog/master/bin/install.sh | sh" >> return ()

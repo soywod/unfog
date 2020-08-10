@@ -1,4 +1,4 @@
-# ⏱ Unfog [![Build Status](https://travis-ci.org/soywod/unfog.cli.svg?branch=v1.0.0)](https://travis-ci.org/soywod/unfog.cli)
+# ⏱ Unfog [![Build Status](https://travis-ci.org/soywod/unfog.svg?branch=v1.0.0)](https://travis-ci.org/soywod/unfog)
 
 Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
 
@@ -29,7 +29,7 @@ Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
 * [Common options](#common-options)
   * [JSON](#json)
 * [Contributing](#contributing)
-* [Changelog](https://github.com/soywod/unfog.cli/blob/master/CHANGELOG.md#changelog)
+* [Changelog](https://github.com/soywod/unfog/blob/master/CHANGELOG.md#changelog)
 * [Credits](#credits)
 
 ## Concept
@@ -59,21 +59,21 @@ initial estimation, how it can be improved etc...
 ### From binaries
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/soywod/unfog.cli/master/bin/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/soywod/unfog/master/bin/install.sh | bash
 ```
 
 *Note: Linux, OSX and Windows are supported. See the [releases
-section](https://github.com/soywod/unfog.cli/releases).*
+section](https://github.com/soywod/unfog/releases).*
 
 
 ### From AUR
 
 For Arch Linux users, there is an [AUR
-package](https://aur.archlinux.org/packages/unfog-cli-bin) available.
+package](https://aur.archlinux.org/packages/unfog-bin) available.
 
 ```bash
-git clone https://aur.archlinux.org/unfog-cli.git
-cd unfog-cli
+git clone https://aur.archlinux.org/unfog.git
+cd unfog
 makepkg -isc
 ```
 
@@ -88,7 +88,7 @@ curl -sSL https://get.haskellstack.org/ | sh
 
 Then build from git:
 ```bash
-git clone https://github.com/soywod/unfog.cli.git unfog
+git clone https://github.com/soywod/unfog.git
 cd unfog
 stack install
 ```
@@ -254,7 +254,7 @@ interval = 10
 ### Upgrade
 
 Upgrade the CLI with the latest release from
-[GitHub](https://github.com/soywod/unfog.cli/releases):
+[GitHub](https://github.com/soywod/unfog/releases):
 
 ```bash
 unfog upgrade
@@ -272,7 +272,7 @@ is useful to create user interafaces. Here the list of current implementations:
   - [Unfog.vim](https://github.com/soywod/unfog.vim) for Vim/Neovim
 
 To have more information about the JSON object shape, see
-[Response.hs](https://github.com/soywod/unfog.cli/blob/master/src/Response.hs).
+[Response.hs](https://github.com/soywod/unfog/blob/master/src/Response.hs).
 
 ## Contributing
 
