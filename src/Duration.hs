@@ -1,10 +1,10 @@
 module Duration where
 
-import Data.Fixed
-import Data.Time
+import Data.Fixed (Fixed (MkFixed), Micro, div', mod')
+import Data.Time (UTCTime, diffUTCTime)
 import Prelude hiding (min)
 
--- Durations
+-- Units
 
 type Duration = Micro
 
@@ -26,7 +26,7 @@ day = 24 * hour
 year :: Duration
 year = 365 * day
 
--- Helpers
+-- Show units
 
 showMs :: Duration -> String
 showMs = showDuration unit . flip div' ms
@@ -71,6 +71,8 @@ showYears = showDuration unit . flip div' year
 showDuration :: (Integer -> String) -> Integer -> String
 showDuration showUnit n = unwords [show n, showUnit n]
 
+-- Show full duration
+
 showFullDuration :: Duration -> String
 showFullDuration d = (unwords . reverse . show d) []
   where
@@ -88,6 +90,8 @@ showFullDurationRel d
   | d > 0 = unwords ["in", showFullDuration (abs d)]
   | otherwise = ""
 
+-- Show approx duration
+
 showApproxDuration :: Duration -> String
 showApproxDuration d
   | d >= year = showYears d
@@ -104,18 +108,24 @@ showApproxDurationRel d
   | d > 0 = unwords ["in", showApproxDuration (abs d)]
   | otherwise = ""
 
+-- Show diff
+
+showMicroTimeDiff :: UTCTime -> Maybe UTCTime -> Duration
+showMicroTimeDiff _ Nothing = 0
+showMicroTimeDiff now (Just active) = realToFrac $ diffUTCTime active now
+
 showApproxTimeDiff :: UTCTime -> Maybe UTCTime -> String
 showApproxTimeDiff _ Nothing = ""
-showApproxTimeDiff now (Just time) = showApproxDuration $ abs $ showMicroTime now $ Just time
+showApproxTimeDiff now (Just time) = showApproxDuration $ abs $ showMicroTimeDiff now $ Just time
 
 showApproxTimeDiffRel :: UTCTime -> Maybe UTCTime -> String
 showApproxTimeDiffRel _ Nothing = ""
-showApproxTimeDiffRel now (Just time) = showApproxDurationRel $ showMicroTime now $ Just time
+showApproxTimeDiffRel now (Just time) = showApproxDurationRel $ showMicroTimeDiff now $ Just time
 
-showMicroTime :: UTCTime -> Maybe UTCTime -> Duration
-showMicroTime _ Nothing = 0
-showMicroTime now (Just active) = realToFrac $ diffUTCTime active now
+showFullTimeDiff :: UTCTime -> Maybe UTCTime -> String
+showFullTimeDiff _ Nothing = ""
+showFullTimeDiff now (Just active) = showFullDuration $ abs $ showMicroTimeDiff now (Just active)
 
-showFullTimeRel :: UTCTime -> Maybe UTCTime -> String
-showFullTimeRel _ Nothing = ""
-showFullTimeRel now (Just active) = showFullDurationRel $ showMicroTime now (Just active)
+showFullTimeDiffRel :: UTCTime -> Maybe UTCTime -> String
+showFullTimeDiffRel _ Nothing = ""
+showFullTimeDiffRel now (Just active) = showFullDurationRel $ showMicroTimeDiff now (Just active)

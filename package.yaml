@@ -30,6 +30,7 @@ library:
   - bytestring
   - containers
   - directory
+  - hspec
   - optparse-applicative
   - process
   - random
@@ -41,17 +42,18 @@ executables:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
     - -O3
+    - -rtsopts
+    - -threaded
+    - -with-rtsopts=-N
     dependencies:
-    - unfog
     - time
+    - unfog
 
 tests:
   spec:
     defaults: hspec/hspec@master
     dependencies:
-      - unfog
+      - hspec
       - time
+      - unfog

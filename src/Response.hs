@@ -304,17 +304,17 @@ showTimeDiffJson :: UTCTime -> Maybe UTCTime -> Data.Aeson.Value
 showTimeDiffJson now Nothing = showDurationJson 0 "" ""
 showTimeDiffJson now time = showDurationJson micro approx full
   where
-    micro = showMicroTime now time
+    micro = showMicroTimeDiff now time
     approx = showApproxTimeDiff now time
-    full = showFullTimeRel now time
+    full = showFullTimeDiffRel now time
 
 showTimeDiffRelJson :: UTCTime -> Maybe UTCTime -> Data.Aeson.Value
 showTimeDiffRelJson now Nothing = showDurationJson 0 "" ""
 showTimeDiffRelJson now time = showDurationJson micro approx full
   where
-    micro = showMicroTime now time
+    micro = showMicroTimeDiff now time
     approx = showApproxTimeDiffRel now time
-    full = showFullTimeRel now time
+    full = showFullTimeDiffRel now time
 
 showTaskWtimeJson :: Duration -> Data.Aeson.Value
 showTaskWtimeJson micro = showDurationJson micro approx full
