@@ -106,11 +106,11 @@ showApproxDurationRel d
 
 showApproxTimeDiff :: UTCTime -> Maybe UTCTime -> String
 showApproxTimeDiff _ Nothing = ""
-showApproxTimeDiff now (Just date) = showApproxDuration $ abs $ showMicroTime now $ Just date
+showApproxTimeDiff now (Just time) = showApproxDuration $ abs $ showMicroTime now $ Just time
 
 showApproxTimeDiffRel :: UTCTime -> Maybe UTCTime -> String
 showApproxTimeDiffRel _ Nothing = ""
-showApproxTimeDiffRel now (Just date) = showApproxDurationRel $ showMicroTime now $ Just date
+showApproxTimeDiffRel now (Just time) = showApproxDurationRel $ showMicroTime now $ Just time
 
 showMicroTime :: UTCTime -> Maybe UTCTime -> Duration
 showMicroTime _ Nothing = 0

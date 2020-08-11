@@ -21,6 +21,7 @@ data Command
   | Edit Id Desc ProjOpt DueOpt JsonOpt
   | Start [Id] JsonOpt
   | Stop [Id] JsonOpt
+  | Toggle [Id] JsonOpt
   | Do [Id] JsonOpt
   | Undo [Id] JsonOpt
   | Delete [Id] JsonOpt
@@ -105,6 +106,7 @@ commands now tzone =
     editCommands now tzone,
     startCommands,
     stopCommands,
+    toggleCommands,
     doCommands,
     undoCommands,
     deleteCommands,
@@ -130,16 +132,22 @@ editCommands now tzone = aliasedCommand parser desc ["edit", "e"]
     parser = CommandArg <$> (Edit <$> idParser <*> editDescParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
 
 startCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
-startCommands = aliasedCommand parser desc ["start", "sta"]
+startCommands = aliasedCommand parser desc ["start", "sta", "s"]
   where
     desc = "Start a task"
     parser = CommandArg <$> (Start <$> idsParser <*> jsonOptParser)
 
 stopCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
-stopCommands = aliasedCommand parser desc ["stop", "sto"]
+stopCommands = aliasedCommand parser desc ["stop", "sto", "S"]
   where
     desc = "Stop a task"
     parser = CommandArg <$> (Stop <$> idsParser <*> jsonOptParser)
+
+toggleCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
+toggleCommands = aliasedCommand parser desc ["toggle", "tog", "t"]
+  where
+    desc = "Toggle a task"
+    parser = CommandArg <$> (Toggle <$> idsParser <*> jsonOptParser)
 
 doCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
 doCommands = aliasedCommand parser desc ["done", "do", "d"]
@@ -198,6 +206,7 @@ readUTCTime tzone = toUTC <=< parseLocalTime
 dateReader :: String -> UTCTime -> TimeZone -> ReadM (Maybe UTCTime)
 dateReader timefmt now tzone = eitherReader reader
   where
+    reader "" = Right Nothing
     reader str = case parseDate str of
       Nothing -> Left $ "invalid date format `" ++ str ++ "' (should match YYYY-MM-DD HH:MM)"
       Just date -> Right $ Just date
@@ -239,8 +248,6 @@ editDescParser = unwords <$> (many $ argument str $ metavar "DESC")
 
 projParser :: Parser Project
 projParser = argument projectReader $ metavar "PROJECT" <> value Nothing <> completer projCompleter
-
--- instance IsString (Maybe String)
 
 projOptParser :: Parser ProjOpt
 projOptParser = readMaybeProj <$> parser

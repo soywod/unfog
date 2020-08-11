@@ -45,6 +45,7 @@ parseCommands now tzone state id (Arg.Add desc proj due jsonOpt) = [addTask now 
 parseCommands now tzone state _ (Arg.Edit id desc proj due jsonOpt) = [editTask now tzone (parseResponseType jsonOpt) state id desc proj due]
 parseCommands now _ state _ (Arg.Start ids jsonOpt) = map (startTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.Stop ids jsonOpt) = map (stopTask now (parseResponseType jsonOpt) state) ids
+parseCommands now _ state _ (Arg.Toggle ids jsonOpt) = map (toggleTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.Do ids jsonOpt) = map (doTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.Undo ids jsonOpt) = map (undoTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.Delete ids jsonOpt) = map (deleteTask now (parseResponseType jsonOpt) state) ids
@@ -106,6 +107,17 @@ stopTask now rtype state id = case findById id (State.getTasks state) of
       | isJust $ getDone task = Error rtype "task already done"
       | isNothing $ getActive task = Error rtype "task already stopped"
       | otherwise = StopTask now rtype (getId task)
+
+toggleTask :: UTCTime -> ResponseType -> State -> Id -> Command
+toggleTask now rtype state id = case findById id (State.getTasks state) of
+  Nothing -> Error rtype "task not found"
+  Just task -> validate task
+  where
+    validate task
+      | isJust $ getDeleted task = Error rtype "task already deleted"
+      | isJust $ getDone task = Error rtype "task already done"
+      | isJust $ getActive task = StopTask now rtype $ getId task
+      | otherwise = StartTask now rtype $ getId task
 
 doTask :: UTCTime -> ResponseType -> State -> Id -> Command
 doTask now rtype state id = case findById id (State.getTasks state) of

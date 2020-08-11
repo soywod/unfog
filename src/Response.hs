@@ -85,6 +85,17 @@ showTasksJson now tasks =
     [ "success" .= (1 :: Int),
       "tasks" .= (Array $ fromList $ map (showTaskJson now) tasks)
     ]
+  where
+    showTaskJson :: UTCTime -> Task -> Data.Aeson.Value
+    showTaskJson now task =
+      object
+        [ "id" .= getId task,
+          "desc" .= getDesc task,
+          "project" .= (fromMaybe "" $ getProject task),
+          "active" .= showTimeDiffJson now (getActive task),
+          "due" .= showTimeDiffRelJson now (getDue task),
+          "worktime" .= showTaskWtimeJson (getTaskWtime now task)
+        ]
 
 -- Task
 
@@ -92,7 +103,13 @@ showTask :: UTCTime -> ResponseType -> Task -> IO ()
 showTask now Text task = do
   putStrLn ""
   putStrLn $ showTaskText now task
-showTask now Json task = BL.putStr $ encode $ showTaskJson now task
+showTask now Json task =
+  BL.putStr $
+    encode $
+      object
+        [ "success" .= (1 :: Int),
+          "task" .= showTaskJson now task
+        ]
 
 showTaskText :: UTCTime -> Task -> String
 showTaskText now task = render $ head : body
@@ -115,16 +132,14 @@ showTaskText now task = render $ head : body
 showTaskJson :: UTCTime -> Task -> Data.Aeson.Value
 showTaskJson now task =
   object
-    [ "success" .= (1 :: Int),
-      "task"
-        .= object
-          [ "id" .= getId task,
-            "desc" .= getDesc task,
-            "project" .= getProject task,
-            "active" .= showActiveJson now (getActive task),
-            "wtime" .= showTaskWtimeJson (getTaskWtime now task),
-            "done" .= if isNothing (getDone task) then 1 else 0 :: Int
-          ]
+    [ "id" .= getId task,
+      "desc" .= getDesc task,
+      "project" .= (fromMaybe "" $ getProject task),
+      "active" .= (fromMaybe "" $ show <$> getActive task),
+      "due" .= (fromMaybe "" $ show <$> getDue task),
+      "worktime" .= (showFullDuration $ getTaskWtime now task),
+      "done" .= (fromMaybe "" $ show <$> getDone task),
+      "deleted" .= (fromMaybe "" $ show <$> getDeleted task)
     ]
 
 -- Worktime
@@ -132,7 +147,15 @@ showTaskJson now task =
 showWtime :: UTCTime -> ResponseType -> MoreOpt -> [DailyWorktime] -> IO ()
 showWtime now Text False dwtimes = putStrLn $ showDailyWtimeText now dwtimes
 showWtime now Text True dwtimes = putStrLn $ showFullDailyWtimeText now dwtimes
-showWtime now Json _ dwtimes = BL.putStr $ encode $ Array $ fromList $ map (showDailyWtimeJson now) dwtimes
+showWtime now Json _ dwtimes =
+  BL.putStr $
+    encode $
+      object
+        [ "success" .= (1 :: Int),
+          "worktimes" .= (Array $ fromList $ map (showDailyWtimeJson now) dwtimes),
+          "total" .= (showTaskWtimeJson $ sum $ map getWtimeDuration $ concatMap snd dwtimes),
+          "totalWday" .= (showTaskWtimeJson $ (*) 3.2 $ sum $ map getWtimeDuration $ concatMap snd dwtimes)
+        ]
 
 showDailyWtimeText :: UTCTime -> [DailyWorktime] -> String
 showDailyWtimeText now dwtimes = render $ head : body ++ foot
@@ -193,12 +216,8 @@ showFullDailyWtimeText now dwtimes = render $ head : body ++ foot
 showDailyWtimeJson :: UTCTime -> DailyWorktime -> Data.Aeson.Value
 showDailyWtimeJson now (day, wtimes) =
   object
-    [ "success" .= (1 :: Int),
-      "worktime"
-        .= object
-          [ "day" .= day,
-            "total" .= showWtimesJson wtimes
-          ]
+    [ "date" .= day,
+      "total" .= showWtimesJson wtimes
     ]
 
 -- Status
@@ -218,7 +237,7 @@ showStatusJson now = fmap showStatusJson'
       object
         [ "success" .= (1 :: Int),
           "desc" .= getDesc task,
-          "active" .= showActiveJson now (getActive task)
+          "active" .= showTimeDiffJson now (getActive task)
         ]
 
 -- Version
@@ -281,13 +300,21 @@ showDurationJson micro approx full =
       "full" .= full
     ]
 
-showActiveJson :: UTCTime -> Active -> Maybe Data.Aeson.Value
-showActiveJson _ Nothing = Nothing
-showActiveJson now active = Just $ showDurationJson micro approx full
+showTimeDiffJson :: UTCTime -> Maybe UTCTime -> Data.Aeson.Value
+showTimeDiffJson now Nothing = showDurationJson 0 "" ""
+showTimeDiffJson now time = showDurationJson micro approx full
   where
-    micro = showMicroTime now active
-    approx = showApproxTimeDiff now active
-    full = showFullTimeRel now active
+    micro = showMicroTime now time
+    approx = showApproxTimeDiff now time
+    full = showFullTimeRel now time
+
+showTimeDiffRelJson :: UTCTime -> Maybe UTCTime -> Data.Aeson.Value
+showTimeDiffRelJson now Nothing = showDurationJson 0 "" ""
+showTimeDiffRelJson now time = showDurationJson micro approx full
+  where
+    micro = showMicroTime now time
+    approx = showApproxTimeDiffRel now time
+    full = showFullTimeRel now time
 
 showTaskWtimeJson :: Duration -> Data.Aeson.Value
 showTaskWtimeJson micro = showDurationJson micro approx full
