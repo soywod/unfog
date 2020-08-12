@@ -10,7 +10,7 @@ import qualified Store (readFile)
 import Task (Desc, Due, Id, Project)
 
 data Query
-  = List OnlyIdsOpt OnlyProjsOpt JsonOpt
+  = List JsonOpt
   | Info Id JsonOpt
   | Wtime Project FromOpt ToOpt MoreOpt JsonOpt
   | Status MoreOpt JsonOpt
@@ -70,7 +70,7 @@ listQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 listQueries = aliasedCommand parser desc ["list", "l"]
   where
     desc = "Show current project tasks"
-    parser = QueryArg <$> (List <$> onlyIdsOptParser <*> onlyProjsOptParser <*> jsonOptParser)
+    parser = QueryArg <$> (List <$> jsonOptParser)
 
 infoQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 infoQueries = aliasedCommand parser desc ["info", "i"]
