@@ -14,7 +14,7 @@ data Query
   | Info Id JsonOpt
   | Wtime Project FromOpt ToOpt MoreOpt JsonOpt
   | Status MoreOpt JsonOpt
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Command
   = Add Desc ProjOpt DueOpt JsonOpt
@@ -27,7 +27,7 @@ data Command
   | Delete [Id] JsonOpt
   | Undelete [Id] JsonOpt
   | Context Project JsonOpt
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Procedure
   = Version JsonOpt

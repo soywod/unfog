@@ -25,7 +25,7 @@ data Command
   | UndeleteTask UTCTime ResponseType Id
   | EditContext UTCTime ResponseType Project
   | Error ResponseType String
-  deriving (Show, Read)
+  deriving (Show, Read, Eq)
 
 handle :: Arg.Command -> IO ()
 handle arg = do

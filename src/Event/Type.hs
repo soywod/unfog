@@ -15,7 +15,7 @@ data Event
   | TaskDeleted UTCTime Id
   | TaskUndeleted UTCTime Id
   | ContextEdited UTCTime Project
-  deriving (Show, Read)
+  deriving (Show, Read, Eq)
 
 readEvents :: (Read a) => String -> Maybe [a] -> Maybe [a]
 readEvents _ Nothing = Nothing

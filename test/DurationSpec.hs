@@ -91,7 +91,6 @@ spec = parallel $ do
   it "show micro time diff" $ do
     let timeA = read "2020-01-01 00:00:00 UTC" :: UTCTime
     let timeB = read "2020-01-02 02:20:30 UTC" :: UTCTime
-
     showMicroTimeDiff timeA (Just timeB) `shouldBe` day + (2 * hour) + (20 * min) + (30 * sec)
     showMicroTimeDiff timeB (Just timeA) `shouldBe` -1 * (day + (2 * hour) + (20 * min) + (30 * sec))
     showApproxTimeDiff timeA (Just timeB) `shouldBe` "1 day"

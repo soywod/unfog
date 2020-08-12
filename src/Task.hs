@@ -37,6 +37,20 @@ data Task = Task
   }
   deriving (Show, Read, Eq)
 
+new :: Task
+new =
+  Task
+    { _id = "",
+      _desc = "",
+      _project = Nothing,
+      _starts = [],
+      _stops = [],
+      _due = Nothing,
+      _active = Nothing,
+      _done = Nothing,
+      _deleted = Nothing
+    }
+
 -- Getters
 
 getId :: Task -> Id

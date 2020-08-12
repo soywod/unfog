@@ -18,7 +18,7 @@ import Worktime
 data ResponseType
   = Json
   | Text
-  deriving (Show, Read)
+  deriving (Show, Read, Eq)
 
 data Response
   = TasksResponse UTCTime Project [Task]
