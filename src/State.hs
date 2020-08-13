@@ -13,7 +13,7 @@ data State = State
   { _ctx :: Project,
     _tasks :: [Task]
   }
-  deriving (Show, Read)
+  deriving (Show, Read, Eq)
 
 new :: State
 new =
@@ -77,7 +77,7 @@ apply state evt = case evt of
     where
       tasks = map update $ getTasks state
       update task
-        | id == getId task = task {_done = Just now, _stops = getStops task ++ [now | isJust $ getActive task]}
+        | id == getId task = task {_active = Nothing, _done = Just now, _stops = getStops task ++ [now | isJust $ getActive task]}
         | otherwise = task
   TaskUndid _ id -> state {_tasks = tasks}
     where
@@ -89,7 +89,7 @@ apply state evt = case evt of
     where
       tasks = map update $ getTasks state
       update task
-        | id == getId task = task {_deleted = Just now, _stops = getStops task ++ [now | isJust $ getActive task]}
+        | id == getId task = task {_active = Nothing, _deleted = Just now, _stops = getStops task ++ [now | isJust $ getActive task]}
         | otherwise = task
   TaskUndeleted _ id -> state {_tasks = tasks}
     where
