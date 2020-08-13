@@ -45,30 +45,25 @@ send rtype (ErrorResponse msg) = showError rtype msg
 -- Tasks
 
 showTasks :: UTCTime -> IdLength -> ResponseType -> Project -> [Task] -> IO ()
-showTasks now idLength Text Nothing tasks = do
-  putStrLn ""
-  putStrLn $ showTasksWithProjText now idLength tasks
-showTasks now idLength Text (Just ctx) tasks = do
-  putStrLn $ "Tasks from \x1b[34m" ++ ctx ++ "\x1b[0m project:"
-  putStrLn ""
-  putStrLn $ showTasksText now tasks
+showTasks now idLength Text Nothing tasks = putStrLn $ showTasksText now idLength tasks
+showTasks now idLength Text (Just ctx) tasks = putStrLn $ showTasksWithProjText now idLength ctx tasks
 showTasks now idLength Json _ tasks = BL.putStr $ encode $ showTasksJson now idLength tasks
 
-showTasksText :: UTCTime -> [Task] -> String
-showTasksText now tasks = render $ head : body
+showTasksText :: UTCTime -> IdLength -> [Task] -> String
+showTasksText now idLength tasks = "\n" ++ (render $ head : body)
   where
     head = map (bold . underline . cell) ["ID", "DESC", "ACTIVE", "DUE", "WORKTIME"]
     body = map rows tasks
     rows task =
-      [ red $ cell $ getId task,
+      [ red $ cell $ shortenId idLength $ getId task,
         cell $ getDesc task,
         green $ cell $ showApproxTimeDiff now $ getActive task,
         (if isDuePassed now task then bgRed . white else yellow) $ cell $ showApproxTimeDiffRel now $ getDue task,
         yellow $ cell $ showApproxDuration $ getTaskWtime now task
       ]
 
-showTasksWithProjText :: UTCTime -> IdLength -> [Task] -> String
-showTasksWithProjText now idLength tasks = render $ head : body
+showTasksWithProjText :: UTCTime -> IdLength -> String -> [Task] -> String
+showTasksWithProjText now idLength ctx tasks = "Tasks from \x1b[34m" ++ ctx ++ "\x1b[0m project:\n\n" ++ (render $ head : body)
   where
     head = map (bold . underline . cell) ["ID", "DESC", "PROJECT", "ACTIVE", "DUE", "WORKTIME"]
     body = map rows tasks
@@ -102,9 +97,7 @@ showTasksJson now idLength tasks =
 -- Task
 
 showTask :: UTCTime -> ResponseType -> Task -> IO ()
-showTask now Text task = do
-  putStrLn ""
-  putStrLn $ showTaskText now task
+showTask now Text task = putStrLn $ showTaskText now task
 showTask now Json task =
   BL.putStr $
     encode $
@@ -114,7 +107,7 @@ showTask now Json task =
         ]
 
 showTaskText :: UTCTime -> Task -> String
-showTaskText now task = render $ head : body
+showTaskText now task = "\n" ++ (render $ head : body)
   where
     head = map (bold . underline . cell) ["KEY", "VALUE"]
     body =
