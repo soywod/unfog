@@ -30,7 +30,7 @@ handle arg = do
   execute query
 
 parseQuery :: UTCTime -> State -> Arg.Query -> Query
-parseQuery now state (Arg.List jsonOpt) = showTasks now state jsonOpt
+parseQuery now state (Arg.List doneOpt deletedOpt jsonOpt) = showTasks now state doneOpt deletedOpt jsonOpt
 parseQuery now state (Arg.Info id jsonOpt) = showTask now state id jsonOpt
 parseQuery now state (Arg.Wtime proj fromOpt toOpt moreOpt jsonOpt) = showWtime now state proj fromOpt toOpt moreOpt jsonOpt
 parseQuery now state (Arg.Status moreOpt jsonOpt) = showStatus now state moreOpt jsonOpt
@@ -42,11 +42,12 @@ execute (ShowWtime now rtype moreOpt wtimes) = send rtype (WtimeResponse now mor
 execute (ShowStatus now rtype task) = send rtype (StatusResponse now task)
 execute (Error rtype msg) = send rtype (ErrorResponse msg)
 
-showTasks :: UTCTime -> State -> JsonOpt -> Query
-showTasks now (State ctx tasks) jsonOpt = ShowTasks now idLength rtype ctx tasks'
+showTasks :: UTCTime -> State -> DoneOpt -> DeletedOpt -> JsonOpt -> Query
+showTasks now (State ctx tasks) doneOpt deletedOpt jsonOpt = ShowTasks now idLength rtype ctx tasks'
   where
     rtype = parseResponseType jsonOpt
-    tasks' = filterWith [notDone, notDeleted, matchContext ctx] tasks
+    filters = [matchContext ctx] ++ [(==) doneOpt . isJust . getDone] ++ [(==) deletedOpt . isJust . getDeleted]
+    tasks' = filterWith filters tasks
     idLength = getShortIdLength tasks
 
 showTask :: UTCTime -> State -> Id -> JsonOpt -> Query

@@ -11,6 +11,10 @@ type FromOpt = Maybe UTCTime
 
 type ToOpt = Maybe UTCTime
 
+type DoneOpt = Bool
+
+type DeletedOpt = Bool
+
 type OnlyProjsOpt = Bool
 
 type OnlyIdsOpt = Bool

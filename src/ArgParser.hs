@@ -10,7 +10,7 @@ import qualified Store (readFile)
 import Task (Desc, Due, Id, Project)
 
 data Query
-  = List JsonOpt
+  = List DoneOpt DeletedOpt JsonOpt
   | Info Id JsonOpt
   | Wtime Project FromOpt ToOpt MoreOpt JsonOpt
   | Status MoreOpt JsonOpt
@@ -70,7 +70,7 @@ listQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 listQueries = aliasedCommand parser desc ["list", "l"]
   where
     desc = "Show current project tasks"
-    parser = QueryArg <$> (List <$> jsonOptParser)
+    parser = QueryArg <$> (List <$> doneOptParser <*> deletedOptParser <*> jsonOptParser)
 
 infoQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 infoQueries = aliasedCommand parser desc ["info", "i"]
@@ -283,6 +283,12 @@ toOptParser now tzone =
       <> metavar "DATE"
       <> value Nothing
       <> help "Interval end date"
+
+doneOptParser :: Parser DoneOpt
+doneOptParser = switch $ long "done" <> short 'd' <> help "Show only done tasks"
+
+deletedOptParser :: Parser DeletedOpt
+deletedOptParser = switch $ long "deleted" <> short 'D' <> help "Show only deleted tasks"
 
 onlyIdsOptParser :: Parser OnlyIdsOpt
 onlyIdsOptParser = switch $ long "only-ids" <> help "Show only tasks id"
