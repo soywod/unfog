@@ -16,7 +16,7 @@ type IdLength = Int
 
 data Query
   = ShowTasks UTCTime IdLength ResponseType Project [Task]
-  | ShowTask UTCTime IdLength ResponseType Task
+  | ShowTask UTCTime ResponseType Task
   | ShowWtime UTCTime ResponseType MoreOpt [DailyWorktime]
   | ShowStatus UTCTime ResponseType (Maybe Task)
   | Error ResponseType String
@@ -26,33 +26,33 @@ handle :: Arg.Query -> IO ()
 handle arg = do
   now <- getCurrentTime
   state <- State.readFile <|> (State.rebuild <$> Store.readFile) <|> return State.new
-  let idLength = getShortIdLength $ State.getTasks state
-  let query = parseQuery now idLength state arg
+  let query = parseQuery now state arg
   execute query
 
-parseQuery :: UTCTime -> IdLength -> State -> Arg.Query -> Query
-parseQuery now idLength state (Arg.List jsonOpt) = showTasks now idLength state jsonOpt
-parseQuery now idLength state (Arg.Info id jsonOpt) = showTask now idLength state id jsonOpt
-parseQuery now _idLength state (Arg.Wtime proj fromOpt toOpt moreOpt jsonOpt) = showWtime now state proj fromOpt toOpt moreOpt jsonOpt
-parseQuery now _idLength state (Arg.Status moreOpt jsonOpt) = showStatus now state moreOpt jsonOpt
+parseQuery :: UTCTime -> State -> Arg.Query -> Query
+parseQuery now state (Arg.List jsonOpt) = showTasks now state jsonOpt
+parseQuery now state (Arg.Info id jsonOpt) = showTask now state id jsonOpt
+parseQuery now state (Arg.Wtime proj fromOpt toOpt moreOpt jsonOpt) = showWtime now state proj fromOpt toOpt moreOpt jsonOpt
+parseQuery now state (Arg.Status moreOpt jsonOpt) = showStatus now state moreOpt jsonOpt
 
 execute :: Query -> IO ()
 execute (ShowTasks now idLength rtype ctx tasks) = send rtype (TasksResponse now idLength ctx tasks)
-execute (ShowTask now idLength rtype task) = send rtype (TaskResponse now idLength task)
+execute (ShowTask now rtype task) = send rtype (TaskResponse now task)
 execute (ShowWtime now rtype moreOpt wtimes) = send rtype (WtimeResponse now moreOpt wtimes)
 execute (ShowStatus now rtype task) = send rtype (StatusResponse now task)
 execute (Error rtype msg) = send rtype (ErrorResponse msg)
 
-showTasks :: UTCTime -> IdLength -> State -> JsonOpt -> Query
-showTasks now idLength (State ctx tasks) jsonOpt = ShowTasks now idLength rtype ctx tasks'
+showTasks :: UTCTime -> State -> JsonOpt -> Query
+showTasks now (State ctx tasks) jsonOpt = ShowTasks now idLength rtype ctx tasks'
   where
     rtype = parseResponseType jsonOpt
     tasks' = filterWith [notDone, notDeleted, matchContext ctx] tasks
+    idLength = getShortIdLength tasks
 
-showTask :: UTCTime -> IdLength -> State -> Id -> JsonOpt -> Query
-showTask now idLength (State _ tasks) id jsonOpt = case findById id tasks of
+showTask :: UTCTime -> State -> Id -> JsonOpt -> Query
+showTask now (State _ tasks) id jsonOpt = case findById id tasks of
   Nothing -> Error rtype "task not found"
-  Just task -> ShowTask now idLength rtype task
+  Just task -> ShowTask now rtype task
   where
     rtype = parseResponseType jsonOpt
 

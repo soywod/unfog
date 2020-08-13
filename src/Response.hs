@@ -24,7 +24,7 @@ data ResponseType
 
 data Response
   = TasksResponse UTCTime IdLength Project [Task]
-  | TaskResponse UTCTime IdLength Task
+  | TaskResponse UTCTime Task
   | WtimeResponse UTCTime MoreOpt [DailyWorktime]
   | StatusResponse UTCTime (Maybe Task)
   | VersionResponse String
@@ -34,7 +34,7 @@ data Response
 
 send :: ResponseType -> Response -> IO ()
 send rtype (TasksResponse now idLength ctx tasks) = showTasks now idLength rtype ctx tasks
-send rtype (TaskResponse now idLength task) = showTask now idLength rtype task
+send rtype (TaskResponse now task) = showTask now rtype task
 send rtype (WtimeResponse now moreOpt wtimes) = showWtime now rtype moreOpt wtimes
 send rtype (StatusResponse now task) = showStatus now rtype task
 send rtype (VersionResponse version) = showVersion rtype version
@@ -52,7 +52,7 @@ showTasks now idLength Text (Just ctx) tasks = do
   putStrLn $ "Tasks from \x1b[34m" ++ ctx ++ "\x1b[0m project:"
   putStrLn ""
   putStrLn $ showTasksText now tasks
-showTasks now idLength Json _ tasks = BL.putStr $ encode $ showTasksJson now tasks
+showTasks now idLength Json _ tasks = BL.putStr $ encode $ showTasksJson now idLength tasks
 
 showTasksText :: UTCTime -> [Task] -> String
 showTasksText now tasks = render $ head : body
@@ -81,17 +81,17 @@ showTasksWithProjText now idLength tasks = render $ head : body
         yellow $ cell $ showApproxDuration $ getTaskWtime now task
       ]
 
-showTasksJson :: UTCTime -> [Task] -> Data.Aeson.Value
-showTasksJson now tasks =
+showTasksJson :: UTCTime -> IdLength -> [Task] -> Data.Aeson.Value
+showTasksJson now idLength tasks =
   object
     [ "success" .= (1 :: Int),
-      "tasks" .= (Array $ fromList $ map (showTaskJson now) tasks)
+      "tasks" .= (Array $ fromList $ map (showTaskJson now idLength) tasks)
     ]
   where
-    showTaskJson :: UTCTime -> Task -> Data.Aeson.Value
-    showTaskJson now task =
+    showTaskJson :: UTCTime -> IdLength -> Task -> Data.Aeson.Value
+    showTaskJson now idLength task =
       object
-        [ "id" .= getId task,
+        [ "id" .= (shortenId idLength $ getId task),
           "desc" .= getDesc task,
           "project" .= (fromMaybe "" $ getProject task),
           "active" .= showTimeDiffJson now (getActive task),
@@ -101,11 +101,11 @@ showTasksJson now tasks =
 
 -- Task
 
-showTask :: UTCTime -> IdLength -> ResponseType -> Task -> IO ()
-showTask now idLength Text task = do
+showTask :: UTCTime -> ResponseType -> Task -> IO ()
+showTask now Text task = do
   putStrLn ""
-  putStrLn $ showTaskText now idLength task
-showTask now idLength Json task =
+  putStrLn $ showTaskText now task
+showTask now Json task =
   BL.putStr $
     encode $
       object
@@ -113,14 +113,14 @@ showTask now idLength Json task =
           "task" .= showTaskJson now task
         ]
 
-showTaskText :: UTCTime -> IdLength -> Task -> String
-showTaskText now idLength task = render $ head : body
+showTaskText :: UTCTime -> Task -> String
+showTaskText now task = render $ head : body
   where
     head = map (bold . underline . cell) ["KEY", "VALUE"]
     body =
       transpose
         [ map cell ["ID", "DESC", "PROJECT", "ACTIVE", "DUE", "WORKTIME", "DONE", "DELETED"],
-          [ red $ cell $ shortenId idLength $ getId task,
+          [ red $ cell $ getId task,
             cell $ getDesc task,
             blue $ cell $ fromMaybe "" $ getProject task,
             green $ cell $ fromMaybe "" $ show <$> getActive task,

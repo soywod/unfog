@@ -23,23 +23,23 @@ spec = parallel $ do
       let taskB = Task.new {_id = "id-proj", _project = Just "proj"}
       let taskC = Task.new {_id = "id-done", _done = Just now}
       let taskD = Task.new {_id = "id-deleted", _done = Just now}
-      let parseQuery' ctx = parseQuery now idLength State.new {_tasks = [taskA, taskB, taskC, taskD], _ctx = ctx}
-      parseQuery' Nothing (Arg.List False) `shouldBe` ShowTasks now idLength Text Nothing [taskA, taskB]
-      parseQuery' Nothing (Arg.List True) `shouldBe` ShowTasks now idLength Json Nothing [taskA, taskB]
-      parseQuery' (Just "proj") (Arg.List False) `shouldBe` ShowTasks now idLength Text (Just "proj") [taskB]
+      let parseQuery' ctx = parseQuery now State.new {_tasks = [taskA, taskB, taskC, taskD], _ctx = ctx}
+      parseQuery' Nothing (Arg.List False) `shouldBe` ShowTasks now 5 Text Nothing [taskA, taskB]
+      parseQuery' Nothing (Arg.List True) `shouldBe` ShowTasks now 5 Json Nothing [taskA, taskB]
+      parseQuery' (Just "proj") (Arg.List False) `shouldBe` ShowTasks now 5 Text (Just "proj") [taskB]
 
     it "parse info query" $ do
       let task = Task.new {_id = "id"}
-      let parseQuery' = parseQuery now idLength State.new {_tasks = [task]}
-      parseQuery' (Arg.Info "id" False) `shouldBe` ShowTask now idLength Text task
-      parseQuery' (Arg.Info "id" True) `shouldBe` ShowTask now idLength Json task
+      let parseQuery' = parseQuery now State.new {_tasks = [task]}
+      parseQuery' (Arg.Info "id" False) `shouldBe` ShowTask now Text task
+      parseQuery' (Arg.Info "id" True) `shouldBe` ShowTask now Json task
       parseQuery' (Arg.Info "id-unknown" False) `shouldBe` Error Text "task not found"
 
     it "parse worktime query" $ do
       let start = read "2020-01-01 22:00:00 UTC" :: UTCTime
       let stop = read "2020-01-02 04:00:00 UTC" :: UTCTime
       let task = Task.new {_id = "id", _desc = "desc", _starts = [start], _stops = [stop]}
-      let parseQuery' tasks = parseQuery now idLength State.new {_tasks = tasks}
+      let parseQuery' tasks = parseQuery now State.new {_tasks = tasks}
       parseQuery' [] (Arg.Wtime Nothing Nothing Nothing False False) `shouldBe` ShowWtime now Text False []
       parseQuery' [] (Arg.Wtime Nothing Nothing Nothing False True) `shouldBe` ShowWtime now Json False []
       parseQuery' [] (Arg.Wtime Nothing Nothing Nothing True False) `shouldBe` ShowWtime now Text True []
@@ -55,7 +55,7 @@ spec = parallel $ do
       let taskA = Task.new {_id = "id"}
       let taskB = Task.new {_id = "id-started", _active = Just now}
       let taskC = Task.new {_id = "id-started-bis", _active = Just now}
-      let parseQuery' tasks = parseQuery now idLength State.new {_tasks = tasks}
+      let parseQuery' tasks = parseQuery now State.new {_tasks = tasks}
       parseQuery' [] (Arg.Status False False) `shouldBe` ShowStatus now Text Nothing
       parseQuery' [taskA] (Arg.Status False True) `shouldBe` ShowStatus now Json Nothing
       parseQuery' [taskB] (Arg.Status False False) `shouldBe` ShowStatus now Text (Just taskB)
