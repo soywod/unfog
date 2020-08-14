@@ -194,8 +194,8 @@ logger shortenId cmd = case cmd of
   UndeleteTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m undeleted" (shortenId id)
   UndeleteTask _ Json id -> send Json $ MessageResponse $ printf "Task %s undeleted" (shortenId id)
   EditContext _ rtype Nothing -> send rtype $ MessageResponse "Context cleared"
-  EditContext _ Text (Just ctx) -> send Text $ MessageResponse $ printf "Project \x1b[34m%s\x1b[0m defined as context" ctx
-  EditContext _ Json (Just ctx) -> send Json $ MessageResponse $ printf "Project %s defined as context" ctx
+  EditContext _ Text (Just ctx) -> send Text $ MessageResponse $ printf "Context set [\x1b[34m%s\x1b[0m]" ctx
+  EditContext _ Json (Just ctx) -> send Json $ MessageResponse $ printf "Context set [%s]" ctx
   Error rtype msg -> send rtype $ ErrorResponse msg
   where
     showIfJust msg Nothing = ""

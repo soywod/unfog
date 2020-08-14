@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0]
+
+The args parser becomes more solid (based on
+[optparse](https://github.com/pcapriotti/optparse-applicative#custom-parsing-and-error-handling)
+lib). The due time is simplified and normalized (using ISO notation instead of
+custom one), since it's not considered as a  main feature. Tags are replaced by
+project. A project is just a unique tag (or a simple category). The aim of
+those changes is to simplify the usage of Unfog, and to focus on the core
+concept (create tasks, attach tasks to projects, start/stop tasks, check
+reports).
+
+### Added
+
+- Save last state in a file [#25]
+
+### Changed
+
+- **[BREAKING]** Refactor id system [#33]
+- **[BREAKING]** Refactor parser [#31]
+
+### Fixed
+
+- No parse due time [#34]
+
 ## [0.4.5] - 2020-07-27
 
 ### Changed
@@ -184,7 +208,8 @@ First release :tada:
 
 - Linux binaries
 
-[unreleased]: https://github.com/soywod/unfog/compare/v0.4.5...HEAD
+[unreleased]: https://github.com/soywod/unfog/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/soywod/unfog/compare/v0.4.5...v1.0.0
 [0.4.5]: https://github.com/soywod/unfog/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/soywod/unfog/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/soywod/unfog/compare/v0.4.2...v0.4.3
@@ -223,6 +248,10 @@ First release :tada:
 [#22]: https://github.com/soywod/unfog/issues/22
 [#23]: https://github.com/soywod/unfog/issues/23
 [#24]: https://github.com/soywod/unfog/issues/24
+[#25]: https://github.com/soywod/unfog/issues/25
 [#26]: https://github.com/soywod/unfog/issues/26
 [#27]: https://github.com/soywod/unfog/issues/27
 [#30]: https://github.com/soywod/unfog/issues/30
+[#31]: https://github.com/soywod/unfog/issues/31
+[#33]: https://github.com/soywod/unfog/issues/33
+[#34]: https://github.com/soywod/unfog/issues/34

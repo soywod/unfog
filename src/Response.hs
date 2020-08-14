@@ -52,11 +52,12 @@ showTasks now idLength Json _ tasks = BL.putStr $ encode $ showTasksJson now idL
 showTasksText :: UTCTime -> IdLength -> [Task] -> String
 showTasksText now idLength tasks = "\n" ++ (render $ head : body)
   where
-    head = map (bold . underline . cell) ["ID", "DESC", "ACTIVE", "DUE", "WORKTIME"]
+    head = map (bold . underline . cell) ["ID", "DESC", "PROJECT", "ACTIVE", "DUE", "WORKTIME"]
     body = map rows tasks
     rows task =
       [ red $ cell $ shortenId idLength $ getId task,
         cell $ getDesc task,
+        blue $ cell $ fromMaybe "" $ getProject task,
         green $ cell $ showApproxTimeDiff now $ getActive task,
         (if isDuePassed now task then bgRed . white else yellow) $ cell $ showApproxTimeDiffRel now $ getDue task,
         yellow $ cell $ showApproxDuration $ getTaskWtime now task
@@ -65,12 +66,11 @@ showTasksText now idLength tasks = "\n" ++ (render $ head : body)
 showTasksWithProjText :: UTCTime -> IdLength -> String -> [Task] -> String
 showTasksWithProjText now idLength ctx tasks = "Tasks from \x1b[34m" ++ ctx ++ "\x1b[0m project:\n\n" ++ (render $ head : body)
   where
-    head = map (bold . underline . cell) ["ID", "DESC", "PROJECT", "ACTIVE", "DUE", "WORKTIME"]
+    head = map (bold . underline . cell) ["ID", "DESC", "ACTIVE", "DUE", "WORKTIME"]
     body = map rows tasks
     rows task =
       [ red $ cell $ shortenId idLength $ getId task,
         cell $ getDesc task,
-        blue $ cell $ fromMaybe "" $ getProject task,
         green $ cell $ showApproxTimeDiff now $ getActive task,
         (if isDuePassed now task then bgRed . white else yellow) $ cell $ showApproxTimeDiffRel now $ getDue task,
         yellow $ cell $ showApproxDuration $ getTaskWtime now task

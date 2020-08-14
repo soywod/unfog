@@ -1,8 +1,8 @@
 name:                unfog
-version:             0.4.5
+version:             1.0.0
 github:              "soywod/unfog"
 license:             BSD3
-author:              "Clément DOUIN"
+author:              "soywod"
 maintainer:          "clement.douin@posteo.net"
 copyright:           "2019-2020 Clément DOUIN"
 
@@ -11,7 +11,7 @@ extra-source-files:
 - CHANGELOG.md
 
 # Metadata used when publishing your package
-synopsis:            A simple task and time manager.
+synopsis:            Minimalist task & time manager.
 category:            CLI
 
 # To avoid duplicated efforts in documentation and dealing with the
@@ -36,7 +36,6 @@ library:
   - random
   - time
   - uuid
-  - containers
 
 executables:
   unfog:
@@ -48,7 +47,6 @@ executables:
     - -threaded
     - -with-rtsopts=-N
     dependencies:
-    - time
     - unfog
 
 tests:
