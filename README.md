@@ -1,11 +1,12 @@
-# ⏱ Unfog [![Build Status](https://travis-ci.org/soywod/unfog.cli.svg?branch=v0.4.5)](https://travis-ci.org/soywod/unfog.cli)
+# ⏱ Unfog [![Build Status](https://travis-ci.org/soywod/unfog.svg?branch=v1.0.0)](https://travis-ci.org/soywod/unfog)
 
 Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
 
-![image](https://user-images.githubusercontent.com/10437171/76142225-d6d0d980-606b-11ea-8253-044c1cb75824.png)
+![image](https://user-images.githubusercontent.com/10437171/89771094-1199da80-db00-11ea-8e65-12da9ec4161a.png)
 
 ## Table of contents
 
+* [Concept](#concept)
 * [Installation](#installation)
   * [From binaries](#from-binaries)
   * [From AUR](#from-aur)
@@ -15,44 +16,64 @@ Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
   * [Info](#info)
   * [List](#list)
   * [Edit](#edit)
-  * [Set](#set)
-  * [Toggle](#toggle)
+  * [Start](#start)
+  * [Stop](#stop)
   * [Done](#done)
   * [Undone](#undone)
   * [Delete](#delete)
-  * [Remove](#remove)
+  * [Undelete](#undelete)
   * [Context](#context)
   * [Worktime](#worktime)
   * [Status](#status)
   * [Upgrade](#upgrade)
-* [Options](#options)
+* [Common options](#common-options)
   * [JSON](#json)
-  * [More](#more)
 * [Contributing](#contributing)
-* [Changelog](https://github.com/soywod/unfog.cli/blob/master/CHANGELOG.md#changelog)
+* [Changelog](https://github.com/soywod/unfog/blob/master/CHANGELOG.md#changelog)
 * [Credits](#credits)
 
+## Concept
+
+Unfog is a minimalist task & time manager. It helps you to track your projects.
+
+A task is composed of a description, an optionnal due time and can be attached
+to a project. Each task can be started, stopped, done or deleted. Basic reports
+can be generated to have an overview of the situation.
+
+Here a basic use case of a working day:
+
+  - Set up the [context](#context) according to the current project
+  - Have a look at [existing](#list) tasks
+  - [Add](#add) new tasks if necessary
+  - Pick one and [start](#start) it
+  - [Stop](#stop) it once finished
+  - Repeat the two last points during all the day
+  - Check the [worktime](#worktime) report at the end of the day
+
+At the end of the project, the worktime report shows useful
+information about how long it took, how the time was spent, if it fit the
+initial estimation, how it can be improved etc...
+
 ## Installation
+
 ### From binaries
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/soywod/unfog.cli/master/bin/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/soywod/unfog/master/bin/install.sh | bash
 ```
 
 *Note: Linux, OSX and Windows are supported. See the [releases
-section](https://github.com/soywod/unfog.cli/releases).*
+section](https://github.com/soywod/unfog/releases).*
 
 
 ### From AUR
 
 For Arch Linux users, there is an [AUR
-package](https://aur.archlinux.org/packages/unfog-cli-bin) available (thanks to
-[Mohsen Mohammadi](https://github.com/mohsen-mohammadi)
-[[#26](https://github.com/soywod/unfog.cli/issues/26)]):
+package](https://aur.archlinux.org/packages/unfog-bin) available.
 
 ```bash
-git clone https://aur.archlinux.org/unfog-cli.git
-cd unfog-cli
+git clone https://aur.archlinux.org/unfog.git
+cd unfog
 makepkg -isc
 ```
 
@@ -67,165 +88,152 @@ curl -sSL https://get.haskellstack.org/ | sh
 
 Then build from git:
 ```bash
-git clone https://github.com/soywod/unfog.cli.git unfog && cd unfog
+git clone https://github.com/soywod/unfog.git
+cd unfog
 stack install
 ```
 
 ## Usage
+
 ### Add
 
-To create a task, you need (no matter the order):
-
-- A description
-- A list of tags *(optional)*
-- A due time *(optional)*
-
-A tag should start by `+` and should be composed of alpha numeral chars.
-
-A due time should follow the format `:DDMMYY:HHMM`, where almost everything is
-optional. Each omitted field is replaced by the current date one. Here some
-use cases (given now = `2019/12/22 10:00`):
-
-| Given arg | Due time |
-| --- | --- |
-| `:21` | 2019/12/21 00:00 |
-| `:18:8` | 2019/12/18 08:00 |
-| `::12` | 2019/12/22 12:00 |
-| `:1010` | 2019/10/10 00:00 |
-| `:010120` | 2020/01/01 00:00 |
+Add a new task:
 
 ```bash
-unfog add|a desc (+tags) (:due:time)
+unfog add DESC [-p|--project PROJECT] [-d|--due DATE]
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/76144755-aeed7000-6083-11ea-89df-799bba54c20b.png)
+- The description is a list of words
+- The project can be a word
+- The due date can be a date, following one of this format:
+  - A full ISO datetime string `YYYY-MM-DD HH:MM`
+  - A ISO date string `YYYY-MM-DD` (the time will be set at `00:00`)
+  - A ISO time string `HH:MM` (the date will be set at `now`)
+
+![image](https://user-images.githubusercontent.com/10437171/89775172-8de3ec00-db07-11ea-9843-b654953c5892.png)
 
 ### Info
 
+Show more precise information about a specific task:
+
 ```bash
-unfog info|i id
+unfog info ID
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/76144807-28855e00-6084-11ea-99b7-19b99ed9c470.png)
+![image](https://user-images.githubusercontent.com/10437171/89775322-de5b4980-db07-11ea-9250-2d9758bce905.png)
 
 ### List
 
+Show all tasks belonging to the current context:
+
 ```bash
-unfog list|l
+unfog list
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/76142225-d6d0d980-606b-11ea-8253-044c1cb75824.png)
+![image](https://user-images.githubusercontent.com/10437171/89771094-1199da80-db00-11ea-8e65-12da9ec4161a.png)
 
 ### Edit
 
-Desc and due are replaced, but tags are kept. You can add one
-with `+tag` and remove one with `-tag`.
+Edit a task:
 
 ```bash
-unfog edit|e ids (desc) (+tags) (-tags) (:due:time)
+unfog edit ID [DESC] [-p|--project PROJECT] [-d|--due DATE]
 ```
 
-### Set
+![image](https://user-images.githubusercontent.com/10437171/89775914-10b97680-db09-11ea-92f4-afd7726c8500.png)
 
-Replace a task (nothing is kept, even the context).
+### Start
+
+Start all tasks matching the ids:
 
 ```bash
-unfog set|s ids desc (+tags) (:due:time)
+unfog start IDs...
 ```
 
-### Toggle
+### Stop
 
-Starts a task if stopped, or stops a task if started.
+Stop all tasks matching the ids:
 
 ```bash
-unfog toggle|t ids
-unfog start|+ ids
-unfog stop|- ids
+unfog stop IDs...
 ```
 
 ### Done
 
-Mark as done a task will remove it from the main list by adding a special tag
-`done`:
+Do all tasks matching the ids:
 
 ```bash
-unfog done|d ids
+unfog done IDs...
 ```
-
-*Note: done tasks can be listed by enabling the [`done` context](#context).*
 
 ### Undone
 
-Unmark as done a task will put back the task in the main list:
+Undo all tasks matching the ids:
 
 ```bash
-unfog undone|u ids
+unfog undone IDs...
 ```
 
 ### Delete
 
+Delete all tasks matching the ids:
+
 ```bash
-unfog delete|D ids
+unfog delete IDs...
 ```
 
-### Remove
+*Note: deleted tasks are excluded from any kind of report.*
 
-The remove command acts like a toggle. If the task is already done, then it
-[deletes it](#delete), otherwise it [marks it as done](#done).
+### Undelete
+
+Undelete all tasks matching the ids:
 
 ```bash
-unfog remove|r ids
+unfog undelete IDs...
 ```
 
 ### Context
 
-Filters tasks by the given tags. Once set up:
-
-- You will see only tasks containing at least one tag of your context
-- When you [create](#create) a task, all tags in your context will be assigned
-  to it
-
 ```bash
-unfog context|c (+tags)
+unfog context [PROJECT]
 ```
 
-The special context `+done` allows you to see done tasks:
+Define a project as context. Once set up:
 
-```bash
-unfog context +done
-```
+- The [list](#list) command will show only tasks belonging to this project
+- When you [add](#add) a new task, it will automatically be attached to this
+  project (except if you override it with the option `--project`)
+- The [worktime](#worktime) will use this project by default if none is given
 
-![image](https://user-images.githubusercontent.com/10437171/76144981-a302ad80-6085-11ea-8333-662b4d0e5a30.png)
+![image](https://user-images.githubusercontent.com/10437171/89776452-35621e00-db0a-11ea-91a0-3061b763eb37.png)
 
-*Note: the `+` is optional.*<br />
-*Note: giving an empty (or invalid) context will clear it.*
+*Note: giving an empty context will clear it.*
 
 ### Worktime
 
-Shows the total worktime spent on tasks belonging to the given context, grouped
-by days. An empty context will show the worktime of all your tasks.
-
-You can also filter them with a date range. Min date starts by `[`, and max
-date by `]`. The date range should follow the due time format (see
-[create](#create)).
-
 ```bash
-unfog worktime|w (+tags) ([min:range) (]max:range) (--more)
+unfog worktime [PROJECT] [-f|--from DATE] [-t|--to DATE] [--more]
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/76145256-540a4780-6088-11ea-988f-331299d77700.png)
+Show the total amount of time spent on tasks belonging to the given project,
+grouped by day. If no project given, the [context](#context) will be used.
 
-The [`--more`](#more) will add (for each day) the tasks with their worktime:
+You can also filter them with a date range (`--from` and `--to`). Date formats
+are the same as [the due date format](#add).
 
-![image](https://user-images.githubusercontent.com/10437171/76145348-fe826a80-6088-11ea-92a8-4c480c9e8007.png)
+![image](https://user-images.githubusercontent.com/10437171/89777370-dc938500-db0b-11ea-9654-1be7195dd659.png)
 
-*Note: the `+` is optional.*<br>
+The `--more` option will group tasks by day and by task in order to have a more
+refined report:
+
+![image](https://user-images.githubusercontent.com/10437171/89777413-ed43fb00-db0b-11ea-8f3a-c8111e3e749a.png)
+
 *Note: the `TOTAL WDAY` is the total in worktime days, where a worktime day is
-7.5 hours.*
+define by default at 7.5 hours.*
 
 ### Status
 
-Shows the status of the first active task found (desc + active duration).
+Shows the status of the first active task found (desc + active duration):
 
 ```bash
 unfog status
@@ -241,7 +249,12 @@ exec = unfog status
 interval = 10
 ```
 
+![image](https://user-images.githubusercontent.com/10437171/89777230-96d6bc80-db0b-11ea-8b57-f120059d561d.png)
+
 ### Upgrade
+
+Upgrade the CLI with the latest release from
+[GitHub](https://github.com/soywod/unfog/releases):
 
 ```bash
 unfog upgrade
@@ -249,56 +262,17 @@ unfog upgrade
 
 ![image](https://user-images.githubusercontent.com/10437171/71656858-66d96680-2d3d-11ea-8ec9-1d9bb2b8712e.png)
 
-## Options
+## Common options
+
 ### JSON
 
-By adding the `--json` option, the output will be printed in JSON format:
+By adding the `--json` option, the output will be printed in JSON format. This
+is useful to create user interafaces. Here the list of current implementations:
 
-```
-{
-  "ok": 0 | 1,
-  "data": String | Task | [Task] | Worktime
-}
-```
+  - [Unfog.vim](https://github.com/soywod/unfog.vim) for Vim/Neovim
 
-```
-Task {
-  id: Int
-  ref: Int
-  pos: Int
-  desc: String
-  tags: [String]
-  active: TimeRecord
-  due: TimeRecord
-  done: 0 | 1
-  wtime: TimeRecord
-}
-
-Worktime {
-  total: TimeRecord,
-  wtimes: [{
-    date: String (day)
-    wtime: TimeRecord,
-  }]
-}
-
-TimeRecord {
-  approx: String (worktime approximation)
-  human: String (full worktime)
-  micro: Int (worktime in micro seconds)
-}
-```
-
-This is useful to create user interafaces. Here the list of current implementations:
-
-- [Unfog.vim](https://github.com/soywod/unfog.vim) for Vim/Neovim
-
-### More
-
-By adding the `--more` option, you will get more informations depending on the
-command:
-
-- [Worktime](#worktime): adds for each day the tasks with their worktime
+To have more information about the JSON object shape, see
+[Response.hs](https://github.com/soywod/unfog/blob/master/src/Response.hs).
 
 ## Contributing
 
@@ -310,7 +284,7 @@ contain only a subject.
   > “changes”<br>Don't capitalize first letter<br>No dot (.) at the end
 
 Code should be as clean as possible, variables and functions use the camel case
-convention. A line should never contain more than `80` characters.
+convention. A line should be as short as possible to improve readability.
 
 Tests should be added for each new functionality. Be sure to run tests before
 proposing a pull request.
@@ -320,3 +294,4 @@ proposing a pull request.
 - [Kronos](https://github.com/soywod/kronos.vim), the unfog predecessor
 - [Taskwarrior](https://taskwarrior.org), a task manager
 - [Timewarrior](https://taskwarrior.org/docs/timewarrior), a time tracker
+- [Watson](https://github.com/TailorDev/Watson), a time tracker

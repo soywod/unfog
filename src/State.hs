@@ -1,63 +1,100 @@
-{-# LANGUAGE NamedFieldPuns #-}
 module State where
 
-import           Data.List
-import           Data.Maybe
-import           Data.Time
+import Data.List
+import Data.Maybe
+import Data.Time
+import Event.Type (Event (..))
+import qualified File
+import Task
 
-import           Event
-import           Task
+-- Model
 
-data State = State { _tasks :: [Task]
-                   , _ctx :: [Tag]
-                   } deriving (Show, Read)
+data State = State
+  { _ctx :: Project,
+    _tasks :: [Task]
+  }
+  deriving (Show, Read, Eq)
 
-applyEvents :: UTCTime -> [Event] -> State
-applyEvents now = foldl (apply now) emptyState
-  where emptyState = State { _tasks = [], _ctx = [] }
+new :: State
+new =
+  State
+    { _ctx = Nothing,
+      _tasks = []
+    }
 
-apply :: UTCTime -> State -> Event -> State
-apply now state event = case event of
-  TaskCreated _ _ref _id _pos _desc _tags due -> state { _tasks = nextTasks }
-   where
-    due'      = realToFrac <$> flip diffUTCTime now <$> due
-    newTask   = emptyTask { _ref, _id, _pos, _desc, _tags, _due = due' }
-    nextTasks = _tasks state ++ [newTask]
+-- Getters
 
-  TaskUpdated _ ref _ _pos _desc _tags due -> state { _tasks = nextTasks }
-   where
-    due' = realToFrac <$> flip diffUTCTime now <$> due
-    update task = task { _pos, _desc, _tags, _due = due' }
-    nextTasks = getNextTasks ref update
+getContext :: State -> Project
+getContext = _ctx
 
-  TaskStarted start ref _ -> state { _tasks = getNextTasks ref update }
-   where
-    active = realToFrac $ diffUTCTime now start
-    update task = task { _active = active, _starts = _starts task ++ [start] }
+getTasks :: State -> [Task]
+getTasks = _tasks
 
-  TaskStopped stop ref _ -> state { _tasks = getNextTasks ref update }
-    where update task = task { _active = 0, _stops = _stops task ++ [stop] }
+-- Read & Write
 
-  TaskMarkedAsDone stop ref _id -> state { _tasks = getNextTasks ref update }
-   where
-    update task =
-      let nextStops = _stops task ++ [ stop | _active task > 0 ]
-      in  task { _id, _active = 0, _done = True, _stops = nextStops }
+readFile :: IO State
+readFile = read <$> File.getContent "state"
 
-  TaskUnmarkedAsDone stop ref _id -> state { _tasks = getNextTasks ref update }
-    where update task = task { _id, _done = False }
+writeFile :: State -> IO ()
+writeFile state = writeFile' state' =<< File.getPath "state"
+  where
+    state' = show state
+    writeFile' = flip Prelude.writeFile
 
-  TaskDeleted _ ref _ -> state { _tasks = nextTasks }
-    where nextTasks = filter ((/=) ref . _ref) (_tasks state)
+-- Event sourcing
 
-  ContextSet _ _ctx -> state { _ctx }
+rebuild :: [Event] -> State
+rebuild = applyAll $ State Nothing []
 
- where
-  getNextTasks ref update =
-    case findByRef ref $ filterByTags (_ctx state) (_tasks state) of
-      Nothing -> _tasks state
-      Just task ->
-        let nextTask = update task
-            save currTask | _ref currTask == _ref nextTask = nextTask
-                          | otherwise                      = currTask
-        in  map save (_tasks state)
+applyAll :: State -> [Event] -> State
+applyAll = foldl apply
+
+apply :: State -> Event -> State
+apply state evt = case evt of
+  TaskAdded _ id desc project due -> state {_tasks = tasks}
+    where
+      task = Task id desc project [] [] due Nothing Nothing Nothing
+      tasks = getTasks state ++ [task]
+  TaskEdited _ id desc project due -> state {_tasks = tasks}
+    where
+      tasks = map update $ getTasks state
+      update task
+        | id == getId task = task {_desc = desc, _project = project, _due = due}
+        | otherwise = task
+  TaskStarted start id -> state {_tasks = tasks}
+    where
+      tasks = map update $ getTasks state
+      update task
+        | id == getId task = task {_active = Just start, _starts = getStarts task ++ [start]}
+        | otherwise = task
+  TaskStopped stop id -> state {_tasks = tasks}
+    where
+      tasks = map update $ getTasks state
+      update task
+        | id == getId task = task {_active = Nothing, _stops = getStops task ++ [stop]}
+        | otherwise = task
+  TaskDid now id -> state {_tasks = tasks}
+    where
+      tasks = map update $ getTasks state
+      update task
+        | id == getId task = task {_active = Nothing, _done = Just now, _stops = getStops task ++ [now | isJust $ getActive task]}
+        | otherwise = task
+  TaskUndid _ id -> state {_tasks = tasks}
+    where
+      tasks = map update $ getTasks state
+      update task
+        | id == getId task = task {_done = Nothing}
+        | otherwise = task
+  TaskDeleted now id -> state {_tasks = tasks}
+    where
+      tasks = map update $ getTasks state
+      update task
+        | id == getId task = task {_active = Nothing, _deleted = Just now, _stops = getStops task ++ [now | isJust $ getActive task]}
+        | otherwise = task
+  TaskUndeleted _ id -> state {_tasks = tasks}
+    where
+      tasks = map update $ getTasks state
+      update task
+        | id == getId task = task {_deleted = Nothing}
+        | otherwise = task
+  ContextEdited _ ctx -> state {_ctx = ctx}

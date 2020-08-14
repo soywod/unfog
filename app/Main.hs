@@ -1,14 +1,13 @@
 module Main where
 
-import           System.Environment             ( getArgs )
-
-import qualified Parsec
-import qualified Command                       as Cmd
-import qualified Query                         as Qry
+import ArgParser
+import qualified Command (handle)
+import qualified Procedure (handle)
+import qualified Query (handle)
 
 main :: IO ()
-main = getArgs >>= dispatch . Parsec.parseArgs . unwords
- where
-  dispatch args = case Parsec._type args of
-    Parsec.Cmd -> Cmd.handle args
-    Parsec.Qry -> Qry.handle args
+main = parseArgs >>= dispatch
+  where
+    dispatch (QueryArg arg) = Query.handle arg
+    dispatch (CommandArg arg) = Command.handle arg
+    dispatch (ProcedureArg arg) = Procedure.handle arg

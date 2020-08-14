@@ -1,8 +1,8 @@
 name:                unfog
-version:             0.4.5
-github:              "soywod/unfog.cli"
+version:             1.0.0
+github:              "soywod/unfog"
 license:             BSD3
-author:              "Clément DOUIN"
+author:              "soywod"
 maintainer:          "clement.douin@posteo.net"
 copyright:           "2019-2020 Clément DOUIN"
 
@@ -11,13 +11,13 @@ extra-source-files:
 - CHANGELOG.md
 
 # Metadata used when publishing your package
-synopsis:            A simple task and time manager.
+synopsis:            Minimalist task & time manager.
 category:            CLI
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/soywod/unfog.cli#readme>
+description:         Please see the README on GitHub at <https://github.com/soywod/unfog#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -28,26 +28,31 @@ library:
   - aeson
   - base-compat
   - bytestring
+  - containers
   - directory
+  - hspec
+  - optparse-applicative
   - process
+  - random
   - time
+  - uuid
 
 executables:
   unfog:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
     - -O3
+    - -rtsopts
+    - -threaded
+    - -with-rtsopts=-N
     dependencies:
     - unfog
-    - time
 
 tests:
   spec:
     defaults: hspec/hspec@master
     dependencies:
-      - unfog
+      - hspec
       - time
+      - unfog
