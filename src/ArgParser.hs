@@ -7,6 +7,7 @@ import Data.Time
 import Event.Type (Event (..))
 import Options.Applicative
 import qualified Store (readFile)
+import qualified System.Environment as Env (getArgs)
 import Task (Desc, Due, Id, Project)
 
 data Query
@@ -36,7 +37,14 @@ data Procedure
 data Arg = CommandArg Command | QueryArg Query | ProcedureArg Procedure
 
 parseArgs :: IO Arg
-parseArgs = do
+parseArgs = parseArgs' =<< Env.getArgs
+  where
+    parseArgs' args
+      | null args = return $ QueryArg $ List False False False
+      | otherwise = execParser'
+
+execParser' :: IO Arg
+execParser' = do
   now <- getCurrentTime
   tzone <- getCurrentTimeZone
   let desc = fullDesc <> header "⏱ Unfog - Minimalist task & time manager"

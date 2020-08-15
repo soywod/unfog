@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- List query as default command [#30]
 - Completion [#37]
 
 ## [1.0.0] - 2020-08-14
