@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Completion [#37]
+
 ## [1.0.0] - 2020-08-14
 
 The args parser becomes more solid (based on
@@ -255,3 +259,4 @@ First release :tada:
 [#31]: https://github.com/soywod/unfog/issues/31
 [#33]: https://github.com/soywod/unfog/issues/33
 [#34]: https://github.com/soywod/unfog/issues/34
+[#37]: https://github.com/soywod/unfog/issues/37

@@ -11,6 +11,7 @@ Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
   * [From binaries](#from-binaries)
   * [From AUR](#from-aur)
   * [From sources](#from-sources)
+  * [Completion](#completion)
 * [Usage](#usage)
   * [Add](#add)
   * [Info](#info)
@@ -92,6 +93,24 @@ git clone https://github.com/soywod/unfog.git
 cd unfog
 stack install
 ```
+
+### Completion
+
+By default, only the bash completion is installed (in
+`/etc/bash_completion.d/`).
+
+If you are on [zsh](https://www.zsh.org/) or [fish](https://fishshell.com/),
+you can get the completion file by running one of this command:
+
+```bash
+# For zsh users
+unfog --zsh-completion-script `which unfog`
+
+# For fish users
+unfog --fish-completion-script `which unfog`
+```
+
+*Note: you will have to source manually those generated files.*
 
 ## Usage
 
