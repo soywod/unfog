@@ -12,8 +12,6 @@ import qualified Store (readFile)
 import Task
 import Worktime
 
-type IdLength = Int
-
 data Query
   = ShowTasks UTCTime IdLength ResponseType Project [Task]
   | ShowTask UTCTime ResponseType Task
@@ -62,8 +60,9 @@ showWtime now (State ctx tasks) proj fromOpt toOpt moreOpt jsonOpt = ShowWorktim
   where
     ctx' = if isNothing proj then ctx else proj
     tasks' = filterWith [notDeleted, matchContext ctx'] tasks
-    wtimes = buildWtimePerDay now fromOpt toOpt tasks'
+    wtimes = buildWtimePerDay now idLength fromOpt toOpt tasks'
     rtype = parseResponseType jsonOpt
+    idLength = getShortIdLength tasks
 
 showStatus :: UTCTime -> State -> MoreOpt -> JsonOpt -> Query
 showStatus now (State _ tasks) moreOpt jsonOpt = ShowStatus now rtype $ findFstActive tasks

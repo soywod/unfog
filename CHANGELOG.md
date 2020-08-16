@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Short ids for worktime --more query [#39]
+
 ## [1.0.1] - 2020-08-16
 
 ### Fixed
@@ -265,3 +269,4 @@ First release :tada:
 [#33]: https://github.com/soywod/unfog/issues/33
 [#34]: https://github.com/soywod/unfog/issues/34
 [#37]: https://github.com/soywod/unfog/issues/37
+[#39]: https://github.com/soywod/unfog/issues/39

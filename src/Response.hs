@@ -15,8 +15,6 @@ import Task
 import Text.Printf (printf)
 import Worktime
 
-type IdLength = Int
-
 data ResponseType
   = Json
   | Text

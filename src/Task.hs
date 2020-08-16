@@ -3,12 +3,14 @@ module Task where
 import Data.List
 import Data.Maybe
 import Data.Set (Set)
-import Data.Time
 import qualified Data.Set as Set
+import Data.Time
 
 -- Model
 
 type Id = String
+
+type IdLength = Int
 
 type ShortId = String
 
