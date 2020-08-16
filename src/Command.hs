@@ -42,16 +42,16 @@ handle arg = do
   notify shortenId' cmds subscribers
 
 parseCommands :: UTCTime -> TimeZone -> State -> Id -> Arg.Command -> [Command]
-parseCommands now tzone state id (Arg.Add desc proj due jsonOpt) = [addTask now tzone (parseResponseType jsonOpt) state id desc proj due]
-parseCommands now tzone state _ (Arg.Edit id desc proj due jsonOpt) = [editTask now tzone (parseResponseType jsonOpt) state id desc proj due]
-parseCommands now _ state _ (Arg.Start ids jsonOpt) = map (startTask now (parseResponseType jsonOpt) state) ids
-parseCommands now _ state _ (Arg.Stop ids jsonOpt) = map (stopTask now (parseResponseType jsonOpt) state) ids
-parseCommands now _ state _ (Arg.Toggle ids jsonOpt) = map (toggleTask now (parseResponseType jsonOpt) state) ids
-parseCommands now _ state _ (Arg.Do ids jsonOpt) = map (doTask now (parseResponseType jsonOpt) state) ids
-parseCommands now _ state _ (Arg.Undo ids jsonOpt) = map (undoTask now (parseResponseType jsonOpt) state) ids
-parseCommands now _ state _ (Arg.Delete ids jsonOpt) = map (deleteTask now (parseResponseType jsonOpt) state) ids
-parseCommands now _ state _ (Arg.Undelete ids jsonOpt) = map (undeleteTask now (parseResponseType jsonOpt) state) ids
-parseCommands now _ state _ (Arg.Context ctx jsonOpt) = [editContext now (parseResponseType jsonOpt) ctx]
+parseCommands now tzone state id (Arg.AddTask desc proj due jsonOpt) = [addTask now tzone (parseResponseType jsonOpt) state id desc proj due]
+parseCommands now tzone state _ (Arg.EditTask id desc proj due jsonOpt) = [editTask now tzone (parseResponseType jsonOpt) state id desc proj due]
+parseCommands now _ state _ (Arg.StartTask ids jsonOpt) = map (startTask now (parseResponseType jsonOpt) state) ids
+parseCommands now _ state _ (Arg.StopTask ids jsonOpt) = map (stopTask now (parseResponseType jsonOpt) state) ids
+parseCommands now _ state _ (Arg.ToggleTask ids jsonOpt) = map (toggleTask now (parseResponseType jsonOpt) state) ids
+parseCommands now _ state _ (Arg.DoTask ids jsonOpt) = map (doTask now (parseResponseType jsonOpt) state) ids
+parseCommands now _ state _ (Arg.UndoTask ids jsonOpt) = map (undoTask now (parseResponseType jsonOpt) state) ids
+parseCommands now _ state _ (Arg.DeleteTask ids jsonOpt) = map (deleteTask now (parseResponseType jsonOpt) state) ids
+parseCommands now _ state _ (Arg.UndeleteTask ids jsonOpt) = map (undeleteTask now (parseResponseType jsonOpt) state) ids
+parseCommands now _ state _ (Arg.EditContext ctx jsonOpt) = [editContext now (parseResponseType jsonOpt) ctx]
 
 execute :: State -> Command -> [Event]
 execute state cmd = case cmd of

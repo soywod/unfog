@@ -11,5 +11,5 @@ data Procedure
   deriving (Show, Read)
 
 handle :: Arg.Procedure -> IO ()
-handle (Arg.Version jsonOpt) = send (parseResponseType jsonOpt) (VersionResponse "1.0.0")
-handle (Arg.Upgrade) = system "curl -sSL https://raw.githubusercontent.com/soywod/unfog/master/bin/install.sh | sh" >> return ()
+handle (Arg.ShowVersion jsonOpt) = send (parseResponseType jsonOpt) (VersionResponse "1.0.0")
+handle (Arg.Upgrade) = system "curl -sSL https://raw.githubusercontent.com/soywod/unfog/master/bin/install.sh | bash" >> return ()

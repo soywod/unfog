@@ -11,27 +11,27 @@ import qualified System.Environment as Env (getArgs)
 import Task (Desc, Due, Id, Project)
 
 data Query
-  = List DoneOpt DeletedOpt JsonOpt
-  | Info Id JsonOpt
-  | Wtime Project FromOpt ToOpt MoreOpt JsonOpt
-  | Status MoreOpt JsonOpt
+  = ShowTasks DoneOpt DeletedOpt JsonOpt
+  | ShowTask Id JsonOpt
+  | ShowWorktime Project FromOpt ToOpt MoreOpt JsonOpt
+  | ShowStatus MoreOpt JsonOpt
   deriving (Show, Eq)
 
 data Command
-  = Add Desc ProjOpt DueOpt JsonOpt
-  | Edit Id Desc ProjOpt DueOpt JsonOpt
-  | Start [Id] JsonOpt
-  | Stop [Id] JsonOpt
-  | Toggle [Id] JsonOpt
-  | Do [Id] JsonOpt
-  | Undo [Id] JsonOpt
-  | Delete [Id] JsonOpt
-  | Undelete [Id] JsonOpt
-  | Context Project JsonOpt
+  = AddTask Desc ProjOpt DueOpt JsonOpt
+  | EditTask Id Desc ProjOpt DueOpt JsonOpt
+  | StartTask [Id] JsonOpt
+  | StopTask [Id] JsonOpt
+  | ToggleTask [Id] JsonOpt
+  | DoTask [Id] JsonOpt
+  | UndoTask [Id] JsonOpt
+  | DeleteTask [Id] JsonOpt
+  | UndeleteTask [Id] JsonOpt
+  | EditContext Project JsonOpt
   deriving (Show, Eq)
 
 data Procedure
-  = Version JsonOpt
+  = ShowVersion JsonOpt
   | Upgrade
 
 data Arg = CommandArg Command | QueryArg Query | ProcedureArg Procedure
@@ -40,7 +40,7 @@ parseArgs :: IO Arg
 parseArgs = parseArgs' =<< Env.getArgs
   where
     parseArgs' args
-      | null args = return $ QueryArg $ List False False False
+      | null args = return $ QueryArg $ ShowTasks False False False
       | otherwise = execParser'
 
 execParser' :: IO Arg
@@ -78,13 +78,13 @@ listQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 listQueries = aliasedCommand parser desc ["list", "l"]
   where
     desc = "Show current project tasks"
-    parser = QueryArg <$> (List <$> doneOptParser <*> deletedOptParser <*> jsonOptParser)
+    parser = QueryArg <$> (ShowTasks <$> doneOptParser <*> deletedOptParser <*> jsonOptParser)
 
 infoQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 infoQueries = aliasedCommand parser desc ["info", "i"]
   where
     desc = "Show task details"
-    parser = QueryArg <$> (Info <$> idParser <*> jsonOptParser)
+    parser = QueryArg <$> (ShowTask <$> idParser <*> jsonOptParser)
 
 wtimeQueries :: UTCTime -> TimeZone -> (Mod CommandFields Arg, Mod CommandFields Arg)
 wtimeQueries now tzone = aliasedCommand parser desc ["worktime", "wtime", "w"]
@@ -92,7 +92,7 @@ wtimeQueries now tzone = aliasedCommand parser desc ["worktime", "wtime", "w"]
     desc = "Show worktime report"
     parser =
       QueryArg
-        <$> ( Wtime
+        <$> ( ShowWorktime
                 <$> projParser
                 <*> fromOptParser now tzone
                 <*> toOptParser now tzone
@@ -104,7 +104,7 @@ statusQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 statusQueries = aliasedCommand parser desc ["status", "stat"]
   where
     desc = "Show active task info"
-    parser = QueryArg <$> (Status <$> moreOptParser "Show more details about the task" <*> jsonOptParser)
+    parser = QueryArg <$> (ShowStatus <$> moreOptParser "Show more details about the task" <*> jsonOptParser)
 
 -- Commands
 
@@ -118,6 +118,7 @@ commands now tzone =
     doCommands,
     undoCommands,
     deleteCommands,
+    undeleteCommands,
     ctxCommands
   ]
 
@@ -131,55 +132,61 @@ addCommands :: UTCTime -> TimeZone -> (Mod CommandFields Arg, Mod CommandFields 
 addCommands now tzone = aliasedCommand parser desc ["add", "a"]
   where
     desc = "Add a new task"
-    parser = CommandArg <$> (Add <$> addDescParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
+    parser = CommandArg <$> (AddTask <$> addDescParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
 
 editCommands :: UTCTime -> TimeZone -> (Mod CommandFields Arg, Mod CommandFields Arg)
 editCommands now tzone = aliasedCommand parser desc ["edit", "e"]
   where
     desc = "Edit an existing task"
-    parser = CommandArg <$> (Edit <$> idParser <*> editDescParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
+    parser = CommandArg <$> (EditTask <$> idParser <*> editDescParser <*> projOptParser <*> dueOptParser now tzone <*> jsonOptParser)
 
 startCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
 startCommands = aliasedCommand parser desc ["start", "sta", "s"]
   where
     desc = "Start a task"
-    parser = CommandArg <$> (Start <$> idsParser <*> jsonOptParser)
+    parser = CommandArg <$> (StartTask <$> idsParser <*> jsonOptParser)
 
 stopCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
 stopCommands = aliasedCommand parser desc ["stop", "sto", "S"]
   where
     desc = "Stop a task"
-    parser = CommandArg <$> (Stop <$> idsParser <*> jsonOptParser)
+    parser = CommandArg <$> (StopTask <$> idsParser <*> jsonOptParser)
 
 toggleCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
 toggleCommands = aliasedCommand parser desc ["toggle", "tog", "t"]
   where
     desc = "Toggle a task"
-    parser = CommandArg <$> (Toggle <$> idsParser <*> jsonOptParser)
+    parser = CommandArg <$> (ToggleTask <$> idsParser <*> jsonOptParser)
 
 doCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
 doCommands = aliasedCommand parser desc ["done", "do", "d"]
   where
     desc = "Mark as done a task"
-    parser = CommandArg <$> (Do <$> idsParser <*> jsonOptParser)
+    parser = CommandArg <$> (DoTask <$> idsParser <*> jsonOptParser)
 
 undoCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
 undoCommands = aliasedCommand parser desc ["undone", "undo", "u"]
   where
     desc = "Unmark as done a task"
-    parser = CommandArg <$> (Undo <$> idsParser <*> jsonOptParser)
+    parser = CommandArg <$> (UndoTask <$> idsParser <*> jsonOptParser)
 
 deleteCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
 deleteCommands = aliasedCommand parser desc ["delete", "del", "D"]
   where
     desc = "Delete a task"
-    parser = CommandArg <$> (Delete <$> idsParser <*> jsonOptParser)
+    parser = CommandArg <$> (DeleteTask <$> idsParser <*> jsonOptParser)
+
+undeleteCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
+undeleteCommands = aliasedCommand parser desc ["undelete", "undel", "U"]
+  where
+    desc = "Undelete a task"
+    parser = CommandArg <$> (UndeleteTask <$> idsParser <*> jsonOptParser)
 
 ctxCommands :: (Mod CommandFields Arg, Mod CommandFields Arg)
 ctxCommands = aliasedCommand parser desc ["context", "ctx", "c"]
   where
     desc = "Change the current project"
-    parser = CommandArg <$> (Context <$> projParser <*> jsonOptParser)
+    parser = CommandArg <$> (EditContext <$> projParser <*> jsonOptParser)
 
 -- Procedures
 
@@ -201,7 +208,7 @@ versionProcedure :: Mod CommandFields Arg
 versionProcedure = command "version" $ info parser infoMod
   where
     infoMod = progDesc "Show the version"
-    parser = ProcedureArg <$> Version <$> jsonOptParser
+    parser = ProcedureArg <$> ShowVersion <$> jsonOptParser
 
 -- Readers
 

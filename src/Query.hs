@@ -17,7 +17,7 @@ type IdLength = Int
 data Query
   = ShowTasks UTCTime IdLength ResponseType Project [Task]
   | ShowTask UTCTime ResponseType Task
-  | ShowWtime UTCTime ResponseType MoreOpt [DailyWorktime]
+  | ShowWorktime UTCTime ResponseType MoreOpt [DailyWorktime]
   | ShowStatus UTCTime ResponseType (Maybe Task)
   | Error ResponseType String
   deriving (Show, Read, Eq)
@@ -30,15 +30,15 @@ handle arg = do
   execute query
 
 parseQuery :: UTCTime -> State -> Arg.Query -> Query
-parseQuery now state (Arg.List doneOpt deletedOpt jsonOpt) = showTasks now state doneOpt deletedOpt jsonOpt
-parseQuery now state (Arg.Info id jsonOpt) = showTask now state id jsonOpt
-parseQuery now state (Arg.Wtime proj fromOpt toOpt moreOpt jsonOpt) = showWtime now state proj fromOpt toOpt moreOpt jsonOpt
-parseQuery now state (Arg.Status moreOpt jsonOpt) = showStatus now state moreOpt jsonOpt
+parseQuery now state (Arg.ShowTasks doneOpt deletedOpt jsonOpt) = showTasks now state doneOpt deletedOpt jsonOpt
+parseQuery now state (Arg.ShowTask id jsonOpt) = showTask now state id jsonOpt
+parseQuery now state (Arg.ShowWorktime proj fromOpt toOpt moreOpt jsonOpt) = showWtime now state proj fromOpt toOpt moreOpt jsonOpt
+parseQuery now state (Arg.ShowStatus moreOpt jsonOpt) = showStatus now state moreOpt jsonOpt
 
 execute :: Query -> IO ()
 execute (ShowTasks now idLength rtype ctx tasks) = send rtype (TasksResponse now idLength ctx tasks)
 execute (ShowTask now rtype task) = send rtype (TaskResponse now task)
-execute (ShowWtime now rtype moreOpt wtimes) = send rtype (WtimeResponse now moreOpt wtimes)
+execute (ShowWorktime now rtype moreOpt wtimes) = send rtype (WorktimeResponse now moreOpt wtimes)
 execute (ShowStatus now rtype task) = send rtype (StatusResponse now task)
 execute (Error rtype msg) = send rtype (ErrorResponse msg)
 
@@ -58,7 +58,7 @@ showTask now (State _ tasks) id jsonOpt = case findById id tasks of
     rtype = parseResponseType jsonOpt
 
 showWtime :: UTCTime -> State -> Project -> FromOpt -> ToOpt -> MoreOpt -> JsonOpt -> Query
-showWtime now (State ctx tasks) proj fromOpt toOpt moreOpt jsonOpt = ShowWtime now rtype moreOpt wtimes
+showWtime now (State ctx tasks) proj fromOpt toOpt moreOpt jsonOpt = ShowWorktime now rtype moreOpt wtimes
   where
     ctx' = if isNothing proj then ctx else proj
     tasks' = filterWith [notDeleted, matchContext ctx'] tasks

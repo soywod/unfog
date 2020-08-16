@@ -25,7 +25,7 @@ data ResponseType
 data Response
   = TasksResponse UTCTime IdLength Project [Task]
   | TaskResponse UTCTime Task
-  | WtimeResponse UTCTime MoreOpt [DailyWorktime]
+  | WorktimeResponse UTCTime MoreOpt [DailyWorktime]
   | StatusResponse UTCTime (Maybe Task)
   | VersionResponse String
   | ContextResponse Project
@@ -35,7 +35,7 @@ data Response
 send :: ResponseType -> Response -> IO ()
 send rtype (TasksResponse now idLength ctx tasks) = showTasks now idLength rtype ctx tasks
 send rtype (TaskResponse now task) = showTask now rtype task
-send rtype (WtimeResponse now moreOpt wtimes) = showWtime now rtype moreOpt wtimes
+send rtype (WorktimeResponse now moreOpt wtimes) = showWtime now rtype moreOpt wtimes
 send rtype (StatusResponse now task) = showStatus now rtype task
 send rtype (VersionResponse version) = showVersion rtype version
 send rtype (ContextResponse proj) = showContext rtype proj
