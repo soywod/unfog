@@ -305,12 +305,6 @@ doneOptParser = switch $ long "done" <> short 'd' <> help "Show only done tasks"
 deletedOptParser :: Parser DeletedOpt
 deletedOptParser = switch $ long "deleted" <> short 'D' <> help "Show only deleted tasks"
 
-onlyIdsOptParser :: Parser OnlyIdsOpt
-onlyIdsOptParser = switch $ long "only-ids" <> help "Show only tasks id"
-
-onlyProjsOptParser :: Parser OnlyProjsOpt
-onlyProjsOptParser = switch $ long "only-projects" <> help "Show only tasks projects"
-
 moreOptParser :: String -> Parser MoreOpt
 moreOptParser h = switch $ long "more" <> help h
 
@@ -322,7 +316,8 @@ jsonOptParser = switch $ long "json" <> help "Show result as JSON string"
 idsCompleter :: Completer
 idsCompleter = mkCompleter idsCompleter'
   where
-    idsCompleter' str = sort . filter (isPrefixOf str) . foldl extractIds [] <$> Store.readFile
+    idsCompleter' str = sort . filter (isPrefixOf str) . map withoutDash . foldl extractIds [] <$> Store.readFile
+    withoutDash = filter (/= '-')
     extractIds ids (TaskAdded _ id _ _ _) = ids ++ [id]
     extractIds ids _ = ids
 
