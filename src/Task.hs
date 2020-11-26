@@ -114,12 +114,10 @@ filterWith predicates = filter matchAll
   where
     matchAll = foldl1 both predicates
 
--- Finders
+-- Finders & Filters
 
 findById :: Id -> [Task] -> Maybe Task
-findById id = find $ isPrefixOf id' . getId
-  where
-    id' = filter (/= '-') id
+findById id = find $ isPrefixOf (skipDashes id) . skipDashes . getId
 
 findFstActive :: [Task] -> Maybe Task
 findFstActive tasks
@@ -128,8 +126,11 @@ findFstActive tasks
   where
     activeTasks = filter (not . isNothing . getActive) tasks
 
+skipDashes :: Id -> Id
+skipDashes = filter (/= '-')
+
 shortenId :: Int -> String -> ShortId
-shortenId len id = take len $ filter (/= '-') id
+shortenId len id = take len $ skipDashes id
 
 getShortIdLength :: [Task] -> Int
 getShortIdLength tasks = loop 4

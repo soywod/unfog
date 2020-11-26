@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Task not found when using long ids containing dash
 - Short ids for worktime --more query [#39]
 
 ## [1.0.1] - 2020-08-16

@@ -8,7 +8,7 @@ import Event.Type (Event (..))
 import Options.Applicative
 import qualified Store (readFile)
 import qualified System.Environment as Env (getArgs)
-import Task (Desc, Due, Id, Project)
+import Task (Desc, Due, Id, Project, skipDashes)
 
 data Query
   = ShowTasks DoneOpt DeletedOpt JsonOpt
@@ -316,8 +316,7 @@ jsonOptParser = switch $ long "json" <> help "Show result as JSON string"
 idsCompleter :: Completer
 idsCompleter = mkCompleter idsCompleter'
   where
-    idsCompleter' str = sort . filter (isPrefixOf str) . map withoutDash . foldl extractIds [] <$> Store.readFile
-    withoutDash = filter (/= '-')
+    idsCompleter' str = sort . filter (isPrefixOf str) . map skipDashes . foldl extractIds [] <$> Store.readFile
     extractIds ids (TaskAdded _ id _ _ _) = ids ++ [id]
     extractIds ids _ = ids
 
