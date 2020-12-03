@@ -4,11 +4,11 @@ import ArgOptions
 import qualified ArgParser as Arg
 import Control.Applicative ((<|>))
 import Data.Maybe (isJust, isNothing)
-import Data.Time (TimeZone, UTCTime, getCurrentTime, getCurrentTimeZone)
+import Data.Time (UTCTime, getCurrentTime)
 import Response
 import State (State (..))
-import qualified State (getTasks, new, readFile, rebuild)
-import qualified Store (readFile)
+import qualified State
+import qualified Store
 import Task
 import Worktime
 
@@ -65,6 +65,6 @@ showWtime now (State ctx tasks) proj fromOpt toOpt moreOpt jsonOpt = ShowWorktim
     idLength = getShortIdLength tasks
 
 showStatus :: UTCTime -> State -> MoreOpt -> JsonOpt -> Query
-showStatus now (State _ tasks) moreOpt jsonOpt = ShowStatus now rtype $ findFstActive tasks
+showStatus now (State _ tasks) _ jsonOpt = ShowStatus now rtype $ findFstActive tasks
   where
     rtype = parseResponseType jsonOpt

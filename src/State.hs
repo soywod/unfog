@@ -1,11 +1,9 @@
 module State where
 
-import Data.List
 import Data.Maybe
-import Data.Time
 import Event.Type (Event (..))
 import qualified File
-import Task
+import Task hiding (new)
 
 -- Model
 
@@ -33,7 +31,7 @@ getTasks = _tasks
 -- Read & Write
 
 readFile :: IO State
-readFile = read <$> File.getContent "state"
+readFile = read <$> File.readFromName "state"
 
 writeFile :: State -> IO ()
 writeFile state = writeFile' state' =<< File.getPath "state"

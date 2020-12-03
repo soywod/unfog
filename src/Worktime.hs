@@ -25,12 +25,12 @@ getTaskWtime :: UTCTime -> Task -> Duration
 getTaskWtime now task = realToFrac $ sum $ zipWith diffUTCTime stops starts
   where
     starts = getStarts task
-    stops = getStops task ++ [now | not $ isNothing $ getActive task]
+    stops = getStops task ++ [now | isJust (getActive task)]
 
 buildWtimePerDay :: UTCTime -> IdLength -> FromOpt -> ToOpt -> [Task] -> [DailyWorktime]
 buildWtimePerDay now idLength from to = sortOn fst . foldl buildWtimePerDay' []
   where
-    buildWtimePerDay' wtimes task = filter (\(_, wtimes) -> (sum $ map getWtimeDuration wtimes) > 0) $ mergeDailyWtimes wtimes $ concatMap (wtimePerDay wtime) $ zip starts' stops'
+    buildWtimePerDay' wtimes task = filter (\(_, wtimes) -> sum (map getWtimeDuration wtimes) > 0) $ mergeDailyWtimes wtimes $ concatMap (wtimePerDay wtime) $ zip starts' stops'
       where
         wtime = Worktime (shortenId idLength $ getId task) (getDesc task) 0
         starts' = map (clampTime from to) $ getStarts task
@@ -57,7 +57,7 @@ mergeDailyWtimes = foldl mergeWtimes'
 mergeWtimes :: [Worktime] -> Worktime -> [Worktime]
 mergeWtimes xvals (Worktime yid ydesc ywtime) =
   case find ((==) yid . getWtimeId) xvals of
-    Nothing -> (Worktime yid ydesc ywtime) : xvals
-    Just aval -> (Worktime yid ydesc (getWtimeDuration aval + ywtime)) : without yid xvals
+    Nothing -> Worktime yid ydesc ywtime : xvals
+    Just aval -> Worktime yid ydesc (getWtimeDuration aval + ywtime) : without yid xvals
   where
     without val = filter ((/=) val . getWtimeId)

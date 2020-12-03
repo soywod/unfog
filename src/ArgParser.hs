@@ -6,9 +6,9 @@ import Data.List
 import Data.Time
 import Event.Type (Event (..))
 import Options.Applicative
-import qualified Store (readFile)
-import qualified System.Environment as Env (getArgs)
-import Task (Desc, Due, Id, Project, skipDashes)
+import qualified Store
+import qualified System.Environment as Env
+import Task (Desc, Id, Project, skipDashes)
 
 data Query
   = ShowTasks DoneOpt DeletedOpt JsonOpt
@@ -208,7 +208,7 @@ versionProcedure :: Mod CommandFields Arg
 versionProcedure = command "version" $ info parser infoMod
   where
     infoMod = progDesc "Show the version"
-    parser = ProcedureArg <$> ShowVersion <$> jsonOptParser
+    parser = ProcedureArg . ShowVersion <$> jsonOptParser
 
 -- Readers
 
@@ -256,10 +256,10 @@ idsParser :: Parser [Id]
 idsParser = some $ argument str $ metavar "IDs..." <> completer idsCompleter
 
 addDescParser :: Parser Desc
-addDescParser = unwords <$> (some $ argument str $ metavar "DESC")
+addDescParser = unwords <$> some (argument str $ metavar "DESC")
 
 editDescParser :: Parser Desc
-editDescParser = unwords <$> (many $ argument str $ metavar "DESC")
+editDescParser = unwords <$> many (argument str $ metavar "DESC")
 
 projParser :: Parser Project
 projParser = argument projectReader $ metavar "PROJECT" <> value Nothing <> completer projCompleter
@@ -335,7 +335,7 @@ aliasedCommand :: Parser Arg -> String -> [String] -> (Mod CommandFields Arg, Mo
 aliasedCommand parser desc (cmd : aliases) = (cmd', aliases')
   where
     cmd' = command cmd $ info parser $ progDesc $ desc ++ aliasesDesc
-    aliases' = foldr1 (<>) $ map (flip command (info parser idm)) aliases
+    aliases' = foldr1 (<>) $ map (`command` info parser idm) aliases
     aliasesDesc
       | null aliases = ""
       | otherwise = " \x1b[38;5;8m[" ++ intercalate ", " aliases ++ "]\x1b[0m"

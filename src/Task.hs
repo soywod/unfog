@@ -2,7 +2,6 @@ module Task where
 
 import Data.List
 import Data.Maybe
-import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Time
 
@@ -124,7 +123,7 @@ findFstActive tasks
   | null activeTasks = Nothing
   | otherwise = Just $ head activeTasks
   where
-    activeTasks = filter (not . isNothing . getActive) tasks
+    activeTasks = filter (isJust . getActive) tasks
 
 skipDashes :: Id -> Id
 skipDashes = filter (/= '-')
@@ -136,12 +135,9 @@ getShortIdLength :: [Task] -> Int
 getShortIdLength tasks = loop 4
   where
     ids = map getId tasks
-    loop len =
-      if len >= 32
-        then 32
-        else
-          if Set.size distinctIds == length tasks
-            then len
-            else loop (len + 1)
+    loop len
+      | len >= 32 = 32
+      | Set.size distinctIds == length tasks = len
+      | otherwise = loop (len + 1)
       where
         distinctIds = Set.fromList $ map (take len) ids

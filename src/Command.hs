@@ -2,11 +2,10 @@ module Command where
 
 import qualified ArgParser as Arg
 import Control.Applicative ((<|>))
-import Data.Maybe (fromMaybe, isJust, isNothing)
+import Data.Maybe (isJust, isNothing)
 import Data.Time (TimeZone, UTCTime, getCurrentTime, getCurrentTimeZone)
 import qualified Data.UUID.V4 as UUID (nextRandom)
 import Event.Type (Event (..))
-import qualified Query (handle)
 import Response
 import State (State (..))
 import qualified State (applyAll, getTasks, new, readFile, rebuild, writeFile)
@@ -51,30 +50,30 @@ parseCommands now _ state _ (Arg.DoTask ids jsonOpt) = map (doTask now (parseRes
 parseCommands now _ state _ (Arg.UndoTask ids jsonOpt) = map (undoTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.DeleteTask ids jsonOpt) = map (deleteTask now (parseResponseType jsonOpt) state) ids
 parseCommands now _ state _ (Arg.UndeleteTask ids jsonOpt) = map (undeleteTask now (parseResponseType jsonOpt) state) ids
-parseCommands now _ state _ (Arg.EditContext ctx jsonOpt) = [editContext now (parseResponseType jsonOpt) ctx]
+parseCommands now _ _ _ (Arg.EditContext ctx jsonOpt) = [editContext now (parseResponseType jsonOpt) ctx]
 
 execute :: State -> Command -> [Event]
-execute state cmd = case cmd of
-  AddTask now rtype id desc proj due -> [TaskAdded now id desc proj due]
-  EditTask now rtype id desc proj due -> [TaskEdited now id desc proj due]
-  StartTask now rtype id -> [TaskStarted now id]
-  StopTask now rtype id -> [TaskStopped now id]
-  DoTask now rtype id -> [TaskDid now id]
-  UndoTask now rtype id -> [TaskUndid now id]
-  DeleteTask now rtype id -> [TaskDeleted now id]
-  UndeleteTask now rtype id -> [TaskUndeleted now id]
-  EditContext now rtype ctx -> [ContextEdited now ctx]
+execute _ cmd = case cmd of
+  AddTask now _ id desc proj due -> [TaskAdded now id desc proj due]
+  EditTask now _ id desc proj due -> [TaskEdited now id desc proj due]
+  StartTask now _ id -> [TaskStarted now id]
+  StopTask now _ id -> [TaskStopped now id]
+  DoTask now _ id -> [TaskDid now id]
+  UndoTask now _ id -> [TaskUndid now id]
+  DeleteTask now _ id -> [TaskDeleted now id]
+  UndeleteTask now _ id -> [TaskUndeleted now id]
+  EditContext now _ ctx -> [ContextEdited now ctx]
   Error _ _ -> []
 
 addTask :: UTCTime -> TimeZone -> ResponseType -> State -> Id -> Desc -> Project -> Due -> Command
-addTask now tzone rtype (State ctx tasks) id desc proj due
+addTask now _ rtype (State ctx _) id desc proj due
   | null desc = Error rtype "desc missing"
   | otherwise = AddTask now rtype id desc proj' due
   where
     proj' = if isNothing proj then ctx else proj
 
 editTask :: UTCTime -> TimeZone -> ResponseType -> State -> Id -> Desc -> Project -> Due -> Command
-editTask now tzone rtype (State ctx tasks) id desc proj due = case findById id tasks of
+editTask now _ rtype (State _ tasks) id desc proj due = case findById id tasks of
   Nothing -> Error rtype "task not found"
   Just task -> validate task
   where
@@ -83,9 +82,10 @@ editTask now tzone rtype (State ctx tasks) id desc proj due = case findById id t
       | isJust $ getDone task = Error rtype "task already done"
       | otherwise = EditTask now rtype (getId task) desc' proj' due
       where
-        desc' = if null desc then (getDesc task) else desc
-        proj' = if isNothing proj then (getProject task) else proj
-        due' = if isNothing due then (getDue task) else due
+        desc' = if null desc then getDesc task else desc
+        proj' = if isNothing proj then getProject task else proj
+
+-- due' = if isNothing due then getDue task else due
 
 startTask :: UTCTime -> ResponseType -> State -> Id -> Command
 startTask now rtype state id = case findById id (State.getTasks state) of
@@ -168,7 +168,7 @@ type ShortenId = Id -> ShortId
 type Subscriber = ShortenId -> Command -> IO ()
 
 notify :: ShortenId -> [Command] -> [Subscriber] -> IO ()
-notify shortenId cmds subs = mapM_ (notify' cmds) subs
+notify shortenId cmds = mapM_ (notify' cmds)
   where
     notify' cmds subscriber = mapM_ (subscriber shortenId) cmds
 
@@ -198,5 +198,5 @@ logger shortenId cmd = case cmd of
   EditContext _ Json (Just ctx) -> send Json $ MessageResponse $ printf "Context set [%s]" ctx
   Error rtype msg -> send rtype $ ErrorResponse msg
   where
-    showIfJust msg Nothing = ""
+    showIfJust _ Nothing = ""
     showIfJust msg (Just a) = printf msg a

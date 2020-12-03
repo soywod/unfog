@@ -1,10 +1,10 @@
 module Event.MigrationV0 (handleEvts) where
 
+import Control.Applicative ((<|>))
 import Control.Monad (replicateM)
 import Data.List (intercalate)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe)
 import Data.UUID (UUID)
 import Event.Type (Event (..), readEvents, sortOnUTCTime)
 import Event.TypeV0 (EventV0)
@@ -15,7 +15,7 @@ import Task
 
 handleEvts :: IO (Maybe [Event])
 handleEvts = do
-  maybeEvts <- foldr readEvents (Just []) . lines <$> File.getContent "store"
+  maybeEvts <- foldr readEvents (Just []) . lines <$> (File.readFromName "store" <|> return "")
   uuids <- generateUUIDs maybeEvts
   return $ sortOnUTCTime . foldl1 (++) . Map.elems . buildMap uuids <$> maybeEvts
 
@@ -46,5 +46,5 @@ mapTagsToProj tags
 generateUUIDs :: Maybe [EventV0] -> IO [String]
 generateUUIDs evts = replicateM evtsLen generateUUID
   where
-    evtsLen = fromMaybe 0 $ length <$> evts
+    evtsLen = maybe 0 length evts
     generateUUID = show <$> (randomIO :: IO UUID)

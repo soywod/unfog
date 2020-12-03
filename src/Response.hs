@@ -48,7 +48,7 @@ showTasks now idLength Text (Just ctx) tasks = putStrLn $ showTasksWithProjText 
 showTasks now idLength Json _ tasks = BL.putStr $ encode $ showTasksJson now idLength tasks
 
 showTasksText :: UTCTime -> IdLength -> [Task] -> String
-showTasksText now idLength tasks = "\n" ++ (render $ head : body)
+showTasksText now idLength tasks = "\n" ++ render (head : body)
   where
     head = map (bold . underline . cell) ["ID", "DESC", "PROJECT", "ACTIVE", "DUE", "WORKTIME"]
     body = map rows tasks
@@ -62,7 +62,7 @@ showTasksText now idLength tasks = "\n" ++ (render $ head : body)
       ]
 
 showTasksWithProjText :: UTCTime -> IdLength -> String -> [Task] -> String
-showTasksWithProjText now idLength ctx tasks = "Tasks from \x1b[34m" ++ ctx ++ "\x1b[0m project:\n\n" ++ (render $ head : body)
+showTasksWithProjText now idLength ctx tasks = "Tasks from \x1b[34m" ++ ctx ++ "\x1b[0m project:\n\n" ++ render (head : body)
   where
     head = map (bold . underline . cell) ["ID", "DESC", "ACTIVE", "DUE", "WORKTIME"]
     body = map rows tasks
@@ -78,15 +78,15 @@ showTasksJson :: UTCTime -> IdLength -> [Task] -> Data.Aeson.Value
 showTasksJson now idLength tasks =
   object
     [ "success" .= (1 :: Int),
-      "tasks" .= (Array $ fromList $ map (showTaskJson now idLength) tasks)
+      "tasks" .= Array (fromList $ map (showTaskJson now idLength) tasks)
     ]
   where
     showTaskJson :: UTCTime -> IdLength -> Task -> Data.Aeson.Value
     showTaskJson now idLength task =
       object
-        [ "id" .= (shortenId idLength $ getId task),
+        [ "id" .= shortenId idLength (getId task),
           "desc" .= getDesc task,
-          "project" .= (fromMaybe "" $ getProject task),
+          "project" .= fromMaybe "" (getProject task),
           "active" .= showTimeDiffJson now (getActive task),
           "due" .= showTimeDiffRelJson now (getDue task),
           "worktime" .= showTaskWtimeJson (getTaskWtime now task)
@@ -105,7 +105,7 @@ showTask now Json task =
         ]
 
 showTaskText :: UTCTime -> Task -> String
-showTaskText now task = "\n" ++ (render $ head : body)
+showTaskText now task = "\n" ++ render (head : body)
   where
     head = map (bold . underline . cell) ["KEY", "VALUE"]
     body =
@@ -114,11 +114,11 @@ showTaskText now task = "\n" ++ (render $ head : body)
           [ red $ cell $ getId task,
             cell $ getDesc task,
             blue $ cell $ fromMaybe "" $ getProject task,
-            green $ cell $ fromMaybe "" $ show <$> getActive task,
-            (if isDuePassed now task then bgRed . white else yellow) $ cell $ fromMaybe "" $ show <$> getDue task,
+            green $ cell $ maybe "" show (getActive task),
+            (if isDuePassed now task then bgRed . white else yellow) $ cell $ maybe "" show (getDue task),
             yellow $ cell $ showFullDuration $ getTaskWtime now task,
-            cell $ fromMaybe "" $ show <$> getDone task,
-            cell $ fromMaybe "" $ show <$> getDeleted task
+            cell $ maybe "" show (getDone task),
+            cell $ maybe "" show (getDeleted task)
           ]
         ]
 
@@ -127,12 +127,12 @@ showTaskJson now task =
   object
     [ "id" .= getId task,
       "desc" .= getDesc task,
-      "project" .= (fromMaybe "" $ getProject task),
-      "active" .= (fromMaybe "" $ show <$> getActive task),
-      "due" .= (fromMaybe "" $ show <$> getDue task),
-      "worktime" .= (showFullDuration $ getTaskWtime now task),
-      "done" .= (fromMaybe "" $ show <$> getDone task),
-      "deleted" .= (fromMaybe "" $ show <$> getDeleted task)
+      "project" .= fromMaybe "" (getProject task),
+      "active" .= maybe "" show (getActive task),
+      "due" .= maybe "" show (getDue task),
+      "worktime" .= showFullDuration (getTaskWtime now task),
+      "done" .= maybe "" show (getDone task),
+      "deleted" .= maybe "" show (getDeleted task)
     ]
 
 -- Worktime
@@ -145,13 +145,13 @@ showWtime now Json _ dwtimes =
     encode $
       object
         [ "success" .= (1 :: Int),
-          "worktimes" .= (Array $ fromList $ map (showDailyWtimeJson now) dwtimes),
-          "total" .= (showTaskWtimeJson $ sum $ map getWtimeDuration $ concatMap snd dwtimes),
-          "totalWday" .= (showTaskWtimeJson $ (*) 3.2 $ sum $ map getWtimeDuration $ concatMap snd dwtimes)
+          "worktimes" .= Array (fromList $ map (showDailyWtimeJson now) dwtimes),
+          "total" .= showTaskWtimeJson (sum $ map getWtimeDuration $ concatMap snd dwtimes),
+          "totalWday" .= showTaskWtimeJson ((*) 3.2 $ sum $ map getWtimeDuration $ concatMap snd dwtimes)
         ]
 
 showDailyWtimeText :: UTCTime -> [DailyWorktime] -> String
-showDailyWtimeText now dwtimes = render $ head : body ++ foot
+showDailyWtimeText _ dwtimes = render $ head : body ++ foot
   where
     head = map (underline . bold . cell) ["DATE", "WORKTIME"]
     body = map rows dwtimes
@@ -171,12 +171,12 @@ showDailyWtimeText now dwtimes = render $ head : body ++ foot
     total = sum $ map getWtimeDuration $ concatMap snd dwtimes
 
 showFullDailyWtimeText :: UTCTime -> [DailyWorktime] -> String
-showFullDailyWtimeText now dwtimes = render $ head : body ++ foot
+showFullDailyWtimeText _ dwtimes = render $ head : body ++ foot
   where
     head = map (underline . bold . cell) ["DATE", "ID", "DESC", "WORKTIME"]
     body = concatMap rows dwtimes
 
-    rows dwtime = (map rows' $ snd dwtime) ++ subtotal
+    rows dwtime = map rows' (snd dwtime) ++ subtotal
       where
         subtotal =
           [ [ bold $ cell "SUBTOTAL",
@@ -193,12 +193,12 @@ showFullDailyWtimeText now dwtimes = render $ head : body ++ foot
             yellow $ cell $ showFullDuration $ getWtimeDuration wtime
           ]
     foot =
-      [ [ bold $ cell $ "TOTAL RAW",
+      [ [ bold $ cell "TOTAL RAW",
           cell "",
           cell "",
           bold $ cell $ showFullDuration total
         ],
-        [ bold $ cell $ "TOTAL WDAY",
+        [ bold $ cell "TOTAL WDAY",
           cell "",
           cell "",
           bold $ cell $ showFullDuration (total * 3.2)
@@ -207,7 +207,7 @@ showFullDailyWtimeText now dwtimes = render $ head : body ++ foot
     total = sum $ map getWtimeDuration $ concatMap snd dwtimes
 
 showDailyWtimeJson :: UTCTime -> DailyWorktime -> Data.Aeson.Value
-showDailyWtimeJson now (day, wtimes) =
+showDailyWtimeJson _ (day, wtimes) =
   object
     [ "date" .= day,
       "total" .= showWtimesJson wtimes
@@ -220,7 +220,7 @@ showStatus now Text task = putStrLn $ showStatusText now task
 showStatus now Json task = BL.putStr $ encode $ showStatusJson now task
 
 showStatusText :: UTCTime -> Maybe Task -> String
-showStatusText now Nothing = ""
+showStatusText _ Nothing = ""
 showStatusText now (Just task) = getDesc task ++ ": " ++ showApproxTimeDiff now (getActive task)
 
 showStatusJson :: UTCTime -> Maybe Task -> Maybe Data.Aeson.Value
@@ -294,7 +294,7 @@ showDurationJson micro approx full =
     ]
 
 showTimeDiffJson :: UTCTime -> Maybe UTCTime -> Data.Aeson.Value
-showTimeDiffJson now Nothing = showDurationJson 0 "" ""
+showTimeDiffJson _ Nothing = showDurationJson 0 "" ""
 showTimeDiffJson now time = showDurationJson micro approx full
   where
     micro = showMicroTimeDiff now time
@@ -302,7 +302,7 @@ showTimeDiffJson now time = showDurationJson micro approx full
     full = showFullTimeDiffRel now time
 
 showTimeDiffRelJson :: UTCTime -> Maybe UTCTime -> Data.Aeson.Value
-showTimeDiffRelJson now Nothing = showDurationJson 0 "" ""
+showTimeDiffRelJson _ Nothing = showDurationJson 0 "" ""
 showTimeDiffRelJson now time = showDurationJson micro approx full
   where
     micro = showMicroTimeDiff now time

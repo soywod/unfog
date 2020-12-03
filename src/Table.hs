@@ -13,8 +13,8 @@ data Cell = Cell [Style] Value
 renderCell :: ColSize -> Cell -> String
 renderCell colSize (Cell styles val) = startStyle ++ val ++ padding ++ endStyle
   where
-    startStyle = join styles
-    padding = take (colSize - length val + 1) $ repeat ' '
+    startStyle = concat styles
+    padding = replicate (colSize - length val + 1) ' '
     endStyle = "\x1b[0m"
 
 renderCols :: [[Cell]] -> [[String]]
@@ -26,21 +26,18 @@ renderCols = map (intersperse sep) . transpose . map renderCols' . transpose
         colSize = maximum (map (length . getCellVal) cells)
 
 renderRows :: [[String]] -> [String]
-renderRows = map ((++ "\n") . join)
+renderRows = map ((++ "\n") . concat)
 
 render :: [[Cell]] -> String
-render = join . renderRows . renderCols
+render = concat . renderRows . renderCols
 
 -- Utils
-
-join :: [String] -> String
-join = foldr (++) ""
 
 sep :: String
 sep = renderCell 0 (ext 8 . cell $ "|")
 
 cell :: Value -> Cell
-cell val = Cell [] val
+cell = Cell []
 
 defineStyle :: Int -> Int -> Int -> Cell -> Cell
 defineStyle color bright shade (Cell styles val) = Cell (styles ++ [style]) val
