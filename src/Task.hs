@@ -89,6 +89,9 @@ getDeleted = _deleted
 
 type Predicate = Task -> Bool
 
+both :: Predicate -> Predicate -> Predicate
+both f g x = f x && g x
+
 notDone :: Predicate
 notDone = isNothing . getDone
 
@@ -104,9 +107,6 @@ isDuePassed :: UTCTime -> Task -> Bool
 isDuePassed now task = case getDue task of
   Nothing -> False
   Just due -> due < now
-
-both :: Predicate -> Predicate -> Predicate
-both f g x = f x && g x
 
 filterWith :: [Predicate] -> [Task] -> [Task]
 filterWith predicates = filter matchAll

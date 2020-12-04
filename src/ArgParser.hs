@@ -33,8 +33,12 @@ data Command
 data Procedure
   = ShowVersion JsonOpt
   | Upgrade
+  | ClearCache
 
-data Arg = CommandArg Command | QueryArg Query | ProcedureArg Procedure
+data Arg
+  = CommandArg Command
+  | QueryArg Query
+  | ProcedureArg Procedure
 
 parseArgs :: IO Arg
 parseArgs = parseArgs' =<< Env.getArgs
@@ -195,7 +199,8 @@ procedures =
   foldr1
     (<>)
     [ upgradeProcedure,
-      versionProcedure
+      versionProcedure,
+      clearCacheProcedure
     ]
 
 upgradeProcedure :: Mod CommandFields Arg
@@ -209,6 +214,12 @@ versionProcedure = command "version" $ info parser infoMod
   where
     infoMod = progDesc "Show the version"
     parser = ProcedureArg . ShowVersion <$> jsonOptParser
+
+clearCacheProcedure :: Mod CommandFields Arg
+clearCacheProcedure = command "cache:clear" $ info parser infoMod
+  where
+    infoMod = progDesc "Clear the state cache"
+    parser = pure $ ProcedureArg ClearCache
 
 -- Readers
 

@@ -23,7 +23,7 @@ data Query
 handle :: Arg.Query -> IO ()
 handle arg = do
   now <- getCurrentTime
-  state <- State.readFile <|> (State.rebuild <$> Store.readFile) <|> return State.new
+  state <- State.readCache <|> (State.rebuild <$> Store.readFile) <|> return State.new
   let query = parseQuery now state arg
   execute query
 

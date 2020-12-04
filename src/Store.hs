@@ -7,10 +7,12 @@ import qualified Event.MigrationV0 as V0
 import Event.Type (Event, readEvents)
 import qualified File
 
+fileName = "store"
+
 getFilePath :: IO String
 getFilePath = do
   pathFromTOML <- Config.getStorePath
-  defaultPath <- File.getPath "store"
+  defaultPath <- File.getFullPath fileName
   return $ fromMaybe defaultPath pathFromTOML
 
 readFile :: IO [Event]

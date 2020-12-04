@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Config file `config.toml` + `store-path` option [#40]
+- `cache:clear` procedure
+
+### Changed
+
+- Use GHC `v8.10.2`
+
 ### Fixed
 
-- Task not found when using long ids containing dash
+- Task not found when using long ids containing dash [#43]
 - Short ids for worktime --more query [#39]
 
 ## [1.0.1] - 2020-08-16
@@ -52,10 +61,6 @@ reports).
 
 ## [0.4.4] - 2020-07-27
 
-### Fixed
-
-- Bad build state for update cmd [#27]
-
 ### Added
 
 - AUR package support [#26]
@@ -65,6 +70,10 @@ reports).
 
 - Replace `Data.Duration` by own duration with tests [#24]
 - Upgrade ghc `v8.8.3`
+
+### Fixed
+
+- Bad build state for update cmd [#27]
 
 ## [0.4.3] - 2020-03-11
 
@@ -271,3 +280,5 @@ First release :tada:
 [#34]: https://github.com/soywod/unfog/issues/34
 [#37]: https://github.com/soywod/unfog/issues/37
 [#39]: https://github.com/soywod/unfog/issues/39
+[#40]: https://github.com/soywod/unfog/issues/40
+[#43]: https://github.com/soywod/unfog/issues/43

@@ -1,8 +1,10 @@
 module State where
 
+import Control.Applicative ((<|>))
 import Data.Maybe
 import Event.Type (Event (..))
 import qualified File
+import System.Directory (removeFile)
 import Task hiding (new)
 
 -- Model
@@ -20,29 +22,29 @@ new =
       _tasks = []
     }
 
--- Getters
-
-getContext :: State -> Project
-getContext = _ctx
+getCtx :: State -> Project
+getCtx = _ctx
 
 getTasks :: State -> [Task]
 getTasks = _tasks
 
--- Read & Write
+-- IO
 
-readFile :: IO State
-readFile = read <$> File.readFromName "state"
+fileName = ".state.cache"
 
-writeFile :: State -> IO ()
-writeFile state = writeFile' state' =<< File.getPath "state"
-  where
-    state' = show state
-    writeFile' = flip Prelude.writeFile
+readCache :: IO State
+readCache = read <$> File.readFromName fileName
+
+writeCache :: State -> IO ()
+writeCache state = flip writeFile (show state) =<< File.getFullPath fileName
+
+clearCache :: IO ()
+clearCache = (removeFile =<< File.getFullPath fileName) <|> mempty
 
 -- Event sourcing
 
 rebuild :: [Event] -> State
-rebuild = applyAll $ State Nothing []
+rebuild = applyAll new
 
 applyAll :: State -> [Event] -> State
 applyAll = foldl apply

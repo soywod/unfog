@@ -4,12 +4,12 @@ import qualified ArgParser as Arg
 import Control.Applicative ((<|>))
 import Data.Maybe (isJust, isNothing)
 import Data.Time (TimeZone, UTCTime, getCurrentTime, getCurrentTimeZone)
-import qualified Data.UUID.V4 as UUID (nextRandom)
+import qualified Data.UUID.V4 as UUID
 import Event.Type (Event (..))
 import Response
 import State (State (..))
-import qualified State (applyAll, getTasks, new, readFile, rebuild, writeFile)
-import qualified Store (appendFile, readFile)
+import qualified State
+import qualified Store
 import Task
 import Text.Printf (printf)
 
@@ -30,14 +30,14 @@ handle :: Arg.Command -> IO ()
 handle arg = do
   now <- getCurrentTime
   tzone <- getCurrentTimeZone
-  state <- State.readFile <|> (State.rebuild <$> Store.readFile) <|> return State.new
+  state <- State.readCache <|> (State.rebuild <$> Store.readFile) <|> return State.new
   rndId <- show <$> UUID.nextRandom
   let cmds = parseCommands now tzone state rndId arg
   let evts = concatMap (execute state) cmds
   let state' = State.applyAll state evts
   let shortenId' = shortenId $ getShortIdLength $ State.getTasks state
   Store.appendFile evts
-  State.writeFile state'
+  State.writeCache state'
   notify shortenId' cmds subscribers
 
 parseCommands :: UTCTime -> TimeZone -> State -> Id -> Arg.Command -> [Command]
@@ -88,7 +88,7 @@ editTask now _ rtype (State _ tasks) id desc proj due = case findById id tasks o
 -- due' = if isNothing due then getDue task else due
 
 startTask :: UTCTime -> ResponseType -> State -> Id -> Command
-startTask now rtype state id = case findById id (State.getTasks state) of
+startTask now rtype (State _ tasks) id = case findById id tasks of
   Nothing -> Error rtype "task not found"
   Just task -> validate task
   where
@@ -99,7 +99,7 @@ startTask now rtype state id = case findById id (State.getTasks state) of
       | otherwise = StartTask now rtype (getId task)
 
 stopTask :: UTCTime -> ResponseType -> State -> Id -> Command
-stopTask now rtype state id = case findById id (State.getTasks state) of
+stopTask now rtype (State _ tasks) id = case findById id tasks of
   Nothing -> Error rtype "task not found"
   Just task -> validate task
   where
@@ -110,7 +110,7 @@ stopTask now rtype state id = case findById id (State.getTasks state) of
       | otherwise = StopTask now rtype (getId task)
 
 toggleTask :: UTCTime -> ResponseType -> State -> Id -> Command
-toggleTask now rtype state id = case findById id (State.getTasks state) of
+toggleTask now rtype (State _ tasks) id = case findById id tasks of
   Nothing -> Error rtype "task not found"
   Just task -> validate task
   where
@@ -121,7 +121,7 @@ toggleTask now rtype state id = case findById id (State.getTasks state) of
       | otherwise = StartTask now rtype $ getId task
 
 doTask :: UTCTime -> ResponseType -> State -> Id -> Command
-doTask now rtype state id = case findById id (State.getTasks state) of
+doTask now rtype (State _ tasks) id = case findById id tasks of
   Nothing -> Error rtype "task not found"
   Just task -> validate task
   where
@@ -131,7 +131,7 @@ doTask now rtype state id = case findById id (State.getTasks state) of
       | otherwise = DoTask now rtype (getId task)
 
 undoTask :: UTCTime -> ResponseType -> State -> Id -> Command
-undoTask now rtype state id = case findById id (State.getTasks state) of
+undoTask now rtype (State _ tasks) id = case findById id tasks of
   Nothing -> Error rtype "task not found"
   Just task -> validate task
   where
@@ -141,7 +141,7 @@ undoTask now rtype state id = case findById id (State.getTasks state) of
       | otherwise = UndoTask now rtype (getId task)
 
 deleteTask :: UTCTime -> ResponseType -> State -> Id -> Command
-deleteTask now rtype state id = case findById id (State.getTasks state) of
+deleteTask now rtype (State _ tasks) id = case findById id tasks of
   Nothing -> Error rtype "task not found"
   Just task -> validate task
   where
@@ -150,7 +150,7 @@ deleteTask now rtype state id = case findById id (State.getTasks state) of
       | otherwise = DeleteTask now rtype (getId task)
 
 undeleteTask :: UTCTime -> ResponseType -> State -> Id -> Command
-undeleteTask now rtype state id = case findById id (State.getTasks state) of
+undeleteTask now rtype (State _ tasks) id = case findById id tasks of
   Nothing -> Error rtype "task not found"
   Just task -> validate task
   where

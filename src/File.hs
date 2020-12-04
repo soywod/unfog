@@ -17,8 +17,8 @@ getDefaultDir = do
   createDirectoryIfMissing True fpath
   return fpath
 
-getPath :: String -> IO String
-getPath fname = (++ "/" ++ fname) <$> getDefaultDir
+getFullPath :: String -> IO String
+getFullPath fname = (++ "/" ++ fname) <$> getDefaultDir
 
 readFromPath :: String -> IO String
 readFromPath fpath = do
@@ -29,4 +29,4 @@ readFromPath fpath = do
   return fcontent
 
 readFromName :: String -> IO String
-readFromName = readFromPath <=< getPath
+readFromName = readFromPath <=< getFullPath
