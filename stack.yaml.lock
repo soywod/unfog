@@ -208,6 +208,13 @@ packages:
   original:
     hackage: integer-logarithms-1.0.3@sha256:63d42595ec92b71ac98a07b984b0a2eb3d4956f4ad2d856c3bf6fc3dc218d228,2820
 - completed:
+    hackage: mintty-0.1.2@sha256:76e5d929619e2fe419dc2292856c5c86fd8f52cb13531b169b1316fc604157c8,2894
+    pantry-tree:
+      size: 526
+      sha256: 9280e4aab60242aa4847d0e6db70a378c910fceb9085d41aa8d10061b3d7a899
+  original:
+    hackage: mintty-0.1.2@sha256:76e5d929619e2fe419dc2292856c5c86fd8f52cb13531b169b1316fc604157c8,2894
+- completed:
     hackage: network-info-0.2.0.10@sha256:cda87030e0e7adc56696006035fc322d5a6b8b0b41dd6d339ea630484de1711e,1717
     pantry-tree:
       size: 847

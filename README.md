@@ -1,4 +1,4 @@
-# ⏱ Unfog [![Build Status](https://travis-ci.org/soywod/unfog.svg?branch=v1.0.1)](https://travis-ci.org/soywod/unfog)
+# ⏱ Unfog [![Build Status](https://travis-ci.org/soywod/unfog.svg?branch=v1.0.2)](https://travis-ci.org/soywod/unfog)
 
 Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
 
@@ -27,6 +27,7 @@ Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
   * [Worktime](#worktime)
   * [Status](#status)
   * [Upgrade](#upgrade)
+  * [Clear cache](#clear-cache)
 * [Common options](#common-options)
   * [JSON](#json)
 * [Contributing](#contributing)
@@ -280,6 +281,15 @@ unfog upgrade
 ```
 
 ![image](https://user-images.githubusercontent.com/10437171/71656858-66d96680-2d3d-11ea-8ec9-1d9bb2b8712e.png)
+
+### Clear cache
+
+Clear the state cache (useful when the store is manually modified and does not
+match the state anymore):
+
+```bash
+unfog cache:clear
+```
 
 ## Common options
 
