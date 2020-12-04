@@ -1,0 +1,191 @@
+name: CI
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  unix:
+    strategy:
+      matrix:
+        os: 
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{matrix.os}}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v2
+
+      - name: Cache ~/.stack folder
+        uses: actions/cache@v2
+        with:
+          path: ~/.stack
+          key: stack-global-${{hashFiles('**.yaml')}}
+          restore-keys: stack-global
+
+      - name: Cache ~/.local/bin folder
+        uses: actions/cache@v2
+        with:
+          path: ~/.local/bin
+          key: stack-local-bin-${{hashFiles('**.yaml')}}
+          restore-keys: stack-local-bin
+
+      - name: Cache .stack-work folder
+        uses: actions/cache@v2
+        with:
+          path: .stack-work
+          key: stack-work-${{hashFiles('**.yaml')}}
+          restore-keys: |
+            stack-work
+
+      - name: Setup Haskell
+        uses: actions/setup-haskell@v1.1.4
+        with:
+          enable-stack: true
+          stack-version: 'latest'
+          ghc-version: 8.10.2
+
+      - name: Configure stack
+        run: |
+          mkdir -p ~/.stack ~/.local/bin
+          echo 'allow-newer: true' > ~/.stack/config.yaml
+
+      - name: Build unfog
+        run: stack install
+
+      - name: Compress executable
+        run: |
+          mv ~/.local/bin/unfog .
+          tar czf unfog.tar.gz unfog
+
+      - name: Upload linux artifact
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v2
+        with:
+          name: unfog-linux.tar.gz
+          path: unfog.tar.gz
+
+      - name: Upload macos artifact
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v2
+        with:
+          name: unfog-macos.tar.gz
+          path: unfog.tar.gz
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v2
+
+      - name: Cache ~/.stack folder
+        uses: actions/cache@v2
+        with:
+          path: C:\Users\runneradmin\AppData\Roaming\stack\
+          key: stack-appdata-roaming-${{hashFiles('**.yaml')}}
+          restore-keys: stack-appdata-roaming
+
+      - name: Cache ~/.local/bin folder
+        uses: actions/cache@v2
+        with:
+          path: C:\Users\runneradmin\AppData\Local\Programs\stack\
+          key: stack-appdata-local-${{hashFiles('**.yaml')}}
+          restore-keys: stack-appdata-local
+
+      - name: Cache sr folder
+        uses: actions/cache@v2
+        with:
+          path: C:\sr\
+          key: stack-sr-${{hashFiles('**.yaml')}}
+          restore-keys: stack-sr
+
+      - name: Cache .stack-work folder
+        uses: actions/cache@v2
+        with:
+          path: .stack-work
+          key: stack-work-${{hashFiles('**.yaml')}}
+          restore-keys: |
+            stack-work
+
+      - name: Setup Haskell
+        uses: actions/setup-haskell@v1.1.4
+        with:
+          enable-stack: true
+          stack-version: 'latest'
+          ghc-version: 8.10.2
+
+      - name: Configure stack
+        run: |
+          if(!(Test-Path -path 'C:\sr\')) { mkdir C:\sr\ }
+          echo 'allow-newer: true' > C:\sr\config.yaml
+
+      - name: Build unfog
+        run: stack install
+
+      - name: Compress executable
+        run: |
+          copy C:\Users\runneradmin\AppData\Roaming\local\bin\unfog.exe .
+          7z a unfog.zip unfog.exe
+
+      - name: Upload windows artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: unfog-windows.zip
+          path: unfog.zip
+
+  release:
+    runs-on: ubuntu-latest
+    needs:
+      - unix
+      - windows
+    steps:          
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          tag_name: ${{github.ref}}
+          release_name: ${{github.ref}}
+          draft: false
+          prerelease: false
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: unfog-linux.tar.gz
+      - name: Upload linux artifact to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: unfog.tar.gz
+          asset_name: unfog-linux.tar.gz
+          asset_content_type: application/tar+gzip
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: unfog-macos.tar.gz
+      - name: Upload macos artifact to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: unfog.tar.gz
+          asset_name: unfog-macos.tar.gz
+          asset_content_type: application/tar+gzip
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: unfog-windows.zip
+      - name: Upload windows artifact to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: unfog.zip
+          asset_name: unfog-windows.zip
+          asset_content_type: application/zip

@@ -14,6 +14,6 @@ data Procedure
   deriving (Show, Read)
 
 handle :: Arg.Procedure -> IO ()
-handle (Arg.ShowVersion jsonOpt) = send (parseResponseType jsonOpt) (VersionResponse "1.0.2")
+handle (Arg.ShowVersion jsonOpt) = send (parseResponseType jsonOpt) (VersionResponse "1.0.3")
 handle Arg.Upgrade = void $ system "curl -sSL https://raw.githubusercontent.com/soywod/unfog/master/bin/install.sh | bash"
 handle Arg.ClearCache = State.clearCache >> putStrLn "Cache cleared!"
