@@ -12,6 +12,7 @@ Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
   * [From AUR](#from-aur)
   * [From sources](#from-sources)
   * [Completion](#completion)
+* [Configuration](#configuration)
 * [Usage](#usage)
   * [Add](#add)
   * [Info](#info)
@@ -112,6 +113,19 @@ unfog --fish-completion-script `which unfog`
 ```
 
 *Note: you will have to source manually those generated files.*
+
+## Configuration
+
+Unfog is customizable via a [TOML](https://github.com/toml-lang/toml) file
+(`~/.config/unfog/config.toml`):
+
+```toml
+# Change the store path.
+# Default: ~/.config/unfog/store
+# Warning: only absolute paths are supported for now,
+# see https://github.com/soywod/unfog/issues/45
+store-path = "/abs/path/to/store"
+```
 
 ## Usage
 
