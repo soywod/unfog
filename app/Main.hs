@@ -1,9 +1,9 @@
 module Main where
 
-import ArgParser
-import qualified Command (handle)
-import qualified Procedure (handle)
-import qualified Query (handle)
+import Unfog.ArgParser
+import qualified Unfog.Command as Command
+import qualified Unfog.Procedure as Procedure
+import qualified Unfog.Query as Query
 
 main :: IO ()
 main = parseArgs >>= dispatch

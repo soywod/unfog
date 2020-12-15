@@ -1,19 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Response (Response (..), ResponseType (..), send, parseResponseType) where
+module Unfog.Response (Response (..), ResponseType (..), send, parseResponseType) where
 
-import ArgOptions
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.List
 import Data.Maybe
 import Data.Time
-import Duration
 import GHC.Exts
-import Table
-import Task
 import Text.Printf (printf)
-import Worktime
+import Unfog.ArgOptions
+import Unfog.Duration
+import Unfog.Table
+import Unfog.Task
+import Unfog.Worktime
 
 data ResponseType
   = Json

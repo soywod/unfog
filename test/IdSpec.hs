@@ -1,8 +1,7 @@
 module IdSpec (spec) where
 
-import Data.Time
-import Task
 import Test.Hspec
+import Unfog.Task
 
 aTask :: Task
 aTask =

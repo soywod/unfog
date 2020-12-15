@@ -1,4 +1,4 @@
-module Table where
+module Unfog.Table where
 
 import Data.List
 

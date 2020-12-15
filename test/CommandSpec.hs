@@ -1,15 +1,15 @@
 module CommandSpec (spec) where
 
-import qualified ArgParser as Arg
-import Command
 import Data.Time (TimeZone, UTCTime)
-import Event.Type
-import Response (ResponseType (..))
-import State (State (..))
-import qualified State
-import Task (Task (..))
-import qualified Task
 import Test.Hspec
+import qualified Unfog.ArgParser as Arg
+import Unfog.Command
+import Unfog.Event.Type
+import Unfog.Response (ResponseType (..))
+import Unfog.State (State (..))
+import qualified Unfog.State as State
+import Unfog.Task (Task (..))
+import qualified Unfog.Task as Task
 import Prelude hiding (min)
 
 spec :: Spec

@@ -1,7 +1,7 @@
-module ArgOptions where
+module Unfog.ArgOptions where
 
 import Data.Time (UTCTime)
-import Task (Due, Project)
+import Unfog.Task (Due, Project)
 
 type ProjOpt = Project
 

@@ -1,16 +1,16 @@
-module Query where
+module Unfog.Query where
 
-import ArgOptions
-import qualified ArgParser as Arg
 import Control.Applicative ((<|>))
 import Data.Maybe (isJust, isNothing)
 import Data.Time (UTCTime, getCurrentTime)
-import Response
-import State (State (..))
-import qualified State
-import qualified Store
-import Task
-import Worktime
+import Unfog.ArgOptions
+import qualified Unfog.ArgParser as Arg
+import Unfog.Response
+import Unfog.State (State (..))
+import qualified Unfog.State as State
+import qualified Unfog.Store as Store
+import Unfog.Task
+import Unfog.Worktime
 
 data Query
   = ShowTasks UTCTime IdLength ResponseType Project [Task]

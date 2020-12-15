@@ -1,16 +1,16 @@
 module QuerySpec (spec) where
 
-import qualified ArgParser as Arg
 import Data.Time (UTCTime)
-import Duration (hour, sec)
-import Query
-import Response (ResponseType (..))
-import State (State (..))
-import qualified State
-import Task (Task (..))
-import qualified Task
 import Test.Hspec
-import Worktime (Worktime (..))
+import qualified Unfog.ArgParser as Arg
+import Unfog.Duration (hour, sec)
+import Unfog.Query
+import Unfog.Response (ResponseType (..))
+import Unfog.State (State (..))
+import qualified Unfog.State as State
+import Unfog.Task (Task (..))
+import qualified Unfog.Task as Task
+import Unfog.Worktime (Worktime (..))
 
 spec :: Spec
 spec = parallel $ do

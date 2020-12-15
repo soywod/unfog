@@ -1,14 +1,14 @@
-module ArgParser where
+module Unfog.ArgParser where
 
-import ArgOptions
 import Control.Monad
 import Data.List
 import Data.Time
-import Event.Type (Event (..))
 import Options.Applicative
-import qualified Store
 import qualified System.Environment as Env
-import Task (Desc, Id, Project, skipDashes)
+import Unfog.ArgOptions
+import Unfog.Event.Type (Event (..))
+import qualified Unfog.Store as Store
+import Unfog.Task (Desc, Id, Project, skipDashes)
 
 data Query
   = ShowTasks DoneOpt DeletedOpt JsonOpt
@@ -34,6 +34,7 @@ data Procedure
   = ShowVersion JsonOpt
   | Upgrade
   | ClearCache
+  | WatchDueDates
 
 data Arg
   = CommandArg Command
@@ -200,7 +201,8 @@ procedures =
     (<>)
     [ upgradeProcedure,
       versionProcedure,
-      clearCacheProcedure
+      clearCacheProcedure,
+      watchDueDatesProcedure
     ]
 
 upgradeProcedure :: Mod CommandFields Arg
@@ -220,6 +222,12 @@ clearCacheProcedure = command "cache:clear" $ info parser infoMod
   where
     infoMod = progDesc "Clear the state cache"
     parser = pure $ ProcedureArg ClearCache
+
+watchDueDatesProcedure :: Mod CommandFields Arg
+watchDueDatesProcedure = command "due-dates:watch" $ info parser infoMod
+  where
+    infoMod = progDesc "Spawn a watcher that checks whenever a task due date is about to pass"
+    parser = pure $ ProcedureArg WatchDueDates
 
 -- Readers
 

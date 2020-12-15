@@ -1,4 +1,4 @@
-module Event.TypeV0 where
+module Unfog.Event.TypeV0 where
 
 import Data.Time (UTCTime)
 
