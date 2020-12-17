@@ -16,6 +16,7 @@ spec :: Spec
 spec = parallel $ do
   describe "parse queries" $ do
     let now = read "2020-01-01 00:00:00 UTC" :: UTCTime
+    let nowPlus5min = read "2020-01-01 00:05:00 UTC" :: UTCTime
     let idLength = 7
 
     it "parse list query" $ do
@@ -23,12 +24,16 @@ spec = parallel $ do
       let taskB = Task.new {_id = "id-proj", _project = Just "proj"}
       let taskC = Task.new {_id = "id-done", _done = Just now}
       let taskD = Task.new {_id = "id-deleted", _deleted = Just now}
-      let parseQuery' ctx = parseQuery now State.new {_tasks = [taskA, taskB, taskC, taskD], _ctx = ctx}
-      parseQuery' Nothing (Arg.ShowTasks False False False) `shouldBe` ShowTasks now 5 Text Nothing [taskA, taskB]
-      parseQuery' Nothing (Arg.ShowTasks False False True) `shouldBe` ShowTasks now 5 Json Nothing [taskA, taskB]
-      parseQuery' Nothing (Arg.ShowTasks True False False) `shouldBe` ShowTasks now 5 Text Nothing [taskC]
-      parseQuery' Nothing (Arg.ShowTasks False True False) `shouldBe` ShowTasks now 5 Text Nothing [taskD]
-      parseQuery' (Just "proj") (Arg.ShowTasks False False False) `shouldBe` ShowTasks now 5 Text (Just "proj") [taskB]
+      let taskE = Task.new {_id = "id-due", _due = Just nowPlus5min}
+      let parseQuery' ctx = parseQuery now State.new {_tasks = [taskA, taskB, taskC, taskD, taskE], _ctx = ctx}
+      parseQuery' Nothing (Arg.ShowTasks Nothing False False False) `shouldBe` ShowTasks now 5 Text Nothing [taskA, taskB, taskE]
+      parseQuery' Nothing (Arg.ShowTasks Nothing False False True) `shouldBe` ShowTasks now 5 Json Nothing [taskA, taskB, taskE]
+      parseQuery' Nothing (Arg.ShowTasks Nothing True False False) `shouldBe` ShowTasks now 5 Text Nothing [taskC]
+      parseQuery' Nothing (Arg.ShowTasks Nothing False True False) `shouldBe` ShowTasks now 5 Text Nothing [taskD]
+      parseQuery' Nothing (Arg.ShowTasks (Just 3) False False False) `shouldBe` ShowTasks now 5 Text Nothing []
+      parseQuery' Nothing (Arg.ShowTasks (Just 5) False False False) `shouldBe` ShowTasks now 5 Text Nothing [taskE]
+      parseQuery' Nothing (Arg.ShowTasks (Just 6) False False False) `shouldBe` ShowTasks now 5 Text Nothing [taskE]
+      parseQuery' (Just "proj") (Arg.ShowTasks Nothing False False False) `shouldBe` ShowTasks now 5 Text (Just "proj") [taskB]
 
     it "parse info query" $ do
       let task = Task.new {_id = "id"}
