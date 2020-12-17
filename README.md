@@ -121,7 +121,7 @@ Unfog is customizable via a [TOML](https://github.com/toml-lang/toml) file
 
 ```toml
 # Change the store path.
-# Default: ~/.config/unfog/store
+# Default: $XDG_CONFIG_HOME/unfog/store
 # Warning: only absolute paths are supported for now,
 # see https://github.com/soywod/unfog/issues/45
 store-path = "/abs/path/to/store"
@@ -161,8 +161,12 @@ unfog info ID
 Show all tasks belonging to the current context:
 
 ```bash
-unfog list
+unfog list [--due-in MINS] [-d|--done] [-D|--deleted]
 ```
+
+- `due in` shows tasks with a due date inferior than MINS
+- `done` shows done task
+- `deleted` shows deleted task
 
 ![image](https://user-images.githubusercontent.com/10437171/89771094-1199da80-db00-11ea-8e65-12da9ec4161a.png)
 
