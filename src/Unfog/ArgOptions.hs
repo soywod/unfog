@@ -7,6 +7,8 @@ type ProjOpt = Project
 
 type DueOpt = Due
 
+type DueInOpt = Maybe Int
+
 type FromOpt = Maybe UTCTime
 
 type ToOpt = Maybe UTCTime

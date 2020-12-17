@@ -107,13 +107,15 @@ matchContext project task
   | isNothing project = True
   | otherwise = project == getProject task
 
-matchingReminders :: UTCTime -> [Int] -> Predicate
-matchingReminders now reminders task = case getDue task of
-  Nothing -> False
-  Just due -> diffMins `elem` reminders
-    where
-      diffMins = div diffSecs 60
-      diffSecs = truncate $ realToFrac $ nominalDiffTimeToSeconds $ diffUTCTime due now
+matchDueIn :: UTCTime -> Maybe Int -> Predicate
+matchDueIn _ Nothing _ = True
+matchDueIn now (Just dueIn) task =
+  case getDue task of
+    Nothing -> False
+    Just due -> diffMins <= dueIn
+      where
+        diffSecs = truncate $ realToFrac $ nominalDiffTimeToSeconds $ diffUTCTime due now
+        diffMins = div diffSecs 60
 
 isDuePassed :: UTCTime -> Predicate
 isDuePassed now task = case getDue task of

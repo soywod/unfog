@@ -5,13 +5,14 @@ import Data.List
 import Data.Time
 import Options.Applicative
 import qualified System.Environment as Env
+import Text.Read (readMaybe)
 import Unfog.ArgOptions
 import Unfog.Event.Type (Event (..))
 import qualified Unfog.Store as Store
 import Unfog.Task (Desc, Id, Project, skipDashes)
 
 data Query
-  = ShowTasks DoneOpt DeletedOpt JsonOpt
+  = ShowTasks DueInOpt DoneOpt DeletedOpt JsonOpt
   | ShowTask Id JsonOpt
   | ShowWorktime Project FromOpt ToOpt MoreOpt JsonOpt
   | ShowStatus MoreOpt JsonOpt
@@ -34,7 +35,6 @@ data Procedure
   = ShowVersion JsonOpt
   | Upgrade
   | ClearCache
-  | WatchDueDates
 
 data Arg
   = CommandArg Command
@@ -45,7 +45,7 @@ parseArgs :: IO Arg
 parseArgs = parseArgs' =<< Env.getArgs
   where
     parseArgs' args
-      | null args = return $ QueryArg $ ShowTasks False False False
+      | null args = return $ QueryArg $ ShowTasks Nothing False False False
       | otherwise = execParser'
 
 execParser' :: IO Arg
@@ -83,7 +83,7 @@ listQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 listQueries = aliasedCommand parser desc ["list", "l"]
   where
     desc = "Show current project tasks"
-    parser = QueryArg <$> (ShowTasks <$> doneOptParser <*> deletedOptParser <*> jsonOptParser)
+    parser = QueryArg <$> (ShowTasks <$> dueInOptParser <*> doneOptParser <*> deletedOptParser <*> jsonOptParser)
 
 infoQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 infoQueries = aliasedCommand parser desc ["info", "i"]
@@ -201,8 +201,7 @@ procedures =
     (<>)
     [ upgradeProcedure,
       versionProcedure,
-      clearCacheProcedure,
-      watchDueDatesProcedure
+      clearCacheProcedure
     ]
 
 upgradeProcedure :: Mod CommandFields Arg
@@ -222,12 +221,6 @@ clearCacheProcedure = command "cache:clear" $ info parser infoMod
   where
     infoMod = progDesc "Clear the state cache"
     parser = pure $ ProcedureArg ClearCache
-
-watchDueDatesProcedure :: Mod CommandFields Arg
-watchDueDatesProcedure = command "due-dates:watch" $ info parser infoMod
-  where
-    infoMod = progDesc "Spawn a watcher that checks whenever a task due date is about to pass"
-    parser = pure $ ProcedureArg WatchDueDates
 
 -- Readers
 
@@ -265,6 +258,11 @@ projectReader = maybeReader projectReader'
     projectReader' str
       | null str = pure Nothing
       | otherwise = pure $ Just str
+
+dueInReader :: ReadM DueInOpt
+dueInReader = maybeReader reader
+  where
+    reader str = pure (readMaybe str :: Maybe Int)
 
 -- Parsers
 
@@ -317,6 +315,9 @@ toOptParser now tzone =
       <> metavar "DATE"
       <> value Nothing
       <> help "Interval end date"
+
+dueInOptParser :: Parser DueInOpt
+dueInOptParser = option dueInReader $ long "due-in" <> metavar "MINS" <> value Nothing <> help "Show only tasks with due date inferior than MINS"
 
 doneOptParser :: Parser DoneOpt
 doneOptParser = switch $ long "done" <> short 'd' <> help "Show only done tasks"
