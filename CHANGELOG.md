@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `--due-in` option to tasks list (reminders) [#41]
+
 ## [1.0.3] - 2020-12-04
 
 ### Changed
@@ -291,4 +295,5 @@ First release :tada:
 [#37]: https://github.com/soywod/unfog/issues/37
 [#39]: https://github.com/soywod/unfog/issues/39
 [#40]: https://github.com/soywod/unfog/issues/40
+[#41]: https://github.com/soywod/unfog/issues/41
 [#43]: https://github.com/soywod/unfog/issues/43
