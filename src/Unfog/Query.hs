@@ -1,16 +1,16 @@
-module Query where
+module Unfog.Query where
 
-import ArgOptions
-import qualified ArgParser as Arg
 import Control.Applicative ((<|>))
 import Data.Maybe (isJust, isNothing)
 import Data.Time (UTCTime, getCurrentTime)
-import Response
-import State (State (..))
-import qualified State
-import qualified Store
-import Task
-import Worktime
+import Unfog.ArgOptions
+import qualified Unfog.ArgParser as Arg
+import Unfog.Response
+import Unfog.State (State (..))
+import qualified Unfog.State as State
+import qualified Unfog.Store as Store
+import Unfog.Task
+import Unfog.Worktime
 
 data Query
   = ShowTasks UTCTime IdLength ResponseType Project [Task]
@@ -28,7 +28,7 @@ handle arg = do
   execute query
 
 parseQuery :: UTCTime -> State -> Arg.Query -> Query
-parseQuery now state (Arg.ShowTasks doneOpt deletedOpt jsonOpt) = showTasks now state doneOpt deletedOpt jsonOpt
+parseQuery now state (Arg.ShowTasks dueInOpt doneOpt deletedOpt jsonOpt) = showTasks now state dueInOpt doneOpt deletedOpt jsonOpt
 parseQuery now state (Arg.ShowTask id jsonOpt) = showTask now state id jsonOpt
 parseQuery now state (Arg.ShowWorktime proj fromOpt toOpt moreOpt jsonOpt) = showWtime now state proj fromOpt toOpt moreOpt jsonOpt
 parseQuery now state (Arg.ShowStatus moreOpt jsonOpt) = showStatus now state moreOpt jsonOpt
@@ -40,11 +40,11 @@ execute (ShowWorktime now rtype moreOpt wtimes) = send rtype (WorktimeResponse n
 execute (ShowStatus now rtype task) = send rtype (StatusResponse now task)
 execute (Error rtype msg) = send rtype (ErrorResponse msg)
 
-showTasks :: UTCTime -> State -> DoneOpt -> DeletedOpt -> JsonOpt -> Query
-showTasks now (State ctx tasks) doneOpt deletedOpt jsonOpt = ShowTasks now idLength rtype ctx tasks'
+showTasks :: UTCTime -> State -> DueInOpt -> DoneOpt -> DeletedOpt -> JsonOpt -> Query
+showTasks now (State ctx tasks) dueInOpt doneOpt deletedOpt jsonOpt = ShowTasks now idLength rtype ctx tasks'
   where
     rtype = parseResponseType jsonOpt
-    filters = [matchContext ctx] ++ [(==) doneOpt . isJust . getDone] ++ [(==) deletedOpt . isJust . getDeleted]
+    filters = [matchContext ctx] ++ [(==) doneOpt . isJust . getDone] ++ [(==) deletedOpt . isJust . getDeleted] ++ [matchDueIn now dueInOpt]
     tasks' = filterWith filters tasks
     idLength = getShortIdLength tasks
 

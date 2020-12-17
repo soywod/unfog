@@ -1,11 +1,13 @@
-module ArgOptions where
+module Unfog.ArgOptions where
 
 import Data.Time (UTCTime)
-import Task (Due, Project)
+import Unfog.Task (Due, Project)
 
 type ProjOpt = Project
 
 type DueOpt = Due
+
+type DueInOpt = Maybe Int
 
 type FromOpt = Maybe UTCTime
 

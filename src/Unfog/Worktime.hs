@@ -1,11 +1,11 @@
-module Worktime where
+module Unfog.Worktime where
 
-import ArgOptions
 import Data.List
 import Data.Maybe
 import Data.Time
-import Duration
-import Task
+import Unfog.ArgOptions
+import Unfog.Duration
+import Unfog.Task
 
 data Worktime = Worktime
   { getWtimeId :: Id,

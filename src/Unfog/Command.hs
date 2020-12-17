@@ -1,17 +1,17 @@
-module Command where
+module Unfog.Command where
 
-import qualified ArgParser as Arg
 import Control.Applicative ((<|>))
 import Data.Maybe (isJust, isNothing)
 import Data.Time (TimeZone, UTCTime, getCurrentTime, getCurrentTimeZone)
 import qualified Data.UUID.V4 as UUID
-import Event.Type (Event (..))
-import Response
-import State (State (..))
-import qualified State
-import qualified Store
-import Task
 import Text.Printf (printf)
+import qualified Unfog.ArgParser as Arg
+import Unfog.Event.Type (Event (..))
+import Unfog.Response
+import Unfog.State (State (..))
+import qualified Unfog.State as State
+import qualified Unfog.Store as Store
+import Unfog.Task
 
 data Command
   = AddTask UTCTime ResponseType Id Desc Project Due

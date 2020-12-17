@@ -1,8 +1,8 @@
 module DurationSpec (spec) where
 
 import Data.Time (UTCTime)
-import Duration
 import Test.Hspec
+import Unfog.Duration
 import Prelude hiding (min)
 
 spec :: Spec

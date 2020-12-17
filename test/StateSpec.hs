@@ -1,11 +1,11 @@
 module StateSpec (spec) where
 
 import Data.Time (UTCTime)
-import Event.Type (Event (..))
-import State
-import Task (Task (..))
-import qualified Task
 import Test.Hspec
+import Unfog.Event.Type (Event (..))
+import Unfog.State as State
+import Unfog.Task (Task (..))
+import qualified Unfog.Task as Task
 
 spec :: Spec
 spec = parallel $ do

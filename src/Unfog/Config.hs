@@ -1,4 +1,4 @@
-module Config
+module Unfog.Config
   ( Config,
     getStorePath,
     readFile,
@@ -7,9 +7,9 @@ where
 
 import Control.Applicative ((<|>))
 import Data.Text (Text, pack, unpack)
-import qualified File
 import TOML (Value, parseTOML)
 import qualified TOML as Value (Value (..))
+import qualified Unfog.File as File
 import Prelude hiding (readFile)
 
 -- Model

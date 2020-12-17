@@ -1,9 +1,9 @@
-module Event.Type where
+module Unfog.Event.Type where
 
 import Data.List (sortOn)
 import Data.Time (UTCTime)
-import Task (Desc, Due, Id, Project)
 import Text.Read (readMaybe)
+import Unfog.Task (Desc, Due, Id, Project)
 
 data Event
   = TaskAdded UTCTime Id Desc Project Due
@@ -33,4 +33,3 @@ sortOnUTCTime = sortOn time
     time (TaskDeleted t _) = t
     time (TaskUndeleted t _) = t
     time (ContextEdited t _) = t
-

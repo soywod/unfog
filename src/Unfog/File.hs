@@ -1,4 +1,4 @@
-module File where
+module Unfog.File where
 
 import Control.Applicative ((<|>))
 import Control.Monad ((<=<))

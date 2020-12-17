@@ -1,11 +1,11 @@
-module Store where
+module Unfog.Store where
 
-import qualified Config
 import Control.Applicative ((<|>))
 import Data.Maybe (fromMaybe)
-import qualified Event.MigrationV0 as V0
-import Event.Type (Event, readEvents)
-import qualified File
+import qualified Unfog.Config as Config
+import qualified Unfog.Event.MigrationV0 as V0
+import Unfog.Event.Type (Event, readEvents)
+import qualified Unfog.File as File
 
 fileName = "store"
 
@@ -21,7 +21,7 @@ readFile = do
   handleEvts <- foldr readEvents (Just []) . lines <$> (File.readFromPath fpath <|> return "")
   handleEvtsV0 <- V0.handleEvts
   let evts = fromMaybe [] (handleEvts <|> handleEvtsV0)
-  if null evts then return () else Store.writeFile evts
+  if null evts then return () else Unfog.Store.writeFile evts
   return evts
 
 writeFile :: [Event] -> IO ()

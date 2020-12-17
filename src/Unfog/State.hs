@@ -1,11 +1,11 @@
-module State where
+module Unfog.State where
 
 import Control.Applicative ((<|>))
 import Data.Maybe
-import Event.Type (Event (..))
-import qualified File
 import System.Directory (removeFile)
-import Task hiding (new)
+import Unfog.Event.Type (Event (..))
+import qualified Unfog.File as File
+import Unfog.Task hiding (new)
 
 -- Model
 

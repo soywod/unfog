@@ -1,17 +1,18 @@
-module ArgParser where
+module Unfog.ArgParser where
 
-import ArgOptions
 import Control.Monad
 import Data.List
 import Data.Time
-import Event.Type (Event (..))
 import Options.Applicative
-import qualified Store
 import qualified System.Environment as Env
-import Task (Desc, Id, Project, skipDashes)
+import Text.Read (readMaybe)
+import Unfog.ArgOptions
+import Unfog.Event.Type (Event (..))
+import qualified Unfog.Store as Store
+import Unfog.Task (Desc, Id, Project, skipDashes)
 
 data Query
-  = ShowTasks DoneOpt DeletedOpt JsonOpt
+  = ShowTasks DueInOpt DoneOpt DeletedOpt JsonOpt
   | ShowTask Id JsonOpt
   | ShowWorktime Project FromOpt ToOpt MoreOpt JsonOpt
   | ShowStatus MoreOpt JsonOpt
@@ -44,7 +45,7 @@ parseArgs :: IO Arg
 parseArgs = parseArgs' =<< Env.getArgs
   where
     parseArgs' args
-      | null args = return $ QueryArg $ ShowTasks False False False
+      | null args = return $ QueryArg $ ShowTasks Nothing False False False
       | otherwise = execParser'
 
 execParser' :: IO Arg
@@ -82,7 +83,7 @@ listQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 listQueries = aliasedCommand parser desc ["list", "l"]
   where
     desc = "Show current project tasks"
-    parser = QueryArg <$> (ShowTasks <$> doneOptParser <*> deletedOptParser <*> jsonOptParser)
+    parser = QueryArg <$> (ShowTasks <$> dueInOptParser <*> doneOptParser <*> deletedOptParser <*> jsonOptParser)
 
 infoQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 infoQueries = aliasedCommand parser desc ["info", "i"]
@@ -258,6 +259,11 @@ projectReader = maybeReader projectReader'
       | null str = pure Nothing
       | otherwise = pure $ Just str
 
+dueInReader :: ReadM DueInOpt
+dueInReader = maybeReader reader
+  where
+    reader str = pure (readMaybe str :: Maybe Int)
+
 -- Parsers
 
 idParser :: Parser Id
@@ -309,6 +315,9 @@ toOptParser now tzone =
       <> metavar "DATE"
       <> value Nothing
       <> help "Interval end date"
+
+dueInOptParser :: Parser DueInOpt
+dueInOptParser = option dueInReader $ long "due-in" <> metavar "MINS" <> value Nothing <> help "Show only tasks with due date inferior than MINS"
 
 doneOptParser :: Parser DoneOpt
 doneOptParser = switch $ long "done" <> short 'd' <> help "Show only done tasks"

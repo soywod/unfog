@@ -1,4 +1,4 @@
-module Duration where
+module Unfog.Duration where
 
 import Data.Fixed (Fixed (MkFixed), Micro, div', mod')
 import Data.Time (UTCTime, diffUTCTime)

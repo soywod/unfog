@@ -1,4 +1,4 @@
-module Event.MigrationV0 (handleEvts) where
+module Unfog.Event.MigrationV0 (handleEvts) where
 
 import Control.Applicative ((<|>))
 import Control.Monad (replicateM)
@@ -6,12 +6,12 @@ import Data.List (intercalate)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.UUID (UUID)
-import Event.Type (Event (..), readEvents, sortOnUTCTime)
-import Event.TypeV0 (EventV0)
-import qualified Event.TypeV0 as EventV0
-import qualified File
 import System.Random
-import Task
+import Unfog.Event.Type (Event (..), readEvents, sortOnUTCTime)
+import Unfog.Event.TypeV0 (EventV0)
+import qualified Unfog.Event.TypeV0 as EventV0
+import qualified Unfog.File as File
+import Unfog.Task
 
 handleEvts :: IO (Maybe [Event])
 handleEvts = do

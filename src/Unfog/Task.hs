@@ -1,9 +1,10 @@
-module Task where
+module Unfog.Task where
 
 import Data.List
 import Data.Maybe
 import qualified Data.Set as Set
-import Data.Time
+import Data.Time (UTCTime)
+import Data.Time.Clock (diffUTCTime, nominalDiffTimeToSeconds)
 
 -- Model
 
@@ -89,8 +90,11 @@ getDeleted = _deleted
 
 type Predicate = Task -> Bool
 
-both :: Predicate -> Predicate -> Predicate
-both f g x = f x && g x
+every :: Predicate -> Predicate -> Predicate
+every f g x = f x && g x
+
+some :: Predicate -> Predicate -> Predicate
+some f g x = f x || g x
 
 notDone :: Predicate
 notDone = isNothing . getDone
@@ -103,7 +107,17 @@ matchContext project task
   | isNothing project = True
   | otherwise = project == getProject task
 
-isDuePassed :: UTCTime -> Task -> Bool
+matchDueIn :: UTCTime -> Maybe Int -> Predicate
+matchDueIn _ Nothing _ = True
+matchDueIn now (Just dueIn) task =
+  case getDue task of
+    Nothing -> False
+    Just due -> diffMins <= dueIn
+      where
+        diffSecs = truncate $ realToFrac $ nominalDiffTimeToSeconds $ diffUTCTime due now
+        diffMins = div diffSecs 60
+
+isDuePassed :: UTCTime -> Predicate
 isDuePassed now task = case getDue task of
   Nothing -> False
   Just due -> due < now
@@ -111,7 +125,7 @@ isDuePassed now task = case getDue task of
 filterWith :: [Predicate] -> [Task] -> [Task]
 filterWith predicates = filter matchAll
   where
-    matchAll = foldl1 both predicates
+    matchAll = foldl1 every predicates
 
 -- Finders & Filters
 
