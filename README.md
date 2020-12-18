@@ -9,7 +9,6 @@ Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
 * [Concept](#concept)
 * [Installation](#installation)
   * [From binaries](#from-binaries)
-  * [From AUR](#from-aur)
   * [From sources](#from-sources)
   * [Completion](#completion)
 * [Configuration](#configuration)
@@ -62,23 +61,11 @@ initial estimation, how it can be improved etc...
 ### From binaries
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/soywod/unfog/master/bin/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/soywod/unfog/master/install.sh | bash
 ```
 
 *Note: Linux, OSX and Windows are supported. See the [releases
 section](https://github.com/soywod/unfog/releases).*
-
-
-### From AUR
-
-For Arch Linux users, there is an [AUR
-package](https://aur.archlinux.org/packages/unfog-bin) available.
-
-```bash
-git clone https://aur.archlinux.org/unfog.git
-cd unfog
-makepkg -isc
-```
 
 ### From sources
 

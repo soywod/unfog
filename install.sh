@@ -3,25 +3,26 @@
 get_os () {
   if [[ "$OSTYPE" == "linux-gnu" ]]; then
     echo "linux"
+  elif [[ "$OSTYPE" == "freebsd"* ]]; then
+    echo "linux"
   elif [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "osx"
+    echo "macos"
   elif [[ "$OSTYPE" == "cygwin" ]]; then
     echo "windows"
   elif [[ "$OSTYPE" == "msys" ]]; then
     echo "windows"
   elif [[ "$OSTYPE" == "win32" ]]; then
     echo "windows"
-  elif [[ "$OSTYPE" == "freebsd"* ]]; then
-    echo "linux"
   else
     return -1
   fi
 }
 
+OS=`get_os`
+
 cd /tmp
-os=`get_os`
-echo "Downloading latest ${os} release..."
-curl -sLo unfog.tar.gz "https://github.com/soywod/unfog/releases/latest/download/unfog-${os}.tar.gz"
+echo "Downloading latest ${OS} release..."
+curl -sLo unfog.tar.gz "https://github.com/soywod/unfog/releases/latest/download/unfog-${OS}.tar.gz"
 echo "Installing binaries..."
 tar -xzf unfog.tar.gz
 rm unfog.tar.gz

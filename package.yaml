@@ -23,7 +23,7 @@ dependencies:
 - base >= 4.7 && < 5
 
 library:
-  source-dirs: src
+  source-dirs: lib
   dependencies:
   - aeson
   - base-compat
@@ -42,7 +42,7 @@ library:
 executables:
   unfog:
     main:                Main.hs
-    source-dirs:         app
+    source-dirs:         bin
     ghc-options:
     - -O3
     - -rtsopts
