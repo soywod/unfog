@@ -2,7 +2,7 @@ module QuerySpec (spec) where
 
 import Data.Time (UTCTime)
 import Test.Hspec
-import qualified Unfog.ArgParser as Arg
+import qualified Unfog.Arg.Types as Arg
 import Unfog.Duration (hour, sec)
 import Unfog.Query
 import Unfog.Response (ResponseType (..))

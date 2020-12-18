@@ -9,7 +9,7 @@ import Data.Maybe
 import Data.Time
 import GHC.Exts
 import Text.Printf (printf)
-import Unfog.ArgOptions
+import Unfog.Arg.Types
 import Unfog.Duration
 import Unfog.Table
 import Unfog.Task

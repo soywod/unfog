@@ -5,7 +5,7 @@ import Data.Maybe (isJust, isNothing)
 import Data.Time (TimeZone, UTCTime, getCurrentTime, getCurrentTimeZone)
 import qualified Data.UUID.V4 as UUID
 import Text.Printf (printf)
-import qualified Unfog.ArgParser as Arg
+import qualified Unfog.Arg.Types as Arg
 import Unfog.Event.Type (Event (..))
 import Unfog.Response
 import Unfog.State (State (..))

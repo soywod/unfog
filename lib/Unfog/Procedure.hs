@@ -2,8 +2,8 @@ module Unfog.Procedure where
 
 import Control.Monad (void)
 import System.Process (system)
-import Unfog.ArgOptions
-import qualified Unfog.ArgParser as Arg
+import Unfog.Arg.Types
+import qualified Unfog.Arg.Types as Arg
 import Unfog.Response
 import qualified Unfog.State as State
 

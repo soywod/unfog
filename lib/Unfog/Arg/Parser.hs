@@ -1,50 +1,20 @@
-module Unfog.ArgParser where
+module Unfog.Arg.Parser where
 
-import Control.Monad
-import Data.List
+import Control.Monad ((<=<))
+import Data.List (intercalate, isPrefixOf, nub, sort)
 import Data.Time
 import Options.Applicative
 import qualified System.Environment as Env
 import Text.Read (readMaybe)
-import Unfog.ArgOptions
+import Unfog.Arg.Types
 import Unfog.Event.Type (Event (..))
 import qualified Unfog.Store as Store
 import Unfog.Task (Desc, Id, Project, skipDashes)
 
-data Query
-  = ShowTasks DueInOpt DoneOpt DeletedOpt JsonOpt
-  | ShowTask Id JsonOpt
-  | ShowWorktime Project FromOpt ToOpt MoreOpt JsonOpt
-  | ShowStatus MoreOpt JsonOpt
-  deriving (Show, Eq)
-
-data Command
-  = AddTask Desc ProjOpt DueOpt JsonOpt
-  | EditTask Id Desc ProjOpt DueOpt JsonOpt
-  | StartTask [Id] JsonOpt
-  | StopTask [Id] JsonOpt
-  | ToggleTask [Id] JsonOpt
-  | DoTask [Id] JsonOpt
-  | UndoTask [Id] JsonOpt
-  | DeleteTask [Id] JsonOpt
-  | UndeleteTask [Id] JsonOpt
-  | EditContext Project JsonOpt
-  deriving (Show, Eq)
-
-data Procedure
-  = ShowVersion JsonOpt
-  | Upgrade
-  | ClearCache
-
-data Arg
-  = CommandArg Command
-  | QueryArg Query
-  | ProcedureArg Procedure
-
-parseArgs :: IO Arg
-parseArgs = parseArgs' =<< Env.getArgs
+parse :: IO Arg
+parse = parse' =<< Env.getArgs
   where
-    parseArgs' args
+    parse' args
       | null args = return $ QueryArg $ ShowTasks Nothing False False False
       | otherwise = execParser'
 

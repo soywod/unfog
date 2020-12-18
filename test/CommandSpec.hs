@@ -2,7 +2,7 @@ module CommandSpec (spec) where
 
 import Data.Time (TimeZone, UTCTime)
 import Test.Hspec
-import qualified Unfog.ArgParser as Arg
+import qualified Unfog.Arg.Types as Arg
 import Unfog.Command
 import Unfog.Event.Type
 import Unfog.Response (ResponseType (..))

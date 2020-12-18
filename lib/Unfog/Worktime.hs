@@ -3,7 +3,7 @@ module Unfog.Worktime where
 import Data.List
 import Data.Maybe
 import Data.Time
-import Unfog.ArgOptions
+import Unfog.Arg.Types
 import Unfog.Duration
 import Unfog.Task
 

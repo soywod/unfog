@@ -3,8 +3,7 @@ module Unfog.Query where
 import Control.Applicative ((<|>))
 import Data.Maybe (isJust, isNothing)
 import Data.Time (UTCTime, getCurrentTime)
-import Unfog.ArgOptions
-import qualified Unfog.ArgParser as Arg
+import qualified Unfog.Arg.Types as Arg
 import Unfog.Response
 import Unfog.State (State (..))
 import qualified Unfog.State as State
@@ -15,7 +14,7 @@ import Unfog.Worktime
 data Query
   = ShowTasks UTCTime IdLength ResponseType Project [Task]
   | ShowTask UTCTime ResponseType Task
-  | ShowWorktime UTCTime ResponseType MoreOpt [DailyWorktime]
+  | ShowWorktime UTCTime ResponseType Arg.MoreOpt [DailyWorktime]
   | ShowStatus UTCTime ResponseType (Maybe Task)
   | Error ResponseType String
   deriving (Show, Read, Eq)
@@ -40,7 +39,7 @@ execute (ShowWorktime now rtype moreOpt wtimes) = send rtype (WorktimeResponse n
 execute (ShowStatus now rtype task) = send rtype (StatusResponse now task)
 execute (Error rtype msg) = send rtype (ErrorResponse msg)
 
-showTasks :: UTCTime -> State -> DueInOpt -> DoneOpt -> DeletedOpt -> JsonOpt -> Query
+showTasks :: UTCTime -> State -> Arg.DueInOpt -> Arg.DoneOpt -> Arg.DeletedOpt -> Arg.JsonOpt -> Query
 showTasks now (State ctx tasks) dueInOpt doneOpt deletedOpt jsonOpt = ShowTasks now idLength rtype ctx tasks'
   where
     rtype = parseResponseType jsonOpt
@@ -48,14 +47,14 @@ showTasks now (State ctx tasks) dueInOpt doneOpt deletedOpt jsonOpt = ShowTasks 
     tasks' = filterWith filters tasks
     idLength = getShortIdLength tasks
 
-showTask :: UTCTime -> State -> Id -> JsonOpt -> Query
+showTask :: UTCTime -> State -> Id -> Arg.JsonOpt -> Query
 showTask now (State _ tasks) id jsonOpt = case findById id tasks of
   Nothing -> Error rtype "task not found"
   Just task -> ShowTask now rtype task
   where
     rtype = parseResponseType jsonOpt
 
-showWtime :: UTCTime -> State -> Project -> FromOpt -> ToOpt -> MoreOpt -> JsonOpt -> Query
+showWtime :: UTCTime -> State -> Project -> Arg.FromOpt -> Arg.ToOpt -> Arg.MoreOpt -> Arg.JsonOpt -> Query
 showWtime now (State ctx tasks) proj fromOpt toOpt moreOpt jsonOpt = ShowWorktime now rtype moreOpt wtimes
   where
     ctx' = if isNothing proj then ctx else proj
@@ -64,7 +63,7 @@ showWtime now (State ctx tasks) proj fromOpt toOpt moreOpt jsonOpt = ShowWorktim
     rtype = parseResponseType jsonOpt
     idLength = getShortIdLength tasks
 
-showStatus :: UTCTime -> State -> MoreOpt -> JsonOpt -> Query
+showStatus :: UTCTime -> State -> Arg.MoreOpt -> Arg.JsonOpt -> Query
 showStatus now (State _ tasks) _ jsonOpt = ShowStatus now rtype $ findFstActive tasks
   where
     rtype = parseResponseType jsonOpt
