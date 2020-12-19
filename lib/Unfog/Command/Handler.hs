@@ -4,15 +4,15 @@ import Control.Applicative ((<|>))
 import Data.Maybe (isJust, isNothing)
 import Data.Time (TimeZone, UTCTime, getCurrentTime, getCurrentTimeZone)
 import qualified Data.UUID.V4 as UUID
-import Text.Printf (printf)
 import qualified Unfog.Arg.Types as Arg
-import Unfog.Command.Types (Command, ShortenId, Subscriber)
+import Unfog.Command.Types (Command)
 import qualified Unfog.Command.Types as Command
 import Unfog.Event.Type (Event (..))
 import Unfog.Response
 import Unfog.State (State (..))
 import qualified Unfog.State as State
 import qualified Unfog.Store as Store
+import qualified Unfog.Subscriber.Notifier as Subscribers (notify)
 import Unfog.Task
 
 addTask :: UTCTime -> TimeZone -> ResponseType -> State -> Id -> Desc -> Project -> Due -> Command
@@ -109,40 +109,6 @@ undeleteTask now rtype (State _ tasks) id = case findById id tasks of
 editContext :: UTCTime -> ResponseType -> Project -> Command
 editContext = Command.EditContext
 
-notify :: ShortenId -> [Command] -> [Subscriber] -> IO ()
-notify shortenId cmds = mapM_ (notify' cmds)
-  where
-    notify' cmds subscriber = mapM_ (subscriber shortenId) cmds
-
-subscribers :: [Subscriber]
-subscribers = [logger]
-
-logger :: Subscriber
-logger shortenId cmd = case cmd of
-  Command.AddTask _ Text id _ proj _ -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m added%s" (shortenId id) $ showIfJust " to project \x1b[34m%s\x1b[0m" proj
-  Command.AddTask _ Json id _ proj _ -> send Json $ MessageResponse $ printf "Task %s added%s" (shortenId id) $ showIfJust " to project %s" proj
-  Command.EditTask _ Text id _ _ _ -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m edited" (shortenId id)
-  Command.EditTask _ Json id _ _ _ -> send Json $ MessageResponse $ printf "Task %s edited" (shortenId id)
-  Command.StartTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m started" (shortenId id)
-  Command.StartTask _ Json id -> send Json $ MessageResponse $ printf "Task %s started" (shortenId id)
-  Command.StopTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m stopped" (shortenId id)
-  Command.StopTask _ Json id -> send Json $ MessageResponse $ printf "Task %s stopped" (shortenId id)
-  Command.DoTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m done" (shortenId id)
-  Command.DoTask _ Json id -> send Json $ MessageResponse $ printf "Task %s done" (shortenId id)
-  Command.UndoTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m undone" (shortenId id)
-  Command.UndoTask _ Json id -> send Json $ MessageResponse $ printf "Task %s undone" (shortenId id)
-  Command.DeleteTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m deleted" (shortenId id)
-  Command.DeleteTask _ Json id -> send Json $ MessageResponse $ printf "Task %s deleted" (shortenId id)
-  Command.UndeleteTask _ Text id -> send Text $ MessageResponse $ printf "Task \x1b[31m%s\x1b[0m undeleted" (shortenId id)
-  Command.UndeleteTask _ Json id -> send Json $ MessageResponse $ printf "Task %s undeleted" (shortenId id)
-  Command.EditContext _ rtype Nothing -> send rtype $ MessageResponse "Context cleared"
-  Command.EditContext _ Text (Just ctx) -> send Text $ MessageResponse $ printf "Context set [\x1b[34m%s\x1b[0m]" ctx
-  Command.EditContext _ Json (Just ctx) -> send Json $ MessageResponse $ printf "Context set [%s]" ctx
-  Command.Error rtype msg -> send rtype $ ErrorResponse msg
-  where
-    showIfJust _ Nothing = ""
-    showIfJust msg (Just a) = printf msg a
-
 commandsOfArg :: UTCTime -> TimeZone -> State -> Id -> Arg.Command -> [Command]
 commandsOfArg now tzone state id (Arg.AddTask desc proj due jsonOpt) = [addTask now tzone (parseResponseType jsonOpt) state id desc proj due]
 commandsOfArg now tzone state _ (Arg.EditTask id desc proj due jsonOpt) = [editTask now tzone (parseResponseType jsonOpt) state id desc proj due]
@@ -180,4 +146,4 @@ handle arg = do
   let shortenId' = shortenId $ getShortIdLength $ State.getTasks state
   Store.appendFile evts
   State.writeCache state'
-  notify shortenId' cmds subscribers
+  Subscribers.notify shortenId' cmds

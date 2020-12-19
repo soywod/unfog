@@ -16,7 +16,3 @@ data Command
   | EditContext UTCTime ResponseType Project
   | Error ResponseType String
   deriving (Show, Read, Eq)
-
-type ShortenId = Id -> ShortId
-
-type Subscriber = ShortenId -> Command -> IO ()
