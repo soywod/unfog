@@ -1,10 +1,10 @@
 module Main where
 
-import Unfog.Arg.Parser as Arg (parse)
+import qualified Unfog.Arg.Parser as Arg (parse)
 import Unfog.Arg.Types (Arg (CommandArg, ProcedureArg, QueryArg))
-import Unfog.Command as Command (handle)
-import Unfog.Procedure as Procedure (handle)
-import Unfog.Query as Query (handle)
+import qualified Unfog.Command as Command (handle)
+import qualified Unfog.Procedure as Procedure (handle)
+import qualified Unfog.Query.Handler as Query (handle)
 
 main :: IO ()
 main = dispatch =<< Arg.parse
