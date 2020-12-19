@@ -2,7 +2,7 @@ module Main where
 
 import qualified Unfog.Arg.Parser as Arg (parse)
 import Unfog.Arg.Types (Arg (CommandArg, ProcedureArg, QueryArg))
-import qualified Unfog.Command as Command (handle)
+import qualified Unfog.Command.Handler as Command (handle)
 import qualified Unfog.Procedure.Handler as Procedure (handle)
 import qualified Unfog.Query.Handler as Query (handle)
 
