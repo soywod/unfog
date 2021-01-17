@@ -1,6 +1,6 @@
 # ⏱ Unfog [![gh-actions](https://github.com/soywod/unfog/workflows/CI/badge.svg)](https://github.com/soywod/unfog/actions?query=workflow%3ACI)
 
-Minimalist task & time manager, written in [Haskell](https://www.haskell.org).
+Minimalist CLI task & time manager, written in [Haskell](https://www.haskell.org).
 
 ![image](https://user-images.githubusercontent.com/10437171/89771094-1199da80-db00-11ea-8e65-12da9ec4161a.png)
 
