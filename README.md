@@ -1,4 +1,4 @@
-# ⏱ Unfog [![gh-actions](https://github.com/soywod/unfog/workflows/CI/badge.svg)](https://github.com/soywod/unfog/actions?query=workflow%3ACI)
+# ⏱ Unfog [![gh-actions](https://github.com/soywod/unfog/workflows/deployment/badge.svg)](https://github.com/soywod/unfog/actions?query=workflow%3Adeployment)
 
 Minimalist CLI task & time manager, written in [Haskell](https://www.haskell.org).
 
@@ -13,17 +13,19 @@ Minimalist CLI task & time manager, written in [Haskell](https://www.haskell.org
 * [Usage](#usage)
 * [Interfaces](#interfaces)
 * [License](https://github.com/soywod/unfog/blob/master/LICENSE)
-* [Changelog](https://github.com/soywod/unfog/blob/master/CHANGELOG.md#changelog)
+* [Changelog](https://github.com/soywod/unfog/blob/master/CHANGELOG.md)
 * [Credits](#credits)
 
 ## Motivation
 
-Taskwarrior is a good and powerful CLI to track your tasks, but it requires
-time to configure it. The amount of features is giant, which can lead to
-confusion.  Plus, if you also want to track your time, you need to install the
-Timewarrior plugin, which makes the configuration step even heavier.
+[Taskwarrior](https://taskwarrior.org) is a good and powerful CLI to track your
+tasks, but it requires time to configure it. The amount of features is giant,
+which can lead to confusion.  Plus, if you also want to track your time, you
+need to install the [Timewarrior](https://taskwarrior.org/docs/timewarrior)
+plugin, which makes the configuration step even heavier.
 
-In the other hand, watson tracks well your time but can't tracks your tasks.
+In the other hand, [Watson](https://github.com/TailorDev/Watson) tracks well
+your time but can't tracks your tasks.
 
 Unfog proposes an alternative solution that:
 
@@ -61,136 +63,48 @@ information.*
 store-path = "/abs/path/to/store"
 ```
 
+*See [wiki section](https://github.com/soywod/unfog/wiki/Configuration) for
+more information.*
+
 ## Usage
 
-### Add
+```
+⏱ Unfog - Minimalist task & time manager
 
-Add a new task:
+Usage: unfog COMMAND
 
-```bash
-unfog add DESC [-p|--project PROJECT] [-d|--due DATE]
+Available options:
+  -h,--help                Show this help text
+
+Available commands:
+  list                     Show current project tasks [l]
+  info                     Show task details [i]
+  worktime                 Show worktime report [wtime, w]
+  status                   Show active task info [stat]
+  add                      Add a new task [a]
+  edit                     Edit an existing task [e]
+  start                    Start a task [sta, s]
+  stop                     Stop a task [sto, S]
+  toggle                   Toggle a task [tog, t]
+  done                     Mark as done a task [do, d]
+  undone                   Unmark as done a task [undo, u]
+  delete                   Delete a task [del, D]
+  undelete                 Undelete a task [undel, U]
+  context                  Change the current project [ctx, c]
+  upgrade                  Upgrade the CLI
+  version                  Show the version
+  cache:clear              Clear the state cache
 ```
 
-![image](https://user-images.githubusercontent.com/10437171/89775172-8de3ec00-db07-11ea-9843-b654953c5892.png)
-
-### Info
-
-Show more precise information about a specific task:
-
-```bash
-unfog info ID
-```
-
-![image](https://user-images.githubusercontent.com/10437171/89775322-de5b4980-db07-11ea-9250-2d9758bce905.png)
-
-### List
-
-Show all tasks belonging to the current context:
-
-```bash
-unfog list [--due-in MINS] [-d|--done] [-D|--deleted]
-```
-
-![image](https://user-images.githubusercontent.com/10437171/89771094-1199da80-db00-11ea-8e65-12da9ec4161a.png)
-
-### Edit
-
-Edit a task:
-
-```bash
-unfog edit ID [DESC] [-p|--project PROJECT] [-d|--due DATE]
-```
-
-![image](https://user-images.githubusercontent.com/10437171/89775914-10b97680-db09-11ea-92f4-afd7726c8500.png)
-
-### Start
-
-Start all tasks matching the ids:
-
-```bash
-unfog start IDs...
-```
-
-### Stop
-
-Stop all tasks matching the ids:
-
-```bash
-unfog stop IDs...
-```
-
-### Done
-
-Do all tasks matching the ids:
-
-```bash
-unfog done IDs...
-```
-
-### Undone
-
-Undo all tasks matching the ids:
-
-```bash
-unfog undone IDs...
-```
-
-### Delete
-
-Delete all tasks matching the ids:
-
-```bash
-unfog delete IDs...
-```
-
-### Undelete
-
-Undelete all tasks matching the ids:
-
-```bash
-unfog undelete IDs...
-```
-
-### Context
-
-Define a project as context:
-
-```bash
-unfog context [PROJECT]
-```
-
-![image](https://user-images.githubusercontent.com/10437171/89776452-35621e00-db0a-11ea-91a0-3061b763eb37.png)
-
-### Worktime
-
-Show the total amount of time spent on tasks belonging to the given project,
-grouped by day:
-
-```bash
-unfog worktime [PROJECT] [-f|--from DATE] [-t|--to DATE] [--more]
-```
-
-![image](https://user-images.githubusercontent.com/10437171/89777370-dc938500-db0b-11ea-9654-1be7195dd659.png)
-
-The `--more` option will group tasks by day and by task in order to have a more
-refined report:
-
-![image](https://user-images.githubusercontent.com/10437171/89777413-ed43fb00-db0b-11ea-8f3a-c8111e3e749a.png)
-
-### Upgrade
-
-Upgrade the CLI with the latest release from
-[GitHub](https://github.com/soywod/unfog/releases):
-
-```bash
-unfog upgrade
-```
-
-![image](https://user-images.githubusercontent.com/10437171/71656858-66d96680-2d3d-11ea-8ec9-1d9bb2b8712e.png)
+*See [wiki section](https://github.com/soywod/unfog/wiki/Usage) for more
+information.*
 
 ## Interfaces
 
 - [Unfog.vim](https://github.com/soywod/unfog.vim), a (neo)vim plugin
+
+*See [wiki section](https://github.com/soywod/unfog/wiki/Interfaces) for more
+information.*
 
 ## Credits
 
@@ -198,3 +112,6 @@ unfog upgrade
 - [Taskwarrior](https://taskwarrior.org), a task manager
 - [Timewarrior](https://taskwarrior.org/docs/timewarrior), a time tracker plugin for Taskwarrior
 - [Watson](https://github.com/TailorDev/Watson), a time tracker
+
+*See [wiki section](https://github.com/soywod/unfog/wiki/Credits) for more
+information.*
