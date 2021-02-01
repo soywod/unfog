@@ -4,22 +4,15 @@ import Control.Monad ((<=<))
 import Data.List (intercalate, isPrefixOf, nub, sort)
 import Data.Time
 import Options.Applicative
-import qualified System.Environment as Env
 import Text.Read (readMaybe)
 import Unfog.Arg.Types
 import Unfog.Event.Type (Event (..))
 import qualified Unfog.Store as Store
 import Unfog.Task (Desc, Id, Project, skipDashes)
 
-parse :: IO Arg
-parse = parse' =<< Env.getArgs
-  where
-    parse' args
-      | null args = return $ QueryArg $ ShowTasks Nothing False False False
-      | otherwise = execParser'
-
-execParser' :: IO Arg
-execParser' = do
+parse :: [String] -> IO Arg
+parse [] = return $ QueryArg $ ShowTasks Nothing False False False
+parse _ = do
   now <- getCurrentTime
   tzone <- getCurrentTimeZone
   let desc = fullDesc <> header "⏱ Unfog - Minimalist task & time manager"
@@ -44,10 +37,10 @@ queries now tzone =
   ]
 
 mainQueries :: UTCTime -> TimeZone -> Mod CommandFields Arg
-mainQueries now tzone = foldr1 (<>) $ map fst $ queries now tzone
+mainQueries now = foldr1 (<>) . map fst . queries now
 
 aliasesQueries :: UTCTime -> TimeZone -> Mod CommandFields Arg
-aliasesQueries now tzone = foldr1 (<>) $ map snd $ queries now tzone
+aliasesQueries now = foldr1 (<>) . map snd . queries now
 
 listQueries :: (Mod CommandFields Arg, Mod CommandFields Arg)
 listQueries = aliasedCommand parser desc ["list", "l"]
@@ -98,10 +91,10 @@ commands now tzone =
   ]
 
 mainCommands :: UTCTime -> TimeZone -> Mod CommandFields Arg
-mainCommands now tzone = foldr1 (<>) $ map fst $ commands now tzone
+mainCommands now = foldr1 (<>) . map fst . commands now
 
 aliasesCommands :: UTCTime -> TimeZone -> Mod CommandFields Arg
-aliasesCommands now tzone = foldr1 (<>) $ map snd $ commands now tzone
+aliasesCommands now = foldr1 (<>) . map snd . commands now
 
 addCommands :: UTCTime -> TimeZone -> (Mod CommandFields Arg, Mod CommandFields Arg)
 addCommands now tzone = aliasedCommand parser desc ["add", "a"]
@@ -207,11 +200,11 @@ dateReader timefmt now tzone = eitherReader reader
     reader str = case parseDate str of
       Nothing -> Left $ "invalid date format `" ++ str ++ "' (should match YYYY-MM-DD HH:MM)"
       Just date -> Right $ Just date
-    parseDate str = Nothing <|> parseDate' <|> parseTime' <|> parseDateTime'
+    parseDate str = Nothing <|> parseDate <|> parseTime <|> parseDateTime
       where
-        parseDate' = readUTCTime tzone $ str ++ " " ++ timefmt
-        parseTime' = readUTCTime tzone $ formatTime defaultTimeLocale "%Y-%m-%d " now ++ str
-        parseDateTime' = readUTCTime tzone str
+        parseDate = readUTCTime tzone $ str ++ " " ++ timefmt
+        parseTime = readUTCTime tzone $ formatTime defaultTimeLocale "%Y-%m-%d " now ++ str
+        parseDateTime = readUTCTime tzone str
 
 dueDateReader :: UTCTime -> TimeZone -> ReadM FromOpt
 dueDateReader = dateReader "00:00"

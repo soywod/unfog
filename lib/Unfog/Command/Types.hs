@@ -2,7 +2,7 @@ module Unfog.Command.Types where
 
 import Data.Time (UTCTime)
 import Unfog.Response (ResponseType)
-import Unfog.Task (Desc, Due, Id, Project, ShortId)
+import Unfog.Task (Desc, Due, Id, Project)
 
 data Command
   = AddTask UTCTime ResponseType Id Desc Project Due
