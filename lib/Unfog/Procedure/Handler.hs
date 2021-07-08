@@ -7,7 +7,7 @@ import Unfog.Response
 import qualified Unfog.State as State
 
 showVersion :: Arg.JsonOpt -> IO ()
-showVersion jsonOpt = send rtype $ VersionResponse "1.0.3"
+showVersion jsonOpt = send rtype $ VersionResponse "1.0.4"
   where
     rtype = parseResponseType jsonOpt
 
