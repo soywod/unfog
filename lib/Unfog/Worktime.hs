@@ -9,6 +9,7 @@ import Unfog.Task
 
 data Worktime = Worktime
   { getWtimeId :: Id,
+    getWtimeProj :: Project,
     getWtimeDesc :: Desc,
     getWtimeDuration :: Duration
   }
@@ -32,14 +33,14 @@ buildWtimePerDay now idLength from to = sortOn fst . foldl buildWtimePerDay' []
   where
     buildWtimePerDay' wtimes task = filter (\(_, wtimes) -> sum (map getWtimeDuration wtimes) > 0) $ mergeDailyWtimes wtimes $ concatMap (wtimePerDay wtime) $ zip starts' stops'
       where
-        wtime = Worktime (shortenId idLength $ getId task) (getDesc task) 0
+        wtime = Worktime (shortenId idLength $ getId task) (getProject task) (getDesc task) 0
         starts' = map (clampTime from to) $ getStarts task
         stops' = map (clampTime from to) $ getStops task ++ [now | isJust $ getActive task]
 
 wtimePerDay :: Worktime -> (UTCTime, UTCTime) -> [DailyWorktime]
-wtimePerDay (Worktime id desc _) (start, stop)
-  | stop < endOfDay = [(day, [Worktime id desc $ realToFrac $ diffUTCTime stop start])]
-  | otherwise = (day, [Worktime id desc $ realToFrac $ diffUTCTime endOfDay start]) : wtimePerDay (Worktime id desc 0) (nextDay, stop)
+wtimePerDay (Worktime id project desc _) (start, stop)
+  | stop < endOfDay = [(day, [Worktime id project desc $ realToFrac $ diffUTCTime stop start])]
+  | otherwise = (day, [Worktime id project desc $ realToFrac $ diffUTCTime endOfDay start]) : wtimePerDay (Worktime id project desc 0) (nextDay, stop)
   where
     day = show currDay
     currDay = utctDay start
@@ -55,9 +56,9 @@ mergeDailyWtimes = foldl mergeWtimes'
         (bday, foldl mergeWtimes avals bvals) : filter ((/=) bday . fst) a
 
 mergeWtimes :: [Worktime] -> Worktime -> [Worktime]
-mergeWtimes xvals (Worktime yid ydesc ywtime) =
+mergeWtimes xvals (Worktime yid yproject ydesc ywtime) =
   case find ((==) yid . getWtimeId) xvals of
-    Nothing -> Worktime yid ydesc ywtime : xvals
-    Just aval -> Worktime yid ydesc (getWtimeDuration aval + ywtime) : without yid xvals
+    Nothing -> Worktime yid yproject ydesc ywtime : xvals
+    Just aval -> Worktime yid yproject ydesc (getWtimeDuration aval + ywtime) : without yid xvals
   where
     without val = filter ((/=) val . getWtimeId)

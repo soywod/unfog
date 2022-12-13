@@ -173,7 +173,7 @@ showDailyWtimeText _ dwtimes = render $ head : body ++ foot
 showFullDailyWtimeText :: UTCTime -> [DailyWorktime] -> String
 showFullDailyWtimeText _ dwtimes = render $ head : body ++ foot
   where
-    head = map (underline . bold . cell) ["DATE", "ID", "DESC", "WORKTIME"]
+    head = map (underline . bold . cell) ["DATE", "ID", "PROJECT", "DESC", "WORKTIME"]
     body = concatMap rows dwtimes
 
     rows dwtime = map rows' (snd dwtime) ++ subtotal
@@ -189,6 +189,7 @@ showFullDailyWtimeText _ dwtimes = render $ head : body ++ foot
         rows' wtime =
           [ cell $ fst dwtime,
             red $ cell $ getWtimeId wtime,
+            blue $ cell $ fromMaybe "" $ getWtimeProj wtime,
             cell $ getWtimeDesc wtime,
             yellow $ cell $ showFullDuration $ getWtimeDuration wtime
           ]
