@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.5] - 2022-12-13
 
-- Also list PROJECT column with `worktime --more`
+- Also list PROJECT column with `worktime --more` [#56]
 
 ## [1.0.4] - 2021-07-08
 
@@ -248,7 +248,8 @@ First release :tada:
 
 - Linux binaries
 
-[unreleased]: https://github.com/soywod/unfog/compare/v1.0.4...HEAD
+[unreleased]: https://github.com/soywod/unfog/compare/v1.0.5...HEAD
+[1.0.5]: https://github.com/soywod/unfog/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/soywod/unfog/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/soywod/unfog/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/soywod/unfog/compare/v1.0.1...v1.0.2
@@ -304,3 +305,4 @@ First release :tada:
 [#40]: https://github.com/soywod/unfog/issues/40
 [#41]: https://github.com/soywod/unfog/issues/41
 [#43]: https://github.com/soywod/unfog/issues/43
+[#56]: https://github.com/soywod/unfog/issues/56

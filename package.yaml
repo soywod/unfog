@@ -1,10 +1,10 @@
 name:                unfog
-version:             1.0.4
+version:             1.0.5
 github:              "soywod/unfog"
 license:             BSD3
 author:              "soywod"
 maintainer:          "clement.douin@posteo.net"
-copyright:           "2019-2020 Clément DOUIN"
+copyright:           "2019-2022 Clément DOUIN"
 
 extra-source-files:
 - README.md
