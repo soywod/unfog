@@ -182,9 +182,10 @@ showFullDailyWtimeText _ dwtimes = render $ head : body ++ foot
           [ [ bold $ cell "SUBTOTAL",
               cell "",
               cell "",
+              cell "",
               bold $ cell $ showFullDuration $ sum $ map getWtimeDuration $ snd dwtime
             ],
-            replicate 4 $ ext 8 . cell $ "—"
+            replicate 5 $ ext 8 . cell $ "—"
           ]
         rows' wtime =
           [ cell $ fst dwtime,
@@ -197,9 +198,11 @@ showFullDailyWtimeText _ dwtimes = render $ head : body ++ foot
       [ [ bold $ cell "TOTAL RAW",
           cell "",
           cell "",
+          cell "",
           bold $ cell $ showFullDuration total
         ],
         [ bold $ cell "TOTAL WDAY",
+          cell "",
           cell "",
           cell "",
           bold $ cell $ showFullDuration (total * 3.2)

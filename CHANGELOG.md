@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.6] - 2023-03-07
+
+### Fixed
+
+- Incorrect table creation for `worktime --more` after introducing the PROJECT column [#58]
+
 ## [1.0.5] - 2022-12-13
 
 - Also list PROJECT column with `worktime --more` [#56]
