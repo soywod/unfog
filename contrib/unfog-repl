@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+completion_file=$(mktemp)
+trap 'rm -f "$completion_file"' EXIT
+
+{
+   unfog --bash-completion-index 0;
+   printf 'help\n';
+   printf 'quit\n';
+} >> "$completion_file"
+
+unfog_repl() {
+    printf "Welcome to unfog REPL. Type 'quit' to exit.\n"
+    local cmd
+    while true; do
+        read -r cmd || break
+
+        [[ -z "$cmd" ]] && continue
+        case "$cmd" in
+             quit) break ;;
+             help) unfog --help | sed -n '/Available commands:/,$p' ;;
+             *) unfog $cmd ;;
+         esac
+    done
+}
+
+if ! command -v rlwrap >/dev/null 2>&1; then
+    printf 'Error: rlwrap is not installed. Please install it first.'
+    exit 1
+fi
+
+export -f unfog_repl
+
+# run REPL
+exec rlwrap \
+    -p'Cyan' \
+    -a \
+    -H "${XDG_STATE_HOME:-$HOME/.local/state}/unfog_history" \
+    -f "$completion_file" \
+    -S 'unfog-repl> ' \
+    bash -c unfog_repl
