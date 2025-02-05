@@ -1,10 +1,10 @@
-# ⏱ Unfog [![gh-actions](https://github.com/soywod/unfog/workflows/deployment/badge.svg)](https://github.com/soywod/unfog/actions?query=workflow%3Adeployment)
+# ⏱ Unfog
 
 Minimalist CLI task & time manager, written in [Haskell](https://www.haskell.org).
 
-![image](https://user-images.githubusercontent.com/10437171/89771094-1199da80-db00-11ea-8e65-12da9ec4161a.png)
-
 *🚧 A rewrite in Rust is planned current 2025, stay tuned! 🚧*
+
+![image](https://user-images.githubusercontent.com/10437171/89771094-1199da80-db00-11ea-8e65-12da9ec4161a.png)
 
 ## Table of contents
 
