@@ -4,6 +4,8 @@ Minimalist CLI task & time manager, written in [Haskell](https://www.haskell.org
 
 ![image](https://user-images.githubusercontent.com/10437171/89771094-1199da80-db00-11ea-8e65-12da9ec4161a.png)
 
+*🚧 A rewrite in Rust is planned current 2025, stay tuned! 🚧*
+
 ## Table of contents
 
 * [Motivation](#motivation)
@@ -105,6 +107,62 @@ information.*
 
 *See [wiki section](https://github.com/soywod/unfog/wiki/Interfaces) for more
 information.*
+
+# FAQ
+
+## How can I get command history and completion?
+
+While waiting for the Rust rewrite, you can use `rlwrap` to add these features:
+
+```bash
+#!/usr/bin/env bash
+
+# Provides an interactive REPL (Read-Eval-Print Loop) for Unfog task manager.
+# Features: command history, tab completion, and line editing. Commands are
+# passed directly to unfog CLI.
+
+set -euo pipefail
+
+completion_file=$(mktemp)
+trap 'rm -f "$completion_file"' EXIT
+
+{
+   unfog --bash-completion-index 0;
+   printf 'help\n';
+   printf 'quit\n';
+} >> "$completion_file"
+
+unfog_repl() {
+    printf "Welcome to unfog REPL. Type 'quit' to exit.\n"
+    local cmd
+    while true; do
+        read -r cmd || break
+
+        [[ -z "$cmd" ]] && continue
+        case "$cmd" in
+             quit) break ;;
+             help) unfog --help | sed -n '/Available commands:/,$p' ;;
+             *) unfog $cmd ;;
+         esac
+    done
+}
+
+if ! command -v rlwrap >/dev/null 2>&1; then
+    printf 'Error: rlwrap is not installed. Please install it first.'
+    exit 1
+fi
+
+export -f unfog_repl
+
+# run REPL
+exec rlwrap \
+    -p'Cyan' \
+    -a \
+    -H "${XDG_STATE_HOME:-$HOME/.local/state}/unfog_history" \
+    -f "$completion_file" \
+    -S 'unfog-repl> ' \
+    bash -c unfog_repl
+```
 
 ## Credits
 
