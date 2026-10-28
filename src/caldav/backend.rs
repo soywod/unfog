@@ -1,0 +1,301 @@
+//! # CalDAV backend
+//!
+//! The shared-API adapter over a connected [`WebdavClientStd`], whose
+//! calendar home-set is already resolved. It projects RFC 4791
+//! calendars and calendar object resources onto the shared types.
+//!
+//! Item ids are the resource names the server returned verbatim, so an
+//! id a listing showed addresses the same resource on every verb. The
+//! server owns the query, so the kind is pushed down as an RFC 4791
+//! `comp-filter` rather than applied locally.
+
+use std::collections::BTreeSet;
+
+use anyhow::{Context, Result};
+use ical::{component::vtodo::VTODO, prop::uid::UID, tree::cst::IcalCst};
+use io_webdav::{
+    client::WebdavClientStd,
+    rfc4791::{calendar::CaldavCalendar, item::CaldavItemEntry},
+};
+use pimalaya_config::secret::SecretResolver;
+
+use crate::{
+    caldav::client::connect,
+    config::CaldavConfig,
+    shared::{
+        client::paginate,
+        item::{TaskItem, TaskItemQuery},
+        tasklist::Tasklist,
+    },
+};
+
+/// The shared-API glue over a connected CalDAV client.
+pub struct CaldavBackend {
+    client: WebdavClientStd,
+}
+
+impl CaldavBackend {
+    /// Connects and walks the discovery chain, caching the home-set.
+    pub fn new(config: CaldavConfig) -> Result<Self> {
+        Ok(Self {
+            client: connect(&config, &mut SecretResolver::new())?,
+        })
+    }
+
+    /// Lists the calendar collections under the calendar home-set that
+    /// take VTODOs.
+    ///
+    /// An empty `supported-calendar-component-set` puts no restriction
+    /// (RFC 4791 5.2.3), so such a calendar is kept.
+    pub fn list_tasklists(&mut self) -> Result<Vec<Tasklist>> {
+        let calendars = self.client.list_calendars()?;
+
+        Ok(calendars
+            .into_iter()
+            .filter(takes_vtodo)
+            .map(tasklist_from)
+            .collect())
+    }
+
+    /// Creates a calendar collection through MKCALENDAR, its
+    /// `supported-calendar-component-set` holding `VTODO` alone.
+    pub fn create_tasklist(
+        &mut self,
+        id: &str,
+        name: &str,
+        description: Option<&str>,
+        color: Option<&str>,
+    ) -> Result<String> {
+        let calendar = CaldavCalendar {
+            id: id.to_owned(),
+            display_name: Some(name.to_owned()),
+            description: description.map(str::to_owned),
+            color: color.map(str::to_owned),
+            components: BTreeSet::from([String::from("VTODO")]),
+            ..Default::default()
+        };
+
+        self.client.create_calendar(&calendar)?;
+        Ok(id.to_owned())
+    }
+
+    /// Deletes a calendar collection and everything inside it.
+    pub fn delete_tasklist(&mut self, id: &str) -> Result<()> {
+        self.client.delete_calendar(id)?;
+        Ok(())
+    }
+
+    /// Lists items through a `calendar-query` REPORT.
+    ///
+    /// The kind narrows the query server-side rather than locally.
+    pub fn list_items(&mut self, tasklist_id: &str, query: TaskItemQuery) -> Result<Vec<TaskItem>> {
+        let entries = self.client.list_items(tasklist_id, &comp_filter(&query))?;
+
+        let items = entries
+            .into_iter()
+            .map(|entry| item_from(tasklist_id, entry))
+            .collect();
+
+        Ok(paginate(items, query.page, query.page_size))
+    }
+
+    /// Reads one item's raw iCalendar bytes plus its entity tag.
+    pub fn get_item(&mut self, tasklist_id: &str, item_id: &str) -> Result<TaskItem> {
+        let body = self
+            .client
+            .read_item(tasklist_id, item_id)
+            .with_context(|| format!("Read item `{item_id}` from calendar `{tasklist_id}`"))?;
+
+        Ok(TaskItem {
+            id: item_id.to_owned(),
+            tasklist_id: tasklist_id.to_owned(),
+            etag: body.etag,
+            contents: body.data,
+        })
+    }
+
+    /// PUTs a new resource.
+    ///
+    /// A server may name the resource itself, in which case the id it
+    /// reported wins over the one asked for.
+    pub fn create_item(&mut self, tasklist_id: &str, contents: Vec<u8>) -> Result<String> {
+        let id = format!("{}.ics", new_resource_name(&contents));
+        let created = self.client.create_item(tasklist_id, &id, contents)?;
+        Ok(created.id)
+    }
+
+    /// PUTs over an existing resource, optionally gated on `if_match`.
+    pub fn update_item(
+        &mut self,
+        tasklist_id: &str,
+        item_id: &str,
+        contents: Vec<u8>,
+        if_match: Option<&str>,
+    ) -> Result<()> {
+        self.client
+            .update_item(tasklist_id, item_id, contents, if_match)?;
+        Ok(())
+    }
+
+    /// DELETEs a resource, gated on `if_match` when given.
+    pub fn delete_item(
+        &mut self,
+        tasklist_id: &str,
+        item_id: &str,
+        if_match: Option<&str>,
+    ) -> Result<()> {
+        self.client.delete_item(tasklist_id, item_id, if_match)?;
+        Ok(())
+    }
+}
+
+/// The VCALENDAR child filter a listing sends, empty when it names no
+/// kind.
+fn comp_filter(query: &TaskItemQuery) -> String {
+    match query.kind {
+        Some(kind) => format!("<C:comp-filter name=\"{}\"></C:comp-filter>", &*kind),
+        None => String::new(),
+    }
+}
+
+/// Whether a calendar takes VTODOs: it names `VTODO` among its
+/// components, or names none.
+fn takes_vtodo(calendar: &CaldavCalendar) -> bool {
+    calendar.components.is_empty()
+        || calendar
+            .components
+            .iter()
+            .any(|component| component.eq_ignore_ascii_case("VTODO"))
+}
+
+/// Projects a CalDAV calendar onto the shared [`Tasklist`].
+///
+/// The collection id stands in when the server sets no display name.
+fn tasklist_from(calendar: CaldavCalendar) -> Tasklist {
+    Tasklist {
+        name: calendar
+            .display_name
+            .clone()
+            .unwrap_or_else(|| calendar.id.clone()),
+        id: calendar.id,
+        description: calendar.description,
+        color: calendar.color,
+        default: false,
+    }
+}
+
+/// Projects a CalDAV multistatus entry onto the shared [`TaskItem`].
+fn item_from(tasklist_id: &str, entry: CaldavItemEntry) -> TaskItem {
+    TaskItem {
+        id: entry.id,
+        tasklist_id: tasklist_id.to_owned(),
+        etag: entry.etag,
+        contents: entry.data,
+    }
+}
+
+/// Derives the resource name a create PUTs to from the item's `UID`.
+///
+/// A content digest stands in when the bytes carry none. Only a
+/// proposal: a server naming the resource itself reports its choice in
+/// `Location`, which io-webdav returns instead.
+fn new_resource_name(contents: &[u8]) -> String {
+    let uid = IcalCst::parse(contents).ok().and_then(|cst| {
+        cst.components::<VTODO>()
+            .next()
+            .and_then(|vtodo| vtodo.prop::<UID>())
+            .map(|uid| uid.0.into_owned())
+    });
+
+    match uid {
+        Some(uid) if is_safe_segment(&uid) => uid,
+        _ => format!("{:016x}", fnv1a(contents)),
+    }
+}
+
+/// Whether a `UID` can be a URL path segment verbatim.
+///
+/// No empty value, no separator, nothing needing percent-encoding.
+fn is_safe_segment(uid: &str) -> bool {
+    !uid.is_empty()
+        && uid.len() <= 128
+        && uid
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '@'))
+}
+
+/// A 64-bit FNV-1a digest, the fallback name for a `UID`-less body.
+fn fnv1a(bytes: &[u8]) -> u64 {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+
+    for &byte in bytes {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+
+    hash
+}
+
+#[cfg(test)]
+mod tests {
+    use ical::component::IcalComponentKind;
+
+    use super::*;
+
+    #[test]
+    fn naming_no_kind_asks_for_every_component_kind() {
+        assert_eq!(comp_filter(&TaskItemQuery::default()), "");
+    }
+
+    #[test]
+    fn a_kind_narrows_the_query() {
+        let query = TaskItemQuery {
+            kind: Some(IcalComponentKind::VTodo),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            comp_filter(&query),
+            "<C:comp-filter name=\"VTODO\"></C:comp-filter>"
+        );
+    }
+
+    #[test]
+    fn a_calendar_naming_no_component_or_vtodo_takes_tasks() {
+        let calendar = |components: &[&str]| CaldavCalendar {
+            components: components.iter().map(|c| c.to_string()).collect(),
+            ..Default::default()
+        };
+
+        assert!(takes_vtodo(&calendar(&[])));
+        assert!(takes_vtodo(&calendar(&["VEVENT", "VTODO"])));
+        assert!(!takes_vtodo(&calendar(&["VEVENT"])));
+    }
+
+    #[test]
+    fn a_resource_name_comes_from_the_uid_when_it_is_url_safe() {
+        let calendar = concat!(
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//y//EN\r\n",
+            "BEGIN:VTODO\r\nUID:task-1@example.org\r\nDTSTAMP:20260101T000000Z\r\n",
+            "END:VTODO\r\nEND:VCALENDAR\r\n",
+        );
+
+        assert_eq!(new_resource_name(calendar.as_bytes()), "task-1@example.org");
+    }
+
+    #[test]
+    fn an_unsafe_or_missing_uid_falls_back_to_a_digest() {
+        let slashed = concat!(
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//y//EN\r\n",
+            "BEGIN:VTODO\r\nUID:a/b\r\nDTSTAMP:20260101T000000Z\r\n",
+            "END:VTODO\r\nEND:VCALENDAR\r\n",
+        );
+
+        let name = new_resource_name(slashed.as_bytes());
+        assert_eq!(name.len(), 16);
+        assert!(name.chars().all(|c| c.is_ascii_hexdigit()));
+
+        assert_eq!(name, new_resource_name(slashed.as_bytes()));
+        assert_ne!(name, new_resource_name(b"other bytes entirely"));
+    }
+}

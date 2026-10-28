@@ -1,0 +1,4 @@
+# Cairn configuration. All keys are optional; only the non-defaults are set.
+# See https://github.com/pimalaya/cairn (CAIRN.md §3).
+
+spec_version = "0.1.0"

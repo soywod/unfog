@@ -6,6 +6,52 @@ Minimalist CLI task & time manager, written in [Haskell](https://www.haskell.org
 
 ![image](https://user-images.githubusercontent.com/10437171/89771094-1199da80-db00-11ea-8e65-12da9ec4161a.png)
 
+## Unfog 2 (in development)
+
+Unfog 2, rewritten in Rust (the `src/` crate), is a GTD task manager over plain iCalendar tasks (VTODO), wherever an account keeps them: a CalDAV server, a vdir folder, a pimdir store. It follows the convention the Pimalaya app shares, so a task captured on the phone is clarified in the terminal.
+
+### What changes for 1.x users
+
+`context` is gone: `gtd next --category <c>` replaces it. `start`, `stop` and `status` move under `task`, `worktime` stays, their time kept where `time.strategy` says. `unfog import <store>` reads a 1.x store: its projects become plain categories, its starts and stops time entries.
+
+### GTD
+
+A task's state is one of three reserved categories, `inbox`, `waiting` and `someday`, compared case-insensitively; every other category is your own (contexts, projects). A next action is an open task carrying none of the three, so a to-do another client wrote is one.
+
+```sh
+unfog gtd capture "Call Jo about the lease"   # or pipe a text to stdin
+unfog gtd inbox
+unfog gtd clarify                             # walk the Inbox, one task at a time
+unfog gtd clarify 4c1e --next -C phone --due 2026-11-02 --priority 2
+unfog gtd next -C phone
+unfog gtd waiting
+unfog gtd someday
+unfog gtd review                              # counts, then every view
+```
+
+The views show each task's priority (`PRIORITY`, 1 the highest, set with `--priority` on `gtd clarify` or `task update`) without sorting by it: GTD picks a next action by context, time and energy first. The views span every configured account (`-a` narrows them to one), and `--json` prints each as JSON, its schema given by `unfog json-schema`.
+
+### Time tracking
+
+```sh
+unfog task start 4c1e
+unfog task status
+unfog task stop
+unfog worktime --since 2026-10-26 -C work
+```
+
+One entry runs at a time: a start stops the running one first. Where an entry goes is `time.strategy`, per account:
+
+| Strategy | Entry | Where | Synced |
+| --- | --- | --- | --- |
+| `local` (default) | a VEVENT | the pimdir store's local time collection on the pimdir backend, else `time.directory` (`$XDG_DATA_HOME/unfog/time`) | no |
+| `event` | a VEVENT (`DTSTART`, `DTEND` once stopped, `TRANSP:TRANSPARENT`, `RELATED-TO` the task) | the tasklist `time.collection` names | yes |
+| `journal` | a pair of VJOURNALs, `CATEGORIES:start` and `stop` | the tasklist `time.collection` names | where the server takes VJOURNAL |
+
+Track time on more than one device with `event`. `worktime` reads every place an account keeps entries in, so a history survives a switch, and `unfog migrate --to event` moves the entries. See config.sample.toml for every option.
+
+## Unfog 1 (Haskell)
+
 ## Table of contents
 
 * [Motivation](#motivation)

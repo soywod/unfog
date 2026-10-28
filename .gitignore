@@ -2,3 +2,6 @@
 unfog.cabal
 dist-newstyle
 *~
+/target
+.direnv/
+.envrc

@@ -1,0 +1,201 @@
+# ================================================================================
+# `unfog` configuration file.
+#
+# Loaded from the first valid path among:
+#   - $XDG_CONFIG_HOME/unfog/config.toml
+#   - $HOME/.config/unfog/config.toml
+#   - $HOME/.unfogrc
+#
+# Override with `unfog -c <PATH>` or `UNFOG_CONFIG=<PATH>`. Multiple paths can
+# be passed at once, separated by `:`; the first one is the base and the rest
+# are deep-merged on top of it.
+#
+# Run `unfog` with no command to launch the wizard. One question takes an email
+# address, a server URL or a local folder path; it discovers what it can, tests
+# the account, then prints a ready-to-save configuration on stdout.
+#
+# It writes nothing on its own: redirect it, or let it save the file when asked.
+# ================================================================================
+
+# --------------------------------------------------------------------------------
+# Global config
+# --------------------------------------------------------------------------------
+
+# https://docs.rs/comfy-table/latest/comfy_table/presets/index.html
+#table.preset = "││──╞═╪╡┆    ┬┴┌┐└┘"
+
+# https://docs.rs/comfy-table/latest/comfy_table/enum.ContentArrangement.html
+#table.arrangement = "dynamic"
+#table.arrangement = "dynamic-full-width"
+#table.arrangement = "disabled"
+
+# Tasklist id the `task` commands and `import` use when their `-l/--tasklist`
+# flag is omitted.
+#tasklist.default = "tasks"
+
+# Command a task is edited through, spawned on the path of a temporary
+# iCalendar file it edits in place. `-i/--interactive` on `task create` and
+# `task update` opens it; `--composer <COMMAND>` overrides it for one run.
+#
+# A shell line, or an argv list, the path appended as the last argument:
+# `composer = "tcal edit"` runs `tcal edit <PATH>`.
+#task.composer = "vim"
+#task.composer = ["tcal", "edit"]
+
+# Tasklist `capture` writes to. Unset, a capture goes to `tasklist.default`, else
+# to the tasklist the backend marks as the default one, else to the only one.
+#capture.tasklist = "inbox"
+
+# --------------------------------------------------------------------------------
+# Time tracking
+#
+# `task start`, `task stop`, `task status` and `worktime` keep time entries
+# tied to a task by RELATED-TO its UID, where `time.strategy` says:
+#
+# - `local` (the default): a VEVENT kept on the device and never synced, in the
+#   local time collection of the pimdir store on the pimdir backend, else in
+#   the vdir directory `time.directory` names. The pimdir store is written as
+#   its owner, so a sync running on it makes `task start` and `task stop` fail
+#   at once.
+# - `event`: a VEVENT (DTSTART, DTEND once stopped, TRANSP:TRANSPARENT) in the
+#   tasklist `time.collection` names, synced with the account. Prefer it as soon
+#   as time is tracked on more than one device.
+# - `journal`: a pair of VJOURNALs, CATEGORIES:start then stop, in the tasklist
+#   `time.collection` names; few servers take VJOURNAL.
+#
+# `worktime` reads every place an account keeps entries in, whatever the
+# strategy is now. `unfog migrate --to <strategy>` moves them.
+# --------------------------------------------------------------------------------
+
+#time.strategy = "local"
+#time.collection = "time"
+#time.directory = "~/.local/share/unfog/time"
+
+# --------------------------------------------------------------------------------
+# Table rendering: tasklist list
+# --------------------------------------------------------------------------------
+
+#tasklist.list.table.id-color = "red"
+#tasklist.list.table.name-color = "green"
+#tasklist.list.table.description-color = "reset"
+#tasklist.list.table.color-color = "reset"
+
+# --------------------------------------------------------------------------------
+# Table rendering: task list
+# --------------------------------------------------------------------------------
+
+#task.list.table.id-color = "red"
+#task.list.table.summary-color = "green"
+#task.list.table.due-color = "dark-yellow"
+#task.list.table.status-color = "reset"
+#task.list.table.priority-color = "reset"
+#task.list.table.categories-color = "blue"
+
+# --------------------------------------------------------------------------------
+# Table rendering: account list
+# --------------------------------------------------------------------------------
+
+#account.list.table.name-color = "green"
+#account.list.table.backends-color = "blue"
+#account.list.table.default-color = "reset"
+
+# --------------------------------------------------------------------------------
+# Accounts
+# --------------------------------------------------------------------------------
+
+[accounts.example]
+
+# When `--account` is missing, use this account as the default one.
+default = true
+
+# Every option of the global config above can be set per account too.
+#tasklist.default = "tasks"
+
+# --------------------------------------------------------------------------------
+# Backend selection
+#
+# An account may carry several backend blocks. The shared commands (`tasklist`,
+# `task`, `import`) use the first configured one in unfog's priority order:
+# vdir, pimdir, caldav, which prefers a local read to a network round-trip.
+#
+# Pass `-b/--backend <name>` to pin one instead; the protocol-specific commands
+# (`caldav`, `pimdir`, `vdir`) always use their own.
+# --------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------
+# vdir backend
+#
+# Local collections stored on disk; see
+# <https://vdirsyncer.pimutils.org/en/stable/vdir.html>. Each immediate
+# subdirectory of `home-dir` is one tasklist, each `.ics` file in it one item.
+# Paths are shell-expanded, so `~` and environment variables both work.
+# --------------------------------------------------------------------------------
+
+vdir.home-dir = "~/.local/share/vdirsyncer/tasks"
+
+# --------------------------------------------------------------------------------
+# pimdir backend
+#
+# A local pimdir store: an offline cache (a SQLite index plus content-addressed
+# blobs) that a sync engine fills; see <https://github.com/pimalaya/pimdir>.
+#
+# It is a cache, not a server: tasklists come from whatever the sync mirrors, so
+# `tasklist create` and `tasklist delete` refuse here, and an item the sync
+# listed but has not downloaded reads as "body not fetched" rather than failing.
+# `unfog pimdir status` shows how much is downloaded.
+#
+# Writes are staged as one queue action for the next sync to apply and push. A
+# task created here lists once the sync has applied it.
+#
+# `account` names the account the sync groups these collections under. Leave it
+# unset: a store synced by one account is read as that one. Set it only for a
+# store several accounts share.
+# --------------------------------------------------------------------------------
+
+#pimdir.root = "~/.local/state/neverest/example"
+#pimdir.account = "personal"
+
+# --------------------------------------------------------------------------------
+# CalDAV backend
+#
+# A tasklist is a calendar collection taking VTODOs; `tasklist list` leaves out
+# the calendars whose component set refuses them, and `tasklist create` makes a
+# calendar holding VTODOs alone.
+#
+# The calendar home set is resolved from the first of these that is set, in
+# order of precedence:
+#
+# 1. `caldav.home`: pre-resolved calendar home set URL; every discovery step is
+#    skipped. Fastest, least safe.
+# 2. `caldav.server`: principal + home-set discovery start from the given
+#    context root. Skips domain resolution. Takes a full URL, a bare domain or
+#    `domain:port`, a bare authority defaulting to `https`.
+# 3. `caldav.discover`: a bare domain resolved to a server URL at runtime
+#    through RFC 6764 SRV records and `.well-known`, then principal + home-set
+#    discovery. Convenient but adds DNS + HTTP round-trips on every run.
+#
+# The wizard records `server`: discovery already ran once, so pinning what it
+# found spares every later run those round-trips.
+# --------------------------------------------------------------------------------
+
+#caldav.discover = "example.org"
+#caldav.server = "https://caldav.example.org/dav/calendars"
+#caldav.home = "https://caldav.example.org/dav/calendars/user/me/default"
+
+# Basic authentication (RFC 7617). A `command` secret is a shell command line
+# (string, run through the platform shell) or a program + args list; a `raw`
+# secret is stored in plaintext.
+#caldav.auth.basic.username = "username"
+#caldav.auth.basic.password.command = "pass show example"
+#caldav.auth.basic.password.command = ["pass", "show", "example"]
+#caldav.auth.basic.password.raw = "password"
+
+# Bearer authentication (RFC 6750), mainly for OAuth 2.0.
+#caldav.auth.bearer.token.command = "ortie token show"
+#caldav.auth.bearer.token.raw = "oauth2-token"
+
+# TLS configuration. The certificate path is shell-expanded, so `~` and
+# environment variables both work.
+#caldav.tls.provider = "rustls"
+#caldav.tls.rustls.crypto = "ring"
+#caldav.tls.cert = "~/.local/share/ca-certificates/dav.crt"

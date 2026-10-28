@@ -1,0 +1,75 @@
+[package]
+name = "unfog"
+description = "CLI to manage tasks"
+version = "2.0.0-dev"
+authors = ["Clément DOUIN (soywod) <clement.douin@posteo.net>"]
+edition = "2024"
+rust-version = "1.89"
+license = "MIT OR Apache-2.0"
+categories = ["command-line-utilities"]
+keywords = ["cli", "todo", "task", "caldav", "ical"]
+homepage = "https://pimalaya.org"
+repository = "https://github.com/pimalaya/unfog"
+
+[features]
+default = ["rustls-ring", "caldav", "vdir", "pimdir", "vendored", "wizard"]
+native-tls = ["pimalaya-stream/native-tls", "io-pim-discovery/native-tls", "io-webdav?/native-tls"]
+rustls-aws = ["pimalaya-stream/rustls-aws", "io-pim-discovery/rustls-aws", "io-webdav?/rustls-aws"]
+rustls-ring = ["pimalaya-stream/rustls-ring", "io-pim-discovery/rustls-ring", "io-webdav?/rustls-ring"]
+caldav = ["dep:io-webdav", "dep:io-http", "dep:secrecy"]
+vdir = ["dep:io-vdir"]
+pimdir = ["dep:io-pimdir"]
+vendored = ["pimalaya-stream/vendored", "io-webdav?/vendored", "io-pimdir?/vendored"]
+wizard = ["pimalaya-cli/wizard", "pimalaya-cli/caldav", "pimalaya-cli/spinner"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+
+[build-dependencies]
+pimalaya-cli = { version = "0.2", default-features = false, features = ["build"] }
+
+[dev-dependencies]
+tempfile = "3"
+toml = "1.1"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "unstable-locales"] }
+clap = { version = "4.4", features = ["derive", "env", "wrap_help"] }
+crossterm = { version = "0.29", default-features = false, features = ["serde"] }
+getrandom = "0.4"
+humansize = "2"
+ical-rs = { version = "0.6", default-features = false, features = ["parser", "tzdb"] }
+io-http = { version = "0.5", default-features = false, optional = true }
+io-pim-discovery = { version = "0.8", default-features = false, features = ["autoconfig", "pacc", "rfc6764", "stream"] }
+io-pimdir = { version = "0.8", default-features = false, features = ["client"], optional = true }
+io-vdir = { version = "0.2", default-features = false, features = ["client", "serde"], optional = true }
+io-webdav = { version = "0.5", default-features = false, features = ["client"], optional = true }
+jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-bundle-always"] }
+log = "0.4"
+pimalaya-cli = { version = "0.2", default-features = false, features = ["terminal", "table", "prompt"] }
+pimalaya-config = { version = "0.2.1", default-features = false, features = ["toml", "secret"] }
+pimalaya-stream = { version = "0.3", default-features = false, features = ["std"] }
+schemars = "1"
+secrecy = { version = "0.10", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+shellexpand = "3.1"
+unicode-width = "0.2"
+url = { version = "2.5", features = ["serde"] }
+
+[patch.crates-io]
+# NOTE: unreleased revisions, the set the Pimalaya Android client builds, to
+# be replaced by released versions.
+ical-rs = { git = "https://github.com/pimalaya/ical", rev = "caa14225152a7aff6d8c86cef1f95e800dd77d20" }
+#io-gcal = { git = "https://github.com/pimalaya/io-gcal", rev = "90537616dd6d7659c6bfe81df9b4a1428e143f06" }
+io-http = { git = "https://github.com/pimalaya/io-http", rev = "e1815307771c1ec65a86b77256d46c33241d3038" }
+#io-msgraph = { git = "https://github.com/pimalaya/io-msgraph", rev = "2ae26370aefa671c16316dbad98107634436bce6" }
+# NOTE: the local checkout until its tasks-by-categories change (put_item,
+# ensure_time_collection, TIME_COLLECTION) is pushed and pinned to a rev.
+io-pimdir = { path = "../io-pimdir" }
+io-webdav = { git = "https://github.com/pimalaya/io-webdav", rev = "62fad898d1ecb3ebb25c37826a79eb72fcd54d7f" }
+pimalaya-cli = { git = "https://github.com/pimalaya/cli", rev = "55b66933950f02541892407667e5e0b254245871" }

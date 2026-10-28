@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- GTD over plain VTODOs, the convention the Pimalaya app shares: `inbox`, `waiting` and `someday` as reserved categories, with the `gtd` family (`capture`, `inbox`, `next [--category]`, `waiting`, `someday`, `clarify` and `review`) across every configured account; the views show each task's priority, which `gtd clarify --priority` sets.
+- Time tracking back in 2.x: `task start`, `task stop`, `task status`, `worktime` and `migrate`, the entries kept where `time.strategy` says (`local` by default, `event` or `journal` in a synced calendar).
+- `import` of a 1.x store: its projects become plain categories, its starts and stops time entries of the configured strategy.
+
+### Changed
+
+- `context` is replaced by `gtd next --category`; `start`, `stop` and `status` move under `task`.
+
 ## [1.0.6] - 2023-03-07
 
 ### Fixed
