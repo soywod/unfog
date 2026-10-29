@@ -59,13 +59,13 @@ unfog is the reference; this change is the umbrella for the whole plan. Work in 
 
 unfog has no CalDAV test. Reuse journal/tests/radicale.sh and tests/caldav.rs (Radicale from nixpkgs, `--ignored` tests pointed at it by an env URL), neverest/tests (radicale.sh, caldav.rs, google.rs, msgraph.rs, token minting in tests/common/mod.rs) and Android's e2e suite.
 
-| Provider | Tasks (VTODO) | `event` entries | `journal` entries | State on 2026-10-28 |
+| Provider | Tasks (VTODO) | `event` entries | `journal` entries | State (2026-10-28) and results (2026-10-29) |
 | --- | --- | --- | --- | --- |
-| Radicale (local) | yes | yes | yes | no account needed |
-| Fastmail CalDAV | expected, unverified | expected | unverified | DAV password in pass |
-| Posteo CalDAV | yes (both calendars state VEVENT VTODO) | yes | no (no calendar states VJOURNAL) | login checked, MKCALENDAR allowed |
-| Google | not over CalDAV; Tasks API needs M4 (no categories) | primary or own calendar; PUT answers no ETag | no | delegated token minted; Calendar, CalDAV (207) and Tasks API read |
-| Microsoft | no CalDAV; To Do needs M3 | needs a Graph calendar backend | no | app-only token minted; calendars and To Do lists read |
+| Radicale (local) | yes | yes | yes | 2026-10-29: tests/caldav.rs 9/9 (capture, foreign bytes kept but CATEGORIES and DTSTAMP, 412 on a stale write, move, both strategies, meeting untouched, early refusal into an events calendar); answers `Connection: close` after a PUT, which unfog now reconnects past; refuses a second resource of one UID in a calendar (409); pimdir path (tests/pimdir-path.sh): clarify pushed, a superseding move pushes its add then its held delete on the next sync |
+| Fastmail CalDAV | yes | yes, RELATED-TO and TRANSP kept, a meeting beside untouched | yes (MKCALENDAR of a VJOURNAL calendar accepted and stated) | 2026-10-29 through the guard: tests/caldav.rs 9/9, guard refused nothing; one UID per calendar home: a create-then-remove move answers 403 "WebDAV collection already holds a resource with the same UID", unfog leaves the task where it was; pimdir path: the superseding add is refused the same way and the source stays after two more syncs (the hold works) |
+| Posteo CalDAV | yes per the 2026-10-28 check (both calendars state VEVENT VTODO), untested tonight: no scratch calendar can be made | untested | no calendar states VJOURNAL (2026-10-28) | 2026-10-29: MKCALENDAR answers 403 Sabre_DAV_Exception_Forbidden "To create a calendar, please use the 'Settings' pages in Posteo's webmailer." (DELETE of a calendar likewise, "To delete a calendar..."); nothing created, no existing calendar read or written |
+| Google | no: a VTODO PUT answers 403 with an empty `<D:error/>`; unfog now refuses it first ("takes no tasks") | not through unfog: every calendar lists as id `events` and io-webdav addresses `<home>/events`, the primary calendar (a write was caught by the guard); raw PUT 201 with no ETag, renamed to `<UID>.ics` (Location), RELATED-TO dropped, TRANSP kept | no | 2026-10-29: scratch calendar made and deleted through the Calendar API; unfog now refuses an id several calendars share |
+| Microsoft | no CalDAV; To Do needs M3 | needs a Graph calendar backend; Graph keeps RELATED-TO only in the `pimalaya-ical` extended property io-msgraph stashes (verbatim, read back with `$expand`), `showAs: free` for TRANSP, its own `iCalUId` | no | 2026-10-29: app-only token, scratch calendar made and deleted, one event read back |
 
 Every live test works only in collections it creates, named `unfog-e2e-<run>-<n>`, refuses any request outside them, and deletes them however the run ends (plus leftovers of older runs carrying the prefix). It never reads or writes an existing collection, never syncs or migrates a real account.
 
@@ -84,5 +84,5 @@ Credentials (never print a value; load into a shell variable):
 
 ## Open questions
 
-- Should GUIDE §17 allow a same-account CalDAV `MOVE` when a server enforces UID uniqueness across a calendar home? Answer from the Fastmail and Posteo tests.
+- Should GUIDE §17 allow a same-account CalDAV `MOVE` when a server enforces UID uniqueness across a calendar home? Answer from the Fastmail and Posteo tests. Answered on 2026-10-29 (provisional, for the user to decide): Fastmail enforces it, so a create-then-remove move between two calendars of one account can never succeed there (unfog fails whole, the task kept; over pimdir the superseding add parks and the source stays). Posteo could not be tested (no scratch calendar). Recommendation: allow a same-account WebDAV `MOVE` (RFC 4918 9.9) after the in-place edit, falling back to create-then-remove across accounts; not implemented tonight.
 - How GTD maps onto Google Tasks and Microsoft To Do (no categories in Google Tasks; To Do has categories): settled in M3 and M4.

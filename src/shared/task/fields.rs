@@ -32,7 +32,7 @@ use ical::{
         datetime::{IcalDate, IcalDateTime},
         duration::IcalDuration,
         integer::IcalInteger,
-        text::{IcalText, IcalTextList},
+        text::IcalText,
         uri::IcalUri,
     },
     version::IcalVersion,
@@ -42,6 +42,8 @@ use jiff::{
     civil::{Date, DateTime},
     tz::TimeZone,
 };
+
+use crate::shared::task::gtd::own_categories;
 
 /// The VTODO fields `task create` and `task update` set from flags.
 ///
@@ -78,8 +80,10 @@ pub struct TaskFieldsArgs {
     /// undefined.
     #[arg(long, value_name = "0-9", value_parser = clap::value_parser!(u8).range(0..=9))]
     pub priority: Option<u8>,
-    /// Categories (`CATEGORIES`), the flag repeating; `--category ""`
-    /// alone removes them.
+    /// The person's own categories (`CATEGORIES`), the flag repeating,
+    /// replacing theirs and keeping the GTD state (`inbox`, `waiting`,
+    /// `someday`), which `gtd clarify` sets; `--category ""` alone removes
+    /// them.
     #[arg(long = "category", value_name = "TEXT")]
     pub categories: Vec<String>,
     /// The `UID` of the parent task (`RELATED-TO;RELTYPE=PARENT`); empty
@@ -189,7 +193,7 @@ impl TaskFieldsArgs {
             })
             .collect();
 
-        let vtodo = cst.component_mut::<VTODO>().context("Find VTODO error")?;
+        let vtodo = master_mut(&mut cst)?;
         replace(vtodo, &dropped, lines);
 
         if self.no_alarm || alarm.is_some() {
@@ -217,7 +221,12 @@ impl TaskFieldsArgs {
 
         define_zones(&mut cst, &zones);
 
-        Ok(cst.to_bytes())
+        // NOTE: the person's categories are replaced, the GTD state kept
+        // where it stands (pimdir GUIDE.md §17).
+        match self.categories.is_empty() {
+            true => Ok(cst.to_bytes()),
+            false => own_categories(&cst.to_bytes(), &self.categories),
+        }
     }
 
     /// The properties the flags drop, and those they write in their
@@ -304,29 +313,6 @@ impl TaskFieldsArgs {
             );
         }
 
-        if !self.categories.is_empty() {
-            let values: Vec<Cow<'static, str>> = self
-                .categories
-                .iter()
-                .filter(|value| !value.is_empty())
-                .map(|value| Cow::Owned(value.clone()))
-                .collect();
-
-            let categories = match values.is_empty() {
-                true => Vec::new(),
-                false => {
-                    let value = IcalValue::TextList(IcalTextList(values));
-                    vec![prop(IcalPropKind::Categories, vec![], value)]
-                }
-            };
-
-            push(
-                Dropped::Kind(IcalPropKind::Categories),
-                IcalPropKind::Categories,
-                categories,
-            );
-        }
-
         if let Some(parent) = &self.parent {
             let parent = unless_empty(parent, |uid| {
                 let value = IcalValue::Text(IcalText(Cow::Owned(uid.to_owned())));
@@ -382,7 +368,7 @@ pub fn complete(ical: &[u8], now: Timestamp) -> Result<Vec<u8>> {
         })
         .collect();
 
-    let vtodo = cst.component_mut::<VTODO>().context("Find VTODO error")?;
+    let vtodo = master_mut(&mut cst)?;
     replace(vtodo, &dropped, lines);
 
     Ok(cst.to_bytes())
@@ -407,10 +393,65 @@ pub fn reopen(ical: &[u8]) -> Result<Vec<u8>> {
     ]
     .map(Dropped::Kind);
 
-    let vtodo = cst.component_mut::<VTODO>().context("Find VTODO error")?;
+    let vtodo = master_mut(&mut cst)?;
     replace(vtodo, &dropped, lines);
 
     Ok(cst.to_bytes())
+}
+
+/// Marks the VTODO of `ical` as captured at `now`: `CREATED` at `now` in
+/// UTC right after its `DTSTAMP` (pimdir GUIDE.md §17 reads a capture's
+/// age from it), and, for a capture of a message, `ATTACH` the `mid:` URI
+/// (RFC 2392) naming `mid` after the task's last property.
+pub fn captured(ical: &[u8], now: Timestamp, mid: Option<&str>) -> Result<Vec<u8>> {
+    let mut cst = one_vtodo(ical)?;
+    let escaper = Escaper::for_version(cst.version());
+    let created =
+        IcalItem::Prop(prop(IcalPropKind::Created, vec![], utc_stamp(now)).encode(escaper));
+
+    let attach = mid.map(|mid| {
+        let uri = IcalValue::Uri(IcalUri(Cow::Owned(mid_uri(mid))));
+        let line = IcalItem::Prop(prop(IcalPropKind::Attach, vec![], uri).encode(escaper));
+        (IcalPropName::Kind(IcalPropKind::Attach), vec![line])
+    });
+
+    let vtodo = master_mut(&mut cst)?;
+    vtodo
+        .items
+        .retain(|item| !names(item, &IcalPropKind::Created));
+
+    let at = vtodo
+        .items
+        .iter()
+        .position(|item| names(item, &IcalPropKind::DtStamp))
+        .map_or(0, |at| at + 1);
+    vtodo.items.insert(at, created);
+
+    if let Some(attach) = attach {
+        replace(vtodo, &[], vec![attach]);
+    }
+
+    Ok(cst.to_bytes())
+}
+
+/// The `mid:` URI of a `Message-ID` (RFC 2392): bare of angle brackets,
+/// every character a URI does not take as is percent-encoded.
+pub fn mid_uri(mid: &str) -> String {
+    let mid = mid.trim().trim_start_matches('<').trim_end_matches('>');
+    let mut uri = String::from("mid:");
+
+    for byte in mid.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' => uri.push(byte as char),
+            b'!' | b'$' | b'&' | b'\'' | b'(' | b')' | b'*' | b'+' | b',' | b';' | b'=' => {
+                uri.push(byte as char)
+            }
+            b':' | b'@' | b'.' | b'_' | b'~' | b'-' => uri.push(byte as char),
+            byte => uri.push_str(&format!("%{byte:02X}")),
+        }
+    }
+
+    uri
 }
 
 /// Marks every VTODO of `ical` as revised at `now`, returning its new
@@ -474,14 +515,13 @@ pub fn revise(ical: &[u8], now: Timestamp) -> Result<Vec<u8>> {
 /// alone, so a source holding several would come back with all but one
 /// dropped or left inconsistent with it.
 pub(crate) fn one_vtodo(ical: &[u8]) -> Result<IcalCst<'_>> {
-    let vtodos: usize = IcalCst::parse_many(ical)
+    let calendars: Vec<IcalCst<'_>> = IcalCst::parse_many(ical)
         .filter_map(|cst| cst.ok())
+        .collect();
+    let vtodos: usize = calendars
+        .iter()
         .map(|cst| cst.components::<VTODO>().count())
         .sum();
-
-    if vtodos > 1 {
-        bail!("Cannot edit a source holding several VTODOs");
-    }
 
     let cst = IcalCst::parse(ical).context("Parse iCalendar error")?;
 
@@ -489,7 +529,65 @@ pub(crate) fn one_vtodo(ical: &[u8]) -> Result<IcalCst<'_>> {
         bail!("Cannot edit a source holding no VTODO");
     }
 
+    if vtodos > 1 && (calendars.len() > 1 || !is_series(&cst)) {
+        bail!("Cannot edit a source holding several VTODOs");
+    }
+
     Ok(cst)
+}
+
+/// Whether the VTODOs of `cst` are one recurring task: one `UID`, one
+/// master stating no `RECURRENCE-ID`, the rest its overrides.
+fn is_series(cst: &IcalCst<'_>) -> bool {
+    let decoded = cst.decode();
+    let vtodos: Vec<&IcalComponent<'_>> = decoded
+        .components
+        .iter()
+        .filter(|component| {
+            component
+                .name
+                .eq_ignore_ascii_case(&IcalComponentKind::VTodo)
+        })
+        .collect();
+
+    fn uid(vtodo: &IcalComponent<'_>) -> Option<String> {
+        vtodo
+            .props
+            .iter()
+            .find(|prop| prop.name.eq_ignore_ascii_case("UID"))
+            .and_then(|prop| match &prop.value {
+                IcalValue::Text(text) => Some(text.0.trim().to_owned()),
+                _ => None,
+            })
+    }
+
+    let masters = vtodos
+        .iter()
+        .filter(|vtodo| {
+            !vtodo
+                .props
+                .iter()
+                .any(|prop| prop.name.eq_ignore_ascii_case("RECURRENCE-ID"))
+        })
+        .count();
+
+    masters == 1 && vtodos.iter().all(|vtodo| uid(vtodo) == uid(vtodos[0]))
+}
+
+/// The VTODO an edit writes: the only one, or the master of a recurring
+/// task, its overrides kept as they are.
+pub(crate) fn master_mut<'c, 'a>(cst: &'c mut IcalCst<'a>) -> Result<&'c mut IcalCst<'a>> {
+    let at = cst.items.iter().position(|item| match item {
+        IcalItem::Component(vtodo) if is_component(item, "VTODO") => {
+            !vtodo.items.iter().any(|line| names(line, "RECURRENCE-ID"))
+        }
+        _ => false,
+    });
+
+    match at.map(|at| &mut cst.items[at]) {
+        Some(IcalItem::Component(vtodo)) => Ok(vtodo),
+        _ => bail!("Find VTODO error"),
+    }
 }
 
 /// What a flag drops from the task before writing its own lines.

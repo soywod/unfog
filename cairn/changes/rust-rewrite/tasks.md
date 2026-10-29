@@ -33,17 +33,11 @@ change: rust-rewrite
 
 ## M3: Microsoft To Do
 
-- [ ] Verify open extensions on `todoTask`
-- [ ] io-msgraph To Do surface (lists, tasks, extensions), `MsgraphField` tri-state on PATCH
-- [ ] msgraph backend projecting VTODO; lead alarms resolved to `reminderDateTime`
-- [ ] Live tests on the Microsoft test tenant only
+Moved to its own change, cairn/changes/microsoft-todo (2026-10-29).
 
 ## M4: Google Tasks
 
-- [ ] Open question on the shared surface settled
-- [ ] io-gtasks crate mirroring the REST reference
-- [ ] gtasks backend or family
-- [ ] Live tests on the pimalaya.org Workspace only
+Moved to its own change, cairn/changes/google-tasks (2026-10-29).
 
 ## M5: release
 

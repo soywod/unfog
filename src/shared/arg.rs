@@ -33,3 +33,14 @@ pub struct IcalComposerArgs {
     #[arg(long, value_name = "COMMAND", requires = "interactive")]
     pub composer: Option<String>,
 }
+
+/// The tasklist a verb taking a task searches.
+///
+/// Omitted, the task is searched across every tasklist of every account
+/// of the scope, `-a` narrowing it to one account.
+#[derive(Debug, Parser)]
+pub struct TasklistFilterArg {
+    /// Only search this tasklist for the task.
+    #[arg(short = 'l', long = "tasklist", value_name = "TASKLIST-ID")]
+    pub id: Option<String>,
+}

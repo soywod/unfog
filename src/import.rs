@@ -688,6 +688,7 @@ mod tests {
                 time: TimeConfig {
                     strategy: Some(strategy),
                     collection: Some("tasks".into()),
+                    account: None,
                     directory: Some(dir.path().join("time")),
                 },
                 ..Default::default()

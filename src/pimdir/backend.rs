@@ -31,7 +31,8 @@ use io_pimdir::{
         PimdirError, TIME_COLLECTION,
         reader::{PimdirCollection, PimdirItem},
     },
-    codec::PimdirAction,
+    codec::{PimdirAction, PimdirSupersedes},
+    collection::PimdirCollectionId,
     object::PimdirObject,
     placement::PimdirFlags,
     summary::{
@@ -61,6 +62,9 @@ use crate::{
 
 /// The media type a pimdir collection carries to be a calendar.
 const CALENDAR_KIND: &str = "text/calendar";
+
+/// The prefix of a queued create's handle, its action id following.
+const PENDING_PREFIX: &str = "q";
 
 /// How many items to pull per keyset page when scanning a collection.
 #[cfg(not(test))]
@@ -105,13 +109,21 @@ impl PimdirBackend {
         Self::new(pimdir_config)
     }
 
-    /// Lists the calendar collections.
+    /// Lists the calendar collections that take tasks.
     ///
     /// Those declaring `text/calendar`, plus the kind-less ones a sync
-    /// created before any consumer declared a kind.
+    /// created before any consumer declared a kind, but a calendar a
+    /// source states refuses VTODO (`x-vtodo` `none`, pimdir STORAGE
+    /// §15.6), which stays reachable as a `time.collection`.
     pub fn list_tasklists(&mut self) -> Result<Vec<Tasklist>> {
-        let mut tasklists: Vec<Tasklist> = self
-            .calendar_collections()?
+        let mut collections = Vec::new();
+        for collection in self.calendar_collections()? {
+            if self.client.reader.accepts_vtodo(&collection.id)? {
+                collections.push(collection);
+            }
+        }
+
+        let mut tasklists: Vec<Tasklist> = collections
             .into_iter()
             .map(|collection| Tasklist {
                 name: if collection.name.is_empty() {
@@ -170,9 +182,10 @@ impl PimdirBackend {
             Some(_) => self.restaged()?,
             None => Vec::new(),
         };
+        let leaving = self.superseded(tasklist_id)?;
 
         self.scan(tasklist_id, |stored| {
-            if ruled_out(&stored, query.kind, &restaged) {
+            if leaving.contains(&stored.seq) || ruled_out(&stored, query.kind, &restaged) {
                 return Ok(ControlFlow::Continue(()));
             }
 
@@ -197,6 +210,22 @@ impl PimdirBackend {
             Ok(page.keep(item))
         })?;
 
+        for item in self.pending(tasklist_id)? {
+            if page.is_full() {
+                break;
+            }
+
+            if query
+                .kind
+                .is_some_and(|kind| !holds_kind(&item.contents, kind))
+                || page.skips()
+            {
+                continue;
+            }
+
+            let _ = page.keep(item);
+        }
+
         Ok(page.into_items())
     }
 
@@ -218,9 +247,14 @@ impl PimdirBackend {
         self.known_collection(tasklist_id)?;
 
         let restaged = self.restaged()?;
+        let leaving = self.superseded(tasklist_id)?;
         let mut tasks = Vec::new();
 
         self.scan(tasklist_id, |stored| {
+            if leaving.contains(&stored.seq) {
+                return Ok(ControlFlow::Continue(()));
+            }
+
             let summary = match &stored.summary {
                 _ if restaged.contains(&stored.seq) => None,
                 Some(PimdirSummary::Task(summary)) => Some(summary),
@@ -252,7 +286,20 @@ impl PimdirBackend {
             Ok(ControlFlow::Continue(()))
         })?;
 
+        for item in self.pending(tasklist_id)? {
+            tasks.extend(
+                Task::project(&item)
+                    .into_iter()
+                    .filter(|task| keep(task.status.as_deref(), &task.categories)),
+            );
+        }
+
         Ok(tasks)
+    }
+
+    /// Which of the `Message-ID`s `mids` a mail of the store replies to.
+    pub fn replied(&mut self, mids: &[String]) -> Result<Vec<String>> {
+        Ok(self.client.reader.replied(mids)?)
     }
 
     /// Reads one item's bytes from its content-addressed blob.
@@ -294,6 +341,46 @@ impl PimdirBackend {
     /// public `seq` until the store's owner applies it, so there is no
     /// store-assigned id to report yet.
     pub fn create_item(&mut self, tasklist_id: &str, contents: Vec<u8>) -> Result<String> {
+        self.add(tasklist_id, contents, None)
+    }
+
+    /// Stages a move of the item `item_id` of `from` into `to` as one
+    /// `add` carrying `supersedes` it (pimdir STORAGE §15): the store
+    /// tombstones the source as it applies the add, and pushes that
+    /// tombstone only once the add was pushed, so a parked add or a
+    /// refused push leaves the task where it was.
+    ///
+    /// `if_match` gates the staging on the source's version, as
+    /// [`update_item`](Self::update_item) does.
+    pub fn move_item(
+        &mut self,
+        from: &str,
+        item_id: &str,
+        to: &str,
+        contents: Vec<u8>,
+        if_match: Option<&str>,
+    ) -> Result<String> {
+        self.known_collection(from)?;
+
+        let stored = self.item(from, item_id)?;
+        check_version(&stored, from, item_id, if_match)?;
+
+        let supersedes = PimdirSupersedes {
+            collection: PimdirCollectionId(from.to_owned()),
+            seq: stored.seq,
+        };
+
+        self.add(to, contents, Some(supersedes))
+    }
+
+    /// Stages an `add` of `contents` into `tasklist_id`, returning its
+    /// link id.
+    fn add(
+        &mut self,
+        tasklist_id: &str,
+        contents: Vec<u8>,
+        supersedes: Option<PimdirSupersedes>,
+    ) -> Result<String> {
         self.known_collection(tasklist_id)?;
 
         let link_id = derive(&contents).link_id;
@@ -303,6 +390,7 @@ impl PimdirBackend {
             link_id: Some(link_id.clone()),
             flags: PimdirFlags::default(),
             object: Some(hash),
+            supersedes,
         };
 
         let object = self.stage_body(&contents)?;
@@ -494,11 +582,79 @@ impl PimdirBackend {
             .collect())
     }
 
+    /// The public ids of the items of `tasklist_id` a pending `add`
+    /// supersedes: items being moved, listed where they go rather than
+    /// twice.
+    fn superseded(&self, tasklist_id: &str) -> Result<Vec<i64>> {
+        Ok(self
+            .client
+            .reader
+            .list_pending_actions()?
+            .into_iter()
+            .filter_map(|pending| match pending.action {
+                PimdirAction::Add {
+                    supersedes: Some(superseded),
+                    ..
+                } if superseded.collection.0 == tasklist_id => Some(superseded.seq),
+                _ => None,
+            })
+            .collect())
+    }
+
+    /// The creates a collection has queued, each listed under the handle
+    /// `q<action id>` with no version: an item the next sync pushes, shown
+    /// before it is applied so a capture is seen at once. A create whose
+    /// body is gone is passed over.
+    fn pending(&self, tasklist_id: &str) -> Result<Vec<TaskItem>> {
+        let mut items = Vec::new();
+
+        for pending in self.client.reader.pending_creates(tasklist_id)? {
+            let PimdirAction::Add {
+                object: Some(hash), ..
+            } = &pending.action
+            else {
+                continue;
+            };
+
+            let Some(contents) = self.client.blobs.get(hash)? else {
+                warn!(
+                    "body blob missing for queued create {} in calendar `{tasklist_id}`",
+                    pending.id
+                );
+                continue;
+            };
+
+            items.push(TaskItem {
+                id: format!("{PENDING_PREFIX}{}", pending.id),
+                tasklist_id: tasklist_id.to_owned(),
+                etag: None,
+                contents,
+            });
+        }
+
+        Ok(items)
+    }
+
     /// The stored item behind a public item id, or a clear miss.
     ///
     /// Anything non-numeric is the internal link id or a mistyped
     /// value, and saying so beats a lookup that silently finds nothing.
+    /// A queued create's handle is refused with its own code: it has no
+    /// row to read or edit until a sync applies it.
     fn item(&self, tasklist_id: &str, item_id: &str) -> Result<PimdirItem> {
+        if let Some(id) = item_id.strip_prefix(PENDING_PREFIX)
+            && id.parse::<i64>().is_ok()
+        {
+            return Err(CodedError::new(
+                ErrorCode::PendingAdd,
+                format!(
+                    "Item `{item_id}` in tasklist `{tasklist_id}` is a create the next sync \
+                     pushes; run a sync, then edit it"
+                ),
+            )
+            .into());
+        }
+
         let seq = item_id.parse::<i64>().map_err(|_| {
             anyhow!("Invalid pimdir item id `{item_id}`: expected the number a listing showed")
         })?;
@@ -690,6 +846,11 @@ impl<T> Window<T> {
     /// Whether the page holds nothing whatever the collection holds.
     fn is_closed(&self) -> bool {
         self.take == Some(0)
+    }
+
+    /// Whether the page holds all it takes.
+    fn is_full(&self) -> bool {
+        self.take.is_some_and(|take| self.items.len() >= take)
     }
 
     /// Passes over one match when the page has not started yet.

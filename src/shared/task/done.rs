@@ -12,12 +12,11 @@ use pimalaya_cli::printer::Printer;
 use schemars::JsonSchema;
 use serde::Serialize;
 
-use crate::shared::{
-    arg::TasklistIdArg,
-    client::TaskClient,
-    task::{
-        fields::{complete, reopen, revise},
-        find::find_task,
+use crate::{
+    scope::Scope,
+    shared::{
+        arg::TasklistFilterArg,
+        task::fields::{complete, reopen, revise},
     },
 };
 
@@ -31,29 +30,33 @@ use crate::shared::{
 #[derive(Debug, Parser)]
 pub struct TaskDoneCommand {
     #[command(flatten)]
-    pub tasklist: TasklistIdArg,
+    pub tasklist: TasklistFilterArg,
     /// Task to complete: its handle, or a prefix of its UID.
     #[arg(value_name = "TASK")]
     pub task: String,
 }
 
 impl TaskDoneCommand {
-    pub fn execute(self, printer: &mut impl Printer, client: TaskClient) -> Result<()> {
-        self.execute_at(printer, client, Timestamp::now())
+    pub fn execute(self, printer: &mut impl Printer, scope: Scope) -> Result<()> {
+        self.execute_at(printer, scope, Timestamp::now())
     }
 
     /// Completes the task at `now`.
     pub fn execute_at(
         self,
         printer: &mut impl Printer,
-        mut client: TaskClient,
+        mut scope: Scope,
         now: Timestamp,
     ) -> Result<()> {
-        let tasklist_id = client.account.tasklist_id(self.tasklist.id)?;
-        let item = find_task(&mut client, &tasklist_id, &self.task)?;
+        let (found, item) = scope.locate(&self.task, self.tasklist.id.as_deref())?;
 
         let contents = revise(&complete(&item.contents, now)?, now)?;
-        client.update_item(&tasklist_id, &item.id, contents, item.etag.as_deref())?;
+        scope.client(found.account).update_item(
+            &found.tasklist,
+            &item.id,
+            contents,
+            item.etag.as_deref(),
+        )?;
 
         printer.out(TaskDoneOutput {
             done: true,
@@ -71,19 +74,23 @@ impl TaskDoneCommand {
 #[derive(Debug, Parser)]
 pub struct TaskUndoneCommand {
     #[command(flatten)]
-    pub tasklist: TasklistIdArg,
+    pub tasklist: TasklistFilterArg,
     /// Task to reopen: its handle, or a prefix of its UID.
     #[arg(value_name = "TASK")]
     pub task: String,
 }
 
 impl TaskUndoneCommand {
-    pub fn execute(self, printer: &mut impl Printer, mut client: TaskClient) -> Result<()> {
-        let tasklist_id = client.account.tasklist_id(self.tasklist.id)?;
-        let item = find_task(&mut client, &tasklist_id, &self.task)?;
+    pub fn execute(self, printer: &mut impl Printer, mut scope: Scope) -> Result<()> {
+        let (found, item) = scope.locate(&self.task, self.tasklist.id.as_deref())?;
 
         let contents = revise(&reopen(&item.contents)?, Timestamp::now())?;
-        client.update_item(&tasklist_id, &item.id, contents, item.etag.as_deref())?;
+        scope.client(found.account).update_item(
+            &found.tasklist,
+            &item.id,
+            contents,
+            item.etag.as_deref(),
+        )?;
 
         printer.out(TaskDoneOutput {
             done: false,
@@ -166,6 +173,17 @@ mod tests {
         TaskClient::new(Config::default(), account, Backend::Auto).unwrap()
     }
 
+    /// The scope of that one account.
+    fn scope(dir: &tempfile::TempDir) -> crate::scope::Scope {
+        let account = AccountConfig {
+            vdir: Some(VdirConfig {
+                home_dir: dir.path().to_path_buf(),
+            }),
+            ..Default::default()
+        };
+        crate::testing::scope(&crate::testing::config(vec![("personal", account)]))
+    }
+
     #[test]
     fn an_unknown_x_property_survives_done_and_undone() {
         let dir = tempfile::tempdir().unwrap();
@@ -182,7 +200,7 @@ mod tests {
 
         TaskDoneCommand::try_parse_from(["done", "-l", "tasks", "9f00"])
             .unwrap()
-            .execute_at(&mut Quiet, client(&dir), at)
+            .execute_at(&mut Quiet, scope(&dir), at)
             .unwrap();
 
         assert_eq!(
@@ -197,7 +215,7 @@ mod tests {
 
         TaskUndoneCommand::try_parse_from(["undone", "-l", "tasks", &id])
             .unwrap()
-            .execute(&mut Quiet, client(&dir))
+            .execute(&mut Quiet, scope(&dir))
             .unwrap();
 
         let reopened = stored();

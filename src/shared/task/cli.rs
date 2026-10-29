@@ -29,9 +29,10 @@ use crate::{
 /// Shared API to manage tasks.
 ///
 /// Every subcommand taking a task takes the handle of the item holding
-/// it, or a prefix of its UID, dashes ignored. `start`, `stop` and
-/// `status` span every configured account, `-a` narrowing them to one;
-/// the others work on one account.
+/// it, or a prefix of its UID, dashes ignored, and finds it across every
+/// configured account and tasklist, `-a` narrowing to one account and
+/// `-l` to one tasklist. `start`, `stop` and `status` span every account
+/// too; `list` and `create` work on one tasklist of one account.
 #[derive(Debug, Subcommand)]
 pub enum TaskCommand {
     #[command(visible_alias = "ls")]
@@ -55,35 +56,32 @@ impl TaskCommand {
         account_name: Option<&str>,
         backend: Backend,
     ) -> Result<()> {
-        // NOTE: time tracking spans every account, so it resolves a
-        // scope rather than one account's client.
+        // NOTE: a listing and a create name their tasklist on one
+        // account; every other verb finds its task across the scope.
         let cmd = match self {
-            Self::Start(cmd) => {
-                let scope = Scope::resolve(printer, config_paths, account_name, backend)?;
-                return cmd.execute(printer, scope);
+            Self::List(cmd) => {
+                let client = TaskClient::resolve(printer, config_paths, account_name, backend)?;
+                return cmd.execute(printer, client);
             }
-            Self::Stop(cmd) => {
-                let scope = Scope::resolve(printer, config_paths, account_name, backend)?;
-                return cmd.execute(printer, scope);
-            }
-            Self::Status(cmd) => {
-                let scope = Scope::resolve(printer, config_paths, account_name, backend)?;
-                return cmd.execute(printer, scope);
+            Self::Create(cmd) => {
+                let client = TaskClient::resolve(printer, config_paths, account_name, backend)?;
+                return cmd.execute(printer, client);
             }
             cmd => cmd,
         };
 
-        let client = TaskClient::resolve(printer, config_paths, account_name, backend)?;
+        let scope = Scope::resolve(printer, config_paths, account_name, backend)?;
 
         match cmd {
-            Self::List(cmd) => cmd.execute(printer, client),
-            Self::Read(cmd) => cmd.execute(printer, client),
-            Self::Create(cmd) => cmd.execute(printer, client),
-            Self::Update(cmd) => cmd.execute(printer, client),
-            Self::Done(cmd) => cmd.execute(printer, client),
-            Self::Undone(cmd) => cmd.execute(printer, client),
-            Self::Delete(cmd) => cmd.execute(printer, client),
-            Self::Start(_) | Self::Stop(_) | Self::Status(_) => unreachable!("handled above"),
+            Self::Read(cmd) => cmd.execute(printer, scope),
+            Self::Update(cmd) => cmd.execute(printer, scope),
+            Self::Done(cmd) => cmd.execute(printer, scope),
+            Self::Undone(cmd) => cmd.execute(printer, scope),
+            Self::Delete(cmd) => cmd.execute(printer, scope),
+            Self::Start(cmd) => cmd.execute(printer, scope),
+            Self::Stop(cmd) => cmd.execute(printer, scope),
+            Self::Status(cmd) => cmd.execute(printer, scope),
+            Self::List(_) | Self::Create(_) => unreachable!("handled above"),
         }
     }
 }

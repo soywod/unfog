@@ -24,6 +24,7 @@ use crate::shared::{
         Task,
         fields::TaskStatusArg,
         find::{short_id, short_len},
+        gtd::same,
     },
 };
 
@@ -126,7 +127,7 @@ impl TaskListCommand {
         self.categories.iter().all(|wanted| {
             task.categories
                 .iter()
-                .any(|category| category.eq_ignore_ascii_case(wanted))
+                .any(|category| same(category, wanted))
         })
     }
 }

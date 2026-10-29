@@ -13,14 +13,13 @@ use pimalaya_cli::printer::Printer;
 use schemars::JsonSchema;
 use serde::Serialize;
 
-use crate::shared::{
-    arg::{IcalComposerArgs, TasklistIdArg},
-    client::TaskClient,
-    composer::IcalComposer,
-    ical::read_source,
-    task::{
-        fields::{TaskFieldsArgs, revise},
-        find::find_task,
+use crate::{
+    scope::Scope,
+    shared::{
+        arg::{IcalComposerArgs, TasklistFilterArg},
+        composer::IcalComposer,
+        ical::read_source,
+        task::fields::{TaskFieldsArgs, revise},
     },
 };
 
@@ -44,7 +43,7 @@ use crate::shared::{
 #[derive(Debug, Parser)]
 pub struct TaskUpdateCommand {
     #[command(flatten)]
-    pub tasklist: TasklistIdArg,
+    pub tasklist: TasklistFilterArg,
     /// The composer the task is refined in before it is written.
     #[command(flatten)]
     pub composer: IcalComposerArgs,
@@ -62,8 +61,8 @@ pub struct TaskUpdateCommand {
 }
 
 impl TaskUpdateCommand {
-    pub fn execute(self, printer: &mut impl Printer, client: TaskClient) -> Result<()> {
-        self.execute_at(printer, client, Timestamp::now)
+    pub fn execute(self, printer: &mut impl Printer, scope: Scope) -> Result<()> {
+        self.execute_at(printer, scope, Timestamp::now)
     }
 
     /// Runs the update, `now` telling the instant the task is revised at
@@ -71,19 +70,19 @@ impl TaskUpdateCommand {
     pub fn execute_at(
         self,
         printer: &mut impl Printer,
-        mut client: TaskClient,
+        mut scope: Scope,
         now: impl Fn() -> Timestamp,
     ) -> Result<()> {
         if self.ical.is_none() && self.fields.is_empty() && !self.composer.interactive {
             bail!("Nothing to update; give an iCalendar, a field flag, or -i to edit the task");
         }
 
-        let tasklist_id = client.account.tasklist_id(self.tasklist.id)?;
-
         // NOTE: finding the stored task also gives the version it is
         // being changed from, so an edit that took a minute cannot
         // silently overwrite a write that landed during it.
-        let item = find_task(&mut client, &tasklist_id, &self.task)?;
+        let (found, item) = scope.locate(&self.task, self.tasklist.id.as_deref())?;
+        let tasklist_id = found.tasklist;
+        let client = scope.client(found.account);
 
         let base = match &self.ical {
             Some(source) => read_source(source)?,
@@ -221,6 +220,17 @@ mod tests {
         TaskClient::new(Config::default(), account, Backend::Auto).unwrap()
     }
 
+    /// The scope of that one account.
+    fn scope(dir: &tempfile::TempDir) -> crate::scope::Scope {
+        let account = AccountConfig {
+            vdir: Some(VdirConfig {
+                home_dir: dir.path().to_path_buf(),
+            }),
+            ..Default::default()
+        };
+        crate::testing::scope(&crate::testing::config(vec![("personal", account)]))
+    }
+
     /// A vdir home holding one tasklist, `tasks`, carrying `body`.
     fn home(body: &str) -> (tempfile::TempDir, String) {
         let dir = tempfile::tempdir().unwrap();
@@ -246,7 +256,7 @@ mod tests {
 
         TaskUpdateCommand::try_parse_from(["update", "-l", "tasks", "4c1e", "--summary", "New"])
             .unwrap()
-            .execute_at(&mut Quiet, client(&dir), at)
+            .execute_at(&mut Quiet, scope(&dir), at)
             .unwrap();
 
         assert_eq!(
@@ -262,7 +272,7 @@ mod tests {
 
         let err = TaskUpdateCommand::try_parse_from(["update", "-l", "tasks", "4c1e"])
             .unwrap()
-            .execute_at(&mut Quiet, client(&dir), at)
+            .execute_at(&mut Quiet, scope(&dir), at)
             .unwrap_err();
 
         assert!(err.to_string().contains("Nothing to update"), "{err}");

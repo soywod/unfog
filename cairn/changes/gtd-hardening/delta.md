@@ -25,11 +25,11 @@ When reading, a VEVENT SHALL be an entry when it carries `TRANSP:TRANSPARENT` an
 
 ### Requirement: Time strategies
 
-`time.strategy` SHALL say where a finished entry is written, per account (or globally): `event` and `journal` in the calendar `time.collection` names (refused when unset, the message naming a calendar that accepts VEVENT, or VJOURNAL for `journal`), of the account `time.account` names, else of the task's own; `local` (the default) in the event shape on the device: the local time collection of the pimdir store (`U+0001time`, written through the store's unbound path, never queued) on the pimdir backend, else the vdir directory `time.directory` names, `$XDG_DATA_HOME/unfog/time` by default. The pimdir backend SHALL NOT list the local time collection as a tasklist.
+`time.strategy` SHALL say where a finished entry is written, per account (or globally): `event` and `journal` in the calendar `time.collection` names (refused when unset, the message naming a calendar that accepts VEVENT, or VJOURNAL for `journal`), of the account `time.account` names, else of the task's own; `local` (the default) in the event shape on the device: the local time collection of the pimdir store (`U+0001time`, written as the store's owner, never queued) on the pimdir backend, else the vdir directory `time.directory` names, `$XDG_DATA_HOME/unfog/time` by default. The pimdir backend SHALL NOT list the local time collection as a tasklist.
 
 A running entry SHALL always be kept in the local place, whatever the strategy: `task start` writes it there and `task stop` writes the finished entry where the strategy says, then removes the running one, so no running entry ever waits in a queue or on a server.
 
-unfog SHALL NOT open a pimdir store as its owner implicitly (no reconcile of a store it does not own). A write to the local time collection meeting a sync's lock SHALL retry for a short bounded time, then fail naming the lock.
+unfog SHALL NOT rebuild a pimdir store: a write to the local time collection SHALL open the store as its owner only when it is at this build's schema, refusing an absent store or one whose schema differs (pimdir STORAGE §6) and naming its sync as the way out, and SHALL retry for a short bounded time (about two seconds) while a sync holds the owner lock, then fail naming it. A collection on the pimdir backend SHALL list its pending adds, so a stopped entry counts before a sync.
 
 #### Scenario: Each strategy round trips
 - GIVEN an account of each strategy
@@ -61,7 +61,7 @@ unfog SHALL NOT open a pimdir store as its owner implicitly (no reconcile of a s
 
 ### Requirement: Time migration
 
-`unfog migrate --to <STRATEGY>` SHALL copy every finished entry an account keeps anywhere but where that strategy writes, in its shape, to that place, and remove it from where it was only once the copy was accepted: the same bytes when the shape is kept, the other shape's spelling of the same span otherwise, keeping the entry's `UID` (a journal pair's stop takes a `UID` derived from the start's). An entry whose `UID` is already at the target SHALL NOT be copied again, only removed from the source, so a migration cut short resumes. On pimdir a source copy SHALL be removed only once its copy was pushed or written unqueued. It SHALL NOT change the configuration, and SHALL leave running entries in the local place.
+`unfog migrate --to <STRATEGY>` SHALL copy every finished entry an account keeps anywhere but where that strategy writes, in its shape, to that place, and remove it from where it was only once the copy was accepted: the same bytes when the shape is kept, the other shape's spelling of the same span otherwise, keeping the entry's `UID` (a journal pair's stop takes `<UID>-stop`; a conversion within one calendar, where a server holds one item per `UID`, takes `<UID>-event` or `<UID>-journal`). An entry whose `UID` is already at the target SHALL NOT be copied again, only removed from the source, so a migration cut short resumes. On the pimdir backend a copy is a queued add, which the collection lists at once (see the views on each backend), so the source copy is removed as soon as the add is staged. It SHALL NOT change the configuration, and SHALL leave running entries in the local place.
 
 #### Scenario: A migration resumes
 - GIVEN a migration to `event` that copied an entry and failed before removing it from the local place
@@ -79,7 +79,7 @@ unfog SHALL NOT open a pimdir store as its owner implicitly (no reconcile of a s
 | Someday | `kind:task -status:completed -status:cancelled category:someday` |
 | Next | `kind:task -status:completed -status:cancelled -category:inbox -category:waiting -category:someday` |
 
-Next SHALL be sorted by due date (undated last), then priority (1 first, unset last), then oldest captured first; the other views oldest captured first. A task's capture SHALL be its `CREATED`, else its `DTSTAMP`. Rows SHALL carry the account, the tasklist and a short id long enough to tell apart every `UID` of the scope, so every verb taking a task accepts it. The table SHALL show each task's short id, summary, due date, priority (as `task list` spells it), its own categories and tasklist, and its account when the scope spans several; Waiting SHALL also show each task's `CONTACT`s and how long it has waited (since its `DTSTAMP`).
+Next SHALL be sorted by due date (undated last), then priority (1 first, unset last), then oldest captured first; the other views oldest captured first. A task's capture SHALL be its `CREATED`, else its `DTSTAMP`. Rows SHALL carry the account, the tasklist and a short id long enough to tell apart every `UID` of the scope, so every verb taking a task accepts it. The table SHALL show each task's short id, summary, due date, priority (as `task list` spells it), its own categories and tasklist, and its account when the scope spans several; Waiting SHALL also show each task's `CONTACT`s and how many whole days it has waited since its `DTSTAMP`, carried in `--json` as `waitedDays`. A listing an account could not reach SHALL carry it in `--json` as `unreached`.
 
 #### Scenario: A to-do another client wrote is a next action
 - GIVEN a task carrying no `STATUS` and `CATEGORIES:home`
@@ -109,7 +109,7 @@ An account that cannot be reached SHALL NOT fail a listing spanning several: the
 
 ### Requirement: The views on each backend
 
-On CalDAV and vdir a view SHALL list each tasklist's VTODOs and apply its predicate. On pimdir it SHALL apply the predicate to the store's task summaries (`task_summary.status` and `categories`, the columns the guide's queries read, a column the store lacks read as empty), reading a body only for a task it keeps, deciding from the body a task a pending `update` repoints, and listing each pending `add` of a VTODO, so a staged capture or clarification shows at once. Editing a task whose only copy is a pending add SHALL be refused with the error code `pending-add` until a sync pushed it. The pimdir backend SHALL NOT offer as a tasklist a collection whose `x-vtodo` capability is `none`.
+On CalDAV and vdir a view SHALL list each tasklist's VTODOs and apply its predicate. On pimdir it SHALL apply the predicate to the store's task summaries (`task_summary.status` and `categories`, the columns the guide's queries read, a column the store lacks read as empty), reading a body only for a task it keeps, deciding from the body a task a pending `update` repoints, and listing each pending `add` of a VTODO, so a staged capture or clarification shows at once. A pending add SHALL list under the handle `q<action id>`, with no version, and editing it SHALL be refused with the error code `pending-add` until a sync applied it. An item a pending `add` supersedes (a staged move) SHALL NOT be listed where it was, so a moved task shows once, where it goes. The pimdir backend SHALL NOT offer as a tasklist a collection whose `x-vtodo` capability is `none`.
 
 #### Scenario: A staged clarification on pimdir
 - GIVEN a pimdir store holding a task carrying `inbox`
@@ -127,9 +127,9 @@ On CalDAV and vdir a view SHALL list each tasklist's VTODOs and apply its predic
 
 ### Requirement: Clarify
 
-`unfog gtd clarify <TASK>` with one outcome flag (`--delete`, `--someday`, `--done`, `--waiting`, `--next`) SHALL clarify that task; `--summary` SHALL rephrase it, `--category` (repeated) add categories, `--due` set its due date, `--priority` its priority (`task update --priority`'s range), `--contact` (with `--waiting` only) replace its `CONTACT`s, written with `ALTREP="mailto:<address>"` when the value is or holds an e-mail address, `--to <TASKLIST>` and `--to-account <ACCOUNT>` move it. With no outcome flag it SHALL walk the Inbox (or the task named) interactively, asking the app's steps: rephrase, actionable or not (Someday, delete, skip), done in under two minutes, someone else's (with whom), else a next action with categories, a parent task (optional), a due date and a tasklist; the interactive flow SHALL refuse `--json` and a non-terminal stdin, and list the scope once.
+`unfog gtd clarify <TASK>` with one outcome flag (`--delete`, `--someday`, `--done`, `--waiting`, `--next`) SHALL clarify that task; `--summary` SHALL rephrase it, `--category` (repeated) add categories, `--due` set its due date, `--priority` its priority (`task update --priority`'s range), `--contact` (with `--waiting` only) replace its `CONTACT`s, written with `ALTREP="mailto:<address>"` when the value is or holds an e-mail address, `--parent <TASK>` name the task it is a step of (`RELATED-TO;RELTYPE=PARENT`), `--to <TASKLIST>` and `--to-account <ACCOUNT>` move it. With no outcome flag it SHALL walk the Inbox (or the task named) interactively, asking the app's steps: rephrase, actionable or not (Someday, delete, skip), done in under two minutes, someone else's (with whom), else a next action with categories, a parent task (optional), a due date and a tasklist; the interactive flow SHALL refuse `--json` and a non-terminal stdin, and list the scope once.
 
-`--someday` and `--waiting` SHALL replace the reserved values by theirs, `--next` and `--done` SHALL remove them, `--done` also completing the task as `task done` does, and `--delete` SHALL delete it. A task already in the target state SHALL be left untouched (no write) unless another flag changes it. A writer SHALL edit only the three reserved values: the state lands where the first reserved value stood, else on a new `CATEGORIES` line after the last, which also takes the added categories; every other category SHALL keep its place, a `CATEGORIES` line holding no reserved value its bytes, and every other line its bytes but `DTSTAMP`. A recurring task SHALL be clarified on its master VTODO, its overrides kept as they are. Each edit SHALL be gated on the version read (`If-Match`).
+`--someday` and `--waiting` SHALL replace the reserved values by theirs, `--next` and `--done` SHALL remove them, `--done` also completing the task as `task done` does, and `--delete` SHALL delete it. A task already in the target state (`--someday` on a task carrying `someday` in any case, `--waiting` with no `--contact` on a waiting one, `--next` on an open task carrying no reserved value, `--done` on a completed one carrying none) SHALL be left untouched, no write and no new `DTSTAMP`, unless another flag changes it; its `--json` row SHALL carry `unchanged: true`. A writer SHALL edit only the three reserved values: the state lands where the first reserved value stood, else on a new `CATEGORIES` line after the last, which also takes the added categories; every other category SHALL keep its place, a `CATEGORIES` line holding no reserved value its bytes, and every other line its bytes but `DTSTAMP`. A recurring task SHALL be clarified on its master VTODO, its overrides kept as they are. Each edit SHALL be gated on the version read (`If-Match`).
 
 A move SHALL create the task in the target and remove it from the source only once the create was accepted; on pimdir it SHALL stage one `add` carrying `supersedes` the source (pimdir STORAGE §15), so the source's tombstone is pushed only after the add was. A deleted or done task SHALL NOT be moved.
 
@@ -150,7 +150,7 @@ A move SHALL create the task in the target and remove it from the source only on
 
 ### Requirement: Review
 
-`unfog gtd review` SHALL list the scope once, then print how many tasks Inbox, Next, Waiting and Someday hold, then each view in that order, then the waiting tasks waiting over two weeks and, on pimdir, the waiting tasks whose `ATTACH:mid:` message got a reply (`task_summary.mid` matched against `mail_summary.in_reply_to`).
+`unfog gtd review` SHALL list the scope once, then print how many tasks Inbox, Next, Waiting and Someday hold, then each view in that order, then the waiting tasks waiting fourteen days or more (`waitingLong`) and, on pimdir, the waiting tasks whose `ATTACH:mid:` message got a reply (`replied`: a live mail of the store whose `In-Reply-To` names that `Message-ID`).
 
 ## ADDED Requirements
 
@@ -162,3 +162,12 @@ A move SHALL create the task in the target and remove it from the source only on
 - GIVEN a task carrying `CATEGORIES:waiting,work`
 - WHEN `unfog task update <TASK> --category home` runs
 - THEN the task carries `CATEGORIES:waiting,home`
+
+### Requirement: CalDAV writes reach the calendar named
+
+On CalDAV unfog SHALL refuse, before any request, to address a calendar id that several calendars of the home share (a server keeping its calendars outside the home, as Google does, lists them all under one last segment), and SHALL refuse to create a VTODO in a calendar whose `supported-calendar-component-set` names components but not VTODO, saying it takes no tasks. A request meeting a connection the server closed (end of stream, reset, broken pipe) SHALL be sent once more over a new connection to the cached home-set.
+
+#### Scenario: A capture into an events calendar
+- GIVEN a CalDAV calendar stating `VEVENT` alone
+- WHEN `unfog gtd capture -l <CALENDAR> Call Bob` runs
+- THEN it fails saying the calendar takes no tasks, and the server holds nothing new

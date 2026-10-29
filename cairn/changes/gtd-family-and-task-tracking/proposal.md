@@ -20,7 +20,7 @@ GTD stores no priority: choosing a next action goes by context, time, energy, th
 - `unfog gtd {capture,inbox,next,waiting,someday,clarify,review}`, no top-level alias; JSON schema keys `unfog-gtd-<verb>`.
 - `unfog task {start,stop,status}`, spanning every account as before; JSON schema keys `unfog-task-<verb>`.
 - `unfog worktime` stays; `unfog time migrate` becomes `unfog migrate`, JSON schema key `unfog-migrate`. The `time` family goes.
-- The views show a PRIORITY column, between DUE and CATEGORIES, as `task list` spells it (1 to 9, 0 and unset blank). The sort stays `task list`'s: a priority is not an order, and the app does not sort by it.
+- The views show a PRIORITY column, between DUE and CATEGORIES, as `task list` spells it (1 to 9, 0 and unset blank). The sort stays `task list`'s: a priority is not an order. (Corrected by gtd-hardening on 2026-10-29: the app does sort Next by priority, after the due date, and pimdir GUIDE.md §17 now says so; unfog follows it.)
 - `gtd clarify --priority <0-9>` sets `PRIORITY` with the outcome, as `task update --priority` does. The interactive flow does not ask it: clarifying stays quick, and priority is decided last.
 
 ## Out

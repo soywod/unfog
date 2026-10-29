@@ -9,14 +9,19 @@
 //! server owns the query, so the kind is pushed down as an RFC 4791
 //! `comp-filter` rather than applied locally.
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, io::ErrorKind};
 
-use anyhow::{Context, Result};
-use ical::{component::vtodo::VTODO, prop::uid::UID, tree::cst::IcalCst};
+use anyhow::{Context, Result, bail};
+use ical::{
+    component::{IcalComponentKind, vtodo::VTODO},
+    prop::uid::UID,
+    tree::cst::IcalCst,
+};
 use io_webdav::{
     client::WebdavClientStd,
     rfc4791::{calendar::CaldavCalendar, item::CaldavItemEntry},
 };
+use log::debug;
 use pimalaya_config::secret::SecretResolver;
 
 use crate::{
@@ -24,6 +29,7 @@ use crate::{
     config::CaldavConfig,
     shared::{
         client::paginate,
+        ical::holds_kind,
         item::{TaskItem, TaskItemQuery},
         tasklist::Tasklist,
     },
@@ -32,6 +38,10 @@ use crate::{
 /// The shared-API glue over a connected CalDAV client.
 pub struct CaldavBackend {
     client: WebdavClientStd,
+    /// The configuration it connected from, to connect again.
+    config: CaldavConfig,
+    /// The calendars of the home, once listed.
+    listed: Option<Vec<CaldavCalendar>>,
 }
 
 impl CaldavBackend {
@@ -39,7 +49,71 @@ impl CaldavBackend {
     pub fn new(config: CaldavConfig) -> Result<Self> {
         Ok(Self {
             client: connect(&config, &mut SecretResolver::new())?,
+            config,
+            listed: None,
         })
+    }
+
+    /// Runs `op` over the connection, once more over a new one when the
+    /// server had closed it.
+    ///
+    /// The client keeps one connection for the run, while a server may
+    /// answer `Connection: close` (Radicale behind waitress does after a
+    /// PUT) or drop an idle one: the next request then meets the end of
+    /// the stream before any response, so it was never processed and is
+    /// sent again over a fresh connection to the cached home-set.
+    fn send<T, E>(&mut self, mut op: impl FnMut(&mut WebdavClientStd) -> Result<T, E>) -> Result<T>
+    where
+        E: Into<anyhow::Error>,
+    {
+        let err = match op(&mut self.client) {
+            Ok(value) => return Ok(value),
+            Err(err) => err.into(),
+        };
+
+        if !is_dropped(&err) {
+            return Err(err);
+        }
+
+        debug!("the CalDAV connection was closed, connecting again: {err:#}");
+        let mut config = self.config.clone();
+        if let Some(home) = self.client.calendar_home_set.clone() {
+            config.home = Some(home);
+        }
+        self.client = connect(&config, &mut SecretResolver::new())?;
+
+        op(&mut self.client).map_err(Into::into)
+    }
+
+    /// The calendars of the home, listed once for the backend's life.
+    fn listed(&mut self) -> Result<&[CaldavCalendar]> {
+        if self.listed.is_none() {
+            let calendars = self.send(|client| client.list_calendars())?;
+            self.listed = Some(calendars.into_iter().collect());
+        }
+
+        Ok(self.listed.as_deref().unwrap_or_default())
+    }
+
+    /// Refuses a calendar id naming several calendars of the home.
+    ///
+    /// A calendar is addressed as `<home>/<id>`, its id the last segment of
+    /// its href. A server keeping calendars outside the home (Google, each
+    /// at `/caldav/v2/<calendar>/events/`) lists them all under one id,
+    /// which then names the home's own calendar, not the one listed: a
+    /// write would land in another calendar than the one asked for.
+    fn addressable(&mut self, tasklist_id: &str) -> Result<()> {
+        let listed = self.listed()?;
+
+        if ambiguous(listed).iter().any(|id| id == tasklist_id) {
+            bail!(
+                "Calendar id `{tasklist_id}` names several calendars of the CalDAV home (the \
+                 server keeps them outside it, as Google does), so it addresses none of them \
+                 reliably; nothing was read or written"
+            );
+        }
+
+        Ok(())
     }
 
     /// Lists the calendar collections under the calendar home-set that
@@ -48,7 +122,7 @@ impl CaldavBackend {
     /// An empty `supported-calendar-component-set` puts no restriction
     /// (RFC 4791 5.2.3), so such a calendar is kept.
     pub fn list_tasklists(&mut self) -> Result<Vec<Tasklist>> {
-        let calendars = self.client.list_calendars()?;
+        let calendars = self.send(|client| client.list_calendars())?;
 
         Ok(calendars
             .into_iter()
@@ -75,13 +149,13 @@ impl CaldavBackend {
             ..Default::default()
         };
 
-        self.client.create_calendar(&calendar)?;
+        self.send(|client| client.create_calendar(&calendar))?;
         Ok(id.to_owned())
     }
 
     /// Deletes a calendar collection and everything inside it.
     pub fn delete_tasklist(&mut self, id: &str) -> Result<()> {
-        self.client.delete_calendar(id)?;
+        self.send(|client| client.delete_calendar(id))?;
         Ok(())
     }
 
@@ -89,7 +163,9 @@ impl CaldavBackend {
     ///
     /// The kind narrows the query server-side rather than locally.
     pub fn list_items(&mut self, tasklist_id: &str, query: TaskItemQuery) -> Result<Vec<TaskItem>> {
-        let entries = self.client.list_items(tasklist_id, &comp_filter(&query))?;
+        self.addressable(tasklist_id)?;
+        let filter = comp_filter(&query);
+        let entries = self.send(|client| client.list_items(tasklist_id, &filter))?;
 
         let items = entries
             .into_iter()
@@ -101,9 +177,9 @@ impl CaldavBackend {
 
     /// Reads one item's raw iCalendar bytes plus its entity tag.
     pub fn get_item(&mut self, tasklist_id: &str, item_id: &str) -> Result<TaskItem> {
+        self.addressable(tasklist_id)?;
         let body = self
-            .client
-            .read_item(tasklist_id, item_id)
+            .send(|client| client.read_item(tasklist_id, item_id))
             .with_context(|| format!("Read item `{item_id}` from calendar `{tasklist_id}`"))?;
 
         Ok(TaskItem {
@@ -119,8 +195,27 @@ impl CaldavBackend {
     /// A server may name the resource itself, in which case the id it
     /// reported wins over the one asked for.
     pub fn create_item(&mut self, tasklist_id: &str, contents: Vec<u8>) -> Result<String> {
+        self.addressable(tasklist_id)?;
+
+        // NOTE: a task into a calendar stating it takes none is refused
+        // here, where the reason can be said, rather than by the server.
+        if holds_kind(&contents, IcalComponentKind::VTodo)
+            && let Some(calendar) = self
+                .listed()?
+                .iter()
+                .find(|calendar| calendar.id == tasklist_id)
+            && !takes_vtodo(calendar)
+        {
+            let takes: Vec<&str> = calendar.components.iter().map(String::as_str).collect();
+            bail!(
+                "Calendar `{tasklist_id}` takes no tasks (it takes {}); capture into a \
+                 tasklist `unfog tasklist list` shows",
+                takes.join(", ")
+            );
+        }
+
         let id = format!("{}.ics", new_resource_name(&contents));
-        let created = self.client.create_item(tasklist_id, &id, contents)?;
+        let created = self.send(|client| client.create_item(tasklist_id, &id, contents.clone()))?;
         Ok(created.id)
     }
 
@@ -132,8 +227,8 @@ impl CaldavBackend {
         contents: Vec<u8>,
         if_match: Option<&str>,
     ) -> Result<()> {
-        self.client
-            .update_item(tasklist_id, item_id, contents, if_match)?;
+        self.addressable(tasklist_id)?;
+        self.send(|client| client.update_item(tasklist_id, item_id, contents.clone(), if_match))?;
         Ok(())
     }
 
@@ -144,9 +239,49 @@ impl CaldavBackend {
         item_id: &str,
         if_match: Option<&str>,
     ) -> Result<()> {
-        self.client.delete_item(tasklist_id, item_id, if_match)?;
+        self.addressable(tasklist_id)?;
+        self.send(|client| client.delete_item(tasklist_id, item_id, if_match))?;
         Ok(())
     }
+}
+
+/// The ids several of `calendars` share.
+fn ambiguous<'a>(calendars: impl IntoIterator<Item = &'a CaldavCalendar>) -> Vec<String> {
+    let mut ids: Vec<&str> = calendars
+        .into_iter()
+        .map(|calendar| calendar.id.as_str())
+        .collect();
+    ids.sort_unstable();
+
+    let mut shared: Vec<String> = ids
+        .windows(2)
+        .filter(|pair| pair[0] == pair[1])
+        .map(|pair| pair[0].to_owned())
+        .collect();
+    shared.dedup();
+    shared
+}
+
+/// Whether `err` is a connection the server closed: the stream ended, or
+/// was reset or broken, before a response.
+fn is_dropped(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        if let Some(io) = cause.downcast_ref::<std::io::Error>() {
+            return matches!(
+                io.kind(),
+                ErrorKind::UnexpectedEof
+                    | ErrorKind::BrokenPipe
+                    | ErrorKind::ConnectionReset
+                    | ErrorKind::ConnectionAborted
+            );
+        }
+
+        // NOTE: the HTTP layer reports these as text alone.
+        let text = cause.to_string();
+        ["unexpected EOF", "Connection reset by peer", "Broken pipe"]
+            .iter()
+            .any(|dropped| text.contains(dropped))
+    })
 }
 
 /// The VCALENDAR child filter a listing sends, empty when it names no
@@ -241,6 +376,19 @@ mod tests {
     use ical::component::IcalComponentKind;
 
     use super::*;
+
+    /// Google lists every calendar under the id `events`.
+    #[test]
+    fn an_id_several_calendars_share_is_ambiguous() {
+        let calendar = |id: &str| CaldavCalendar {
+            id: id.into(),
+            ..Default::default()
+        };
+        let listed = [calendar("events"), calendar("tasks"), calendar("events")];
+
+        assert_eq!(ambiguous(&listed), ["events"]);
+        assert!(ambiguous(&listed[..2]).is_empty());
+    }
 
     #[test]
     fn naming_no_kind_asks_for_every_component_kind() {

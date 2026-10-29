@@ -10,7 +10,7 @@ use pimalaya_cli::printer::Printer;
 use schemars::JsonSchema;
 use serde::Serialize;
 
-use crate::shared::{arg::TasklistIdArg, client::TaskClient, task::find::find_task};
+use crate::{scope::Scope, shared::arg::TasklistFilterArg};
 
 /// Delete a single task.
 ///
@@ -21,18 +21,19 @@ use crate::shared::{arg::TasklistIdArg, client::TaskClient, task::find::find_tas
 #[derive(Debug, Parser)]
 pub struct TaskDeleteCommand {
     #[command(flatten)]
-    pub tasklist: TasklistIdArg,
+    pub tasklist: TasklistFilterArg,
     /// Task to delete: its handle, or a prefix of its UID.
     #[arg(value_name = "TASK")]
     pub task: String,
 }
 
 impl TaskDeleteCommand {
-    pub fn execute(self, printer: &mut impl Printer, mut client: TaskClient) -> Result<()> {
-        let tasklist_id = client.account.tasklist_id(self.tasklist.id)?;
-        let item = find_task(&mut client, &tasklist_id, &self.task)?;
+    pub fn execute(self, printer: &mut impl Printer, mut scope: Scope) -> Result<()> {
+        let (found, item) = scope.locate(&self.task, self.tasklist.id.as_deref())?;
 
-        client.delete_item(&tasklist_id, &item.id, item.etag.as_deref())?;
+        scope
+            .client(found.account)
+            .delete_item(&found.tasklist, &item.id, item.etag.as_deref())?;
 
         printer.out(TaskDeleteOutput { id: item.id })
     }

@@ -44,8 +44,10 @@ pub struct Account {
     pub capture_tasklist: Option<String>,
     /// Where `task start` writes a time entry.
     pub time_strategy: Option<TimeStrategy>,
-    /// The tasklist the `event` and `journal` strategies write to.
+    /// The calendar the `event` and `journal` strategies write to.
     pub time_collection: Option<String>,
+    /// The account holding `time_collection`, when not this one.
+    pub time_account: Option<String>,
     /// The directory of the `local` strategy outside pimdir.
     pub time_directory: Option<PathBuf>,
 }
@@ -85,6 +87,7 @@ impl Account {
             capture_tasklist: other.capture_tasklist.or(self.capture_tasklist),
             time_strategy: other.time_strategy.or(self.time_strategy),
             time_collection: other.time_collection.or(self.time_collection),
+            time_account: other.time_account.or(self.time_account),
             time_directory: other.time_directory.or(self.time_directory),
         }
     }
@@ -238,6 +241,7 @@ impl From<Config> for Account {
             capture_tasklist: config.capture.tasklist,
             time_strategy: config.time.strategy,
             time_collection: config.time.collection,
+            time_account: config.time.account,
             time_directory: config.time.directory,
         }
     }
@@ -255,6 +259,7 @@ impl From<AccountConfig> for Account {
             capture_tasklist: config.capture.tasklist,
             time_strategy: config.time.strategy,
             time_collection: config.time.collection,
+            time_account: config.time.account,
             time_directory: config.time.directory,
         }
     }

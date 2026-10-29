@@ -19,6 +19,8 @@ pub mod gtd;
 pub mod list;
 pub mod read;
 pub mod update;
+#[cfg(test)]
+mod vectors;
 
 use ical::{
     component::{IcalComponent, IcalComponentKind},
@@ -77,6 +79,19 @@ pub struct Task {
     pub url: Option<String>,
     /// The `TRIGGER` of each of the task's alarms, as written.
     pub alarms: Vec<String>,
+    /// The task's `CREATED`, verbatim: when it was captured.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created: Option<String>,
+    /// The task's `DTSTAMP`, verbatim: when it was last written.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stamp: Option<String>,
+    /// The task's `CONTACT`s: who it waits on.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub contacts: Vec<String>,
+    /// The `Message-ID` of the message the task was captured from, its
+    /// `ATTACH:mid:` (RFC 2392) bare of angle brackets.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mid: Option<String>,
 }
 
 impl Task {
@@ -134,6 +149,10 @@ impl Task {
                 }
                 "RELATED-TO" if is_parent(prop) => task.parent = value,
                 "URL" => task.url = value,
+                "CREATED" => task.created = value,
+                "DTSTAMP" => task.stamp = value,
+                "CONTACT" => task.contacts.extend(value),
+                "ATTACH" if task.mid.is_none() => task.mid = value.as_deref().and_then(mid),
                 _ => (),
             }
         }
@@ -174,6 +193,15 @@ impl Task {
         Some(format!("{date}T{time}"))
     }
 
+    /// When the task was captured, as a sortable key, a task telling
+    /// none last: its `CREATED`, else its `DTSTAMP`.
+    pub fn captured_key(&self) -> (bool, String) {
+        match self.created.as_ref().or(self.stamp.as_ref()) {
+            Some(at) => (false, at.clone()),
+            None => (true, String::new()),
+        }
+    }
+
     /// The completion percentage as a column value, empty when there is
     /// none.
     ///
@@ -186,6 +214,37 @@ impl Task {
             None => String::new(),
         }
     }
+}
+
+/// The `Message-ID` a `mid:` URI (RFC 2392) names, percent-decoded and
+/// bare of angle brackets; `None` for any other URI.
+pub fn mid(uri: &str) -> Option<String> {
+    let (scheme, id) = uri.trim().split_once(':')?;
+
+    if !scheme.eq_ignore_ascii_case("mid") {
+        return None;
+    }
+
+    // NOTE: a mid URI names the message alone; a `/` would name one of
+    // its parts.
+    let id = id.split('/').next().unwrap_or_default();
+    let mut bytes = Vec::with_capacity(id.len());
+    let mut chars = id.bytes();
+
+    while let Some(byte) = chars.next() {
+        match byte {
+            b'%' => {
+                let hex: Vec<u8> = chars.by_ref().take(2).collect();
+                let hex = core::str::from_utf8(&hex).ok()?;
+                bytes.push(u8::from_str_radix(hex, 16).ok()?);
+            }
+            byte => bytes.push(byte),
+        }
+    }
+
+    let id = String::from_utf8(bytes).ok()?;
+    let id = id.trim().trim_start_matches('<').trim_end_matches('>');
+    (!id.is_empty()).then(|| id.to_owned())
 }
 
 /// Whether a `RELATED-TO` names the parent: `RELTYPE=PARENT`, or no type,

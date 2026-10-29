@@ -163,6 +163,7 @@ pub fn timed(
     account.time = TimeConfig {
         strategy: Some(strategy),
         collection: collection.map(Into::into),
+        account: None,
         directory: Some(directory.to_path_buf()),
     };
     account

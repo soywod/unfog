@@ -28,7 +28,7 @@ use crate::shared::{
 };
 
 /// The shape of a time entry.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Shape {
     /// One VEVENT, its `DTEND` the stop.
     Event,
@@ -78,11 +78,14 @@ struct Mark {
 
 /// The time entries `items` hold, in no particular order.
 ///
-/// A VEVENT is an entry when it relates to a task. A VJOURNAL is half of
-/// one when it relates to a task and carries `start` or `stop` (any
+/// A VEVENT is an entry when it is transparent and relates to a task, its
+/// `DTEND`, else its `DURATION`, its end: an opaque event is someone's
+/// time, and one whose end does not read is left alone. A VJOURNAL is half
+/// of one when it relates to a task and carries `start` or `stop` (any
 /// case): the marks of a task pair in time order, a start left without a
 /// stop running, a start meeting another start ending at it, and a stop
-/// with no start passed over. Every other item is not a time entry.
+/// with no start passed over. Every other item is not a time entry, and
+/// whether the related task exists is the caller's question.
 pub fn parse(items: Vec<RawItem>) -> Vec<TimeEntry> {
     let mut entries = Vec::new();
     let mut marks = Vec::new();
@@ -125,11 +128,19 @@ pub fn parse(items: Vec<RawItem>) -> Vec<TimeEntry> {
             .name
             .eq_ignore_ascii_case(&IcalComponentKind::VEvent)
         {
-            let end = component
-                .props
-                .iter()
-                .find(|p| p.name.eq_ignore_ascii_case("DTEND"))
-                .and_then(instant);
+            // NOTE: an opaque event is someone's time, never an entry,
+            // whatever it relates to.
+            if !value(component, "TRANSP")
+                .is_some_and(|transp| transp.eq_ignore_ascii_case("TRANSPARENT"))
+            {
+                continue;
+            }
+
+            // NOTE: an end that does not read (a whole day, a duration
+            // naming a year) leaves the event alone rather than running.
+            let Ok(end) = end(component, start) else {
+                continue;
+            };
 
             entries.push(TimeEntry {
                 uid,
@@ -211,6 +222,36 @@ fn journal_entry(start: Mark, end: Option<(Timestamp, Option<RawItem>)>) -> Time
         shape: Shape::Journal,
         items,
     }
+}
+
+/// The end of an event started at `start`: its `DTEND`, else its start
+/// plus its `DURATION`, `None` while it runs. An end the event states but
+/// that does not read is an error.
+fn end(component: &IcalComponent<'_>, start: Timestamp) -> Result<Option<Timestamp>, ()> {
+    let find = |name: &str| {
+        component
+            .props
+            .iter()
+            .find(|prop| prop.name.eq_ignore_ascii_case(name))
+    };
+
+    if let Some(dtend) = find("DTEND") {
+        return instant(dtend).map(Some).ok_or(());
+    }
+
+    let Some(duration) = find("DURATION") else {
+        return Ok(None);
+    };
+
+    let IcalValue::Duration(duration) = &duration.value else {
+        return Err(());
+    };
+
+    let seconds = duration.seconds().ok_or(())?;
+    start
+        .checked_add(jiff::SignedDuration::from_secs(seconds))
+        .map(Some)
+        .map_err(|_| ())
 }
 
 /// The first value of the property `name` of a component, as text.
@@ -499,12 +540,41 @@ mod tests {
     }
 
     #[test]
+    fn an_opaque_event_relating_to_a_task_is_no_time_entry() {
+        let meeting = b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//y//EN\r\n\
+            BEGIN:VEVENT\r\nUID:m\r\nDTSTAMP:20261028T080000Z\r\n\
+            DTSTART:20261028T090000Z\r\nRELATED-TO:task-1\r\n\
+            END:VEVENT\r\nEND:VCALENDAR\r\n";
+
+        assert!(parse(vec![raw("m.ics", meeting.to_vec())]).is_empty());
+    }
+
+    #[test]
+    fn a_duration_ends_an_event_and_an_unreadable_end_leaves_it_alone() {
+        let entry = |end: &str| {
+            format!(
+                "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//y//EN\r\n\
+                 BEGIN:VEVENT\r\nUID:d\r\nDTSTAMP:20261028T080000Z\r\n\
+                 DTSTART:20261028T090000Z\r\n{end}TRANSP:transparent\r\n\
+                 RELATED-TO:t\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+            )
+            .into_bytes()
+        };
+
+        let entries = parse(vec![raw("d.ics", entry("DURATION:PT1H30M\r\n"))]);
+        assert_eq!(entries[0].end, Some(at("2026-10-28T10:30:00Z")));
+
+        assert!(parse(vec![raw("d.ics", entry("DTEND;VALUE=DATE:20261029\r\n"))]).is_empty());
+        assert!(parse(vec![raw("d.ics", entry("DURATION:P1Y\r\n"))]).is_empty());
+    }
+
+    #[test]
     fn a_zoned_start_reads_in_its_zone() {
         let entry = b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//y//EN\r\n\
             BEGIN:VEVENT\r\nUID:z\r\nDTSTAMP:20261028T080000Z\r\n\
             DTSTART;TZID=Europe/Paris:20261028T100000\r\n\
             DTEND;TZID=Europe/Paris:20261028T110000\r\n\
-            RELATED-TO:t\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+            TRANSP:TRANSPARENT\r\nRELATED-TO:t\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
 
         let entries = parse(vec![raw("z.ics", entry.to_vec())]);
         assert_eq!(entries[0].start, at("2026-10-28T09:00:00Z"));

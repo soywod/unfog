@@ -21,4 +21,7 @@ pub enum ErrorCode {
     /// A write named, by `--if-match`, a version the item no longer has:
     /// the caller reads it again rather than overwrites a change.
     PreconditionFailed,
+    /// The item is a create queued for the next sync, which has no row
+    /// to read or edit yet: the caller syncs, then edits it.
+    PendingAdd,
 }

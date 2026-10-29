@@ -344,9 +344,14 @@ pub struct CaptureConfig {
 pub struct TimeConfig {
     /// Where `task start` writes a time entry, `local` by default.
     pub strategy: Option<TimeStrategy>,
-    /// The tasklist (a calendar collection of the account's backend) the
-    /// `event` and `journal` strategies write to, and `worktime` reads.
+    /// The calendar the `event` and `journal` strategies write finished
+    /// entries to, and `worktime` reads: a collection of the account
+    /// `time.account` names, else of this one. Best a calendar of its own,
+    /// holding nothing but time entries.
     pub collection: Option<String>,
+    /// The account holding `time.collection`, when not this one: tasks on
+    /// one server, time entries in another's calendar.
+    pub account: Option<String>,
     /// The directory the `local` strategy writes to outside the pimdir
     /// backend, `$XDG_DATA_HOME/unfog/time` by default. Shell-expanded
     /// at load.

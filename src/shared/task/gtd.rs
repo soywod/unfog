@@ -13,10 +13,10 @@
 
 use std::fmt;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 use clap::ValueEnum;
 use ical::{
-    component::vtodo::VTODO,
+    param::IcalParam,
     prop::{IcalProp, IcalPropKind, IcalPropName},
     tree::{codec::mode::Escaper, cst::IcalItem},
     value::{IcalValue, text::IcalTextList},
@@ -24,7 +24,7 @@ use ical::{
 use schemars::JsonSchema;
 use serde::Serialize;
 
-use crate::shared::task::fields::{is_component, names, one_vtodo, text};
+use crate::shared::task::fields::{is_component, master_mut, names, one_vtodo, text};
 
 /// A reserved state a task carries as one of its categories.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -175,7 +175,7 @@ pub fn edit_categories(ical: &[u8], state: Option<GtdState>, add: &[String]) -> 
     let version = cst.version();
     let escaper = Escaper::for_version(version);
 
-    let vtodo = cst.component_mut::<VTODO>().context("Find VTODO error")?;
+    let vtodo = master_mut(&mut cst)?;
     let items = std::mem::take(&mut vtodo.items);
     let mut kept = Vec::with_capacity(items.len());
     let mut placed = state.is_none();
@@ -284,8 +284,158 @@ pub fn edit_categories(ical: &[u8], state: Option<GtdState>, add: &[String]) -> 
     Ok(cst.to_bytes())
 }
 
+/// Sets the GTD state of the VTODO of `ical` to `state` (`None` a next
+/// action) at `now`, as pimdir GUIDE.md §17 writes it: `None` when the
+/// task is in that state already, whatever the case it spells it in, so
+/// nothing is written; else the state edited (see [`edit_categories`])
+/// and the task revised.
+pub fn set_state(
+    ical: &[u8],
+    state: Option<GtdState>,
+    now: jiff::Timestamp,
+) -> Result<Option<Vec<u8>>> {
+    let task = crate::shared::item::TaskItem {
+        contents: ical.to_vec(),
+        ..Default::default()
+    };
+    let current = crate::shared::task::Task::project(&task)
+        .first()
+        .and_then(|task| {
+            task.categories
+                .iter()
+                .find_map(|category| GtdState::of(category))
+        });
+
+    if current == state {
+        return Ok(None);
+    }
+
+    let edited = edit_categories(ical, state, &[])?;
+    Ok(Some(crate::shared::task::fields::revise(&edited, now)?))
+}
+
+/// Replaces the person's own categories of the VTODO of `ical` with
+/// `categories`, keeping its GTD state (pimdir GUIDE.md §17): what a plain
+/// `task update --category` writes.
+///
+/// The new categories land where the first of the person's own stood,
+/// beside the reserved values of that line, else on a new `CATEGORIES`
+/// line after the last one (or after the task's last property). The
+/// person's other categories are dropped, a line left holding nothing
+/// removed; a `CATEGORIES` line holding none of them keeps its bytes, as
+/// does every other line. A reserved value is refused: a state is set by
+/// clarifying.
+pub fn own_categories(ical: &[u8], categories: &[String]) -> Result<Vec<u8>> {
+    // NOTE: trimmed, the empty ones dropped, a value met again under
+    // another case dropped too: the first spelling wins.
+    let mut kept: Vec<String> = Vec::new();
+    for category in categories.iter().map(|category| category.trim()) {
+        if !category.is_empty() && !kept.iter().any(|known| same(known, category)) {
+            kept.push(category.to_owned());
+        }
+    }
+    let categories = kept;
+
+    if let Some(reserved) = categories
+        .iter()
+        .find(|category| GtdState::of(category).is_some())
+    {
+        bail!("`{reserved}` is a reserved category; clarify the task to set its state");
+    }
+
+    let mut cst = one_vtodo(ical)?;
+    let version = cst.version();
+    let escaper = Escaper::for_version(version);
+
+    let vtodo = master_mut(&mut cst)?;
+    let items = std::mem::take(&mut vtodo.items);
+    let mut kept = Vec::with_capacity(items.len());
+    let mut placed = categories.is_empty();
+
+    for item in items {
+        let IcalItem::Prop(line) = &item else {
+            kept.push(item);
+            continue;
+        };
+
+        if !names(&item, &IcalPropKind::Categories) {
+            kept.push(item);
+            continue;
+        }
+
+        let prop = line.decode(version);
+        let values: Vec<String> = match &prop.value {
+            IcalValue::TextList(list) => list.0.iter().map(|value| value.to_string()).collect(),
+            IcalValue::Text(value) => vec![value.0.to_string()],
+            _ => {
+                kept.push(item);
+                continue;
+            }
+        };
+
+        if values.iter().all(|value| GtdState::of(value).is_some()) {
+            kept.push(item);
+            continue;
+        }
+
+        let mut rewritten = Vec::with_capacity(values.len());
+
+        for value in values {
+            if GtdState::of(&value).is_some() {
+                rewritten.push(value);
+                continue;
+            }
+
+            if !placed {
+                rewritten.extend(categories.iter().cloned());
+                placed = true;
+            }
+        }
+
+        if rewritten.is_empty() {
+            continue;
+        }
+
+        let prop = IcalProp {
+            name: IcalPropName::Kind(IcalPropKind::Categories),
+            params: prop.params,
+            value: list(rewritten),
+        };
+        kept.push(IcalItem::Prop(prop.encode(escaper)));
+    }
+
+    if !placed {
+        let prop = IcalProp {
+            name: IcalPropName::Kind(IcalPropKind::Categories),
+            params: Vec::new(),
+            value: list(categories),
+        };
+
+        let at = match kept
+            .iter()
+            .rposition(|item| names(item, &IcalPropKind::Categories))
+        {
+            Some(last) => last + 1,
+            None => kept
+                .iter()
+                .position(|item| matches!(item, IcalItem::Component(_)))
+                .unwrap_or(kept.len()),
+        };
+
+        kept.insert(at, IcalItem::Prop(prop.encode(escaper)));
+    }
+
+    vtodo.items = kept;
+
+    Ok(cst.to_bytes())
+}
+
 /// Replaces every `CONTACT` of the VTODO of `ical` with `contact`, who a
 /// waiting task waits on; `None` leaves them as they are.
+///
+/// A contact naming an e-mail address, bare or as `Name <address>`, is
+/// written as the Pimalaya app writes it: the name (else the address) as
+/// the value, the address as `ALTREP="mailto:..."`.
 pub fn set_contact(ical: &[u8], contact: Option<&str>) -> Result<Vec<u8>> {
     let Some(contact) = contact.map(str::trim).filter(|contact| !contact.is_empty()) else {
         return Ok(ical.to_vec());
@@ -293,9 +443,15 @@ pub fn set_contact(ical: &[u8], contact: Option<&str>) -> Result<Vec<u8>> {
 
     let mut cst = one_vtodo(ical)?;
     let escaper = Escaper::for_version(cst.version());
-    let line = IcalItem::Prop(text(IcalPropKind::Contact, contact).encode(escaper));
+    let (name, address) = split_contact(contact);
+    let mut prop = text(IcalPropKind::Contact, name.unwrap_or(contact));
+    if let Some(address) = address {
+        prop.params
+            .push(IcalParam::AltRep(format!("mailto:{address}").into()));
+    }
+    let line = IcalItem::Prop(prop.encode(escaper));
 
-    let vtodo = cst.component_mut::<VTODO>().context("Find VTODO error")?;
+    let vtodo = master_mut(&mut cst)?;
     let at = vtodo
         .items
         .iter()
@@ -317,6 +473,23 @@ pub fn set_contact(ical: &[u8], contact: Option<&str>) -> Result<Vec<u8>> {
     Ok(cst.to_bytes())
 }
 
+/// The name and the e-mail address a contact spells: `Name <address>`,
+/// a bare address, or a name alone.
+fn split_contact(contact: &str) -> (Option<&str>, Option<&str>) {
+    if let Some((name, rest)) = contact.split_once('<')
+        && let Some((address, _)) = rest.split_once('>')
+        && address.contains('@')
+    {
+        let name = name.trim().trim_matches('"').trim();
+        return ((!name.is_empty()).then_some(name), Some(address.trim()));
+    }
+
+    match contact.contains('@') && !contact.contains(char::is_whitespace) {
+        true => (Some(contact), Some(contact)),
+        false => (Some(contact), None),
+    }
+}
+
 /// A text list value.
 fn list(values: Vec<String>) -> IcalValue<'static> {
     IcalValue::TextList(IcalTextList(values.into_iter().map(Into::into).collect()))
@@ -324,7 +497,9 @@ fn list(values: Vec<String>) -> IcalValue<'static> {
 
 #[cfg(test)]
 mod tests {
-    use crate::shared::task::gtd::{GtdState, GtdView, edit_categories, set_contact};
+    use crate::shared::task::gtd::{
+        GtdState, GtdView, edit_categories, own_categories, set_contact,
+    };
 
     fn task(categories: &str) -> String {
         format!(
@@ -432,5 +607,56 @@ mod tests {
 
         assert_eq!(edited, task("CONTACT:Jo\r\n"));
         assert_eq!(set_contact(ical.as_bytes(), None).unwrap(), ical.as_bytes());
+    }
+
+    #[test]
+    fn a_contact_naming_an_address_carries_it_as_altrep() {
+        let ical = task("CONTACT:Old\r\n");
+        let contact = |value: &str| {
+            String::from_utf8(set_contact(ical.as_bytes(), Some(value)).unwrap()).unwrap()
+        };
+
+        assert_eq!(
+            contact("Jo Smith <jo@example.org>"),
+            task("CONTACT;ALTREP=\"mailto:jo@example.org\":Jo Smith\r\n")
+        );
+        assert_eq!(
+            contact("jo@example.org"),
+            task("CONTACT;ALTREP=\"mailto:jo@example.org\":jo@example.org\r\n")
+        );
+        assert_eq!(contact("the plumber"), task("CONTACT:the plumber\r\n"));
+    }
+
+    fn own(categories: &str, new: &[&str]) -> String {
+        let new: Vec<String> = new.iter().map(|value| value.to_string()).collect();
+        String::from_utf8(own_categories(task(categories).as_bytes(), &new).unwrap()).unwrap()
+    }
+
+    /// A plain category edit replaces the person's categories and keeps
+    /// the state where it stands, a line of reserved values alone kept.
+    #[test]
+    fn a_plain_category_edit_keeps_the_state() {
+        assert_eq!(
+            own("CATEGORIES:waiting,work\r\n", &["home"]),
+            task("CATEGORIES:waiting,home\r\n")
+        );
+        assert_eq!(
+            own(
+                "CATEGORIES:Inbox\r\nCATEGORIES:a,b\r\nCATEGORIES:c\r\n",
+                &["x", "y"]
+            ),
+            task("CATEGORIES:Inbox\r\nCATEGORIES:x,y\r\n")
+        );
+        assert_eq!(
+            own("CATEGORIES:someday\r\n", &["home"]),
+            task("CATEGORIES:someday\r\nCATEGORIES:home\r\n")
+        );
+        assert_eq!(
+            own("CATEGORIES:waiting,work\r\n", &[""]),
+            task("CATEGORIES:waiting\r\n")
+        );
+
+        let err = own_categories(task("").as_bytes(), &["Inbox".into()]).unwrap_err();
+        assert!(err.to_string().contains("reserved"), "{err}");
     }
 }

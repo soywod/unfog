@@ -62,7 +62,7 @@ A task is addressed by its handle, or by the shortest unique prefix of its `UID`
 
 `--summary`, `--description`, `--due`, `--start`, `--status`, `--priority`, `--category` (repeated), `--parent <uid>` (`RELATED-TO;RELTYPE=PARENT`), `--url`, and the alarm flags below. Each replaces every instance of what it names and leaves every other line byte for byte (calendula's rule). A flag a backend cannot hold is refused on that backend before the write, never dropped.
 
-Anything else (`CONTACT`, `ATTACH`, other `RELATED-TO` types, X- properties such as `X-PIMALAYA-GTD`) goes through an iCalendar source or the composer. That is what lets a GTD layer live outside: read the bytes, patch them, write them back with `If-Match`.
+Anything else (`CONTACT`, `ATTACH`, other `RELATED-TO` types, X- properties another client writes) goes through an iCalendar source or the composer. That is what lets a GTD layer live outside: read the bytes, patch them, write them back with `If-Match`.
 
 ### Alarms
 

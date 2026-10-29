@@ -14,12 +14,7 @@ use serde::Serialize;
 use crate::{
     scope::Scope,
     shared::uuid::uuid_v4,
-    time::{
-        Found, TimeEntryRow, collect, duration,
-        entry::{Shape, event, journal},
-        place::TimePlace,
-        stop,
-    },
+    time::{Found, TimeEntryRow, collect, duration, entry::event, place::TimePlace, stop},
 };
 
 /// Start working on a task.
@@ -50,10 +45,8 @@ impl StartCommand {
         now: Timestamp,
     ) -> Result<()> {
         let task = scope.find(&self.task)?;
-        let mut running: Vec<Found> = collect(&mut scope)?
-            .into_iter()
-            .filter(|found| found.entry.end.is_none())
-            .collect();
+        let collected = collect(&mut scope)?;
+        let mut running = collected.clone().running();
 
         if let Some(found) = running
             .iter()
@@ -68,19 +61,25 @@ impl StartCommand {
 
         let mut stopped = Vec::with_capacity(running.len());
         for found in &mut running {
-            stop(&mut scope, found, now)?;
+            stop(&mut scope, &collected, found, now)?;
             stopped.push(TimeEntryRow::new(&scope, found, now));
         }
 
+        // NOTE: the target is resolved first, so a strategy missing its
+        // calendar refuses the start rather than the stop.
+        let strategy = scope.client(task.account).account.time_strategy();
+        TimePlace::target(&mut scope, task.account, strategy)?;
+
         let client = scope.client(task.account);
-        let (place, shape) = TimePlace::of(client, client.account.time_strategy())?;
-
-        let uid = uuid_v4()?;
-        let contents = match shape {
-            Shape::Event => event(&uid, &task.task.uid, &task.task.summary, now, None, now),
-            Shape::Journal => journal(&uid, &task.task.uid, &task.task.summary, now, true),
-        };
-
+        let place = TimePlace::local(client)?;
+        let contents = event(
+            &uuid_v4()?,
+            &task.task.uid,
+            &task.task.summary,
+            now,
+            None,
+            now,
+        );
         place.create(client, contents)?;
 
         printer.out(StartOutput {
@@ -161,9 +160,11 @@ impl StopCommand {
             None => None,
         };
 
-        let mut running: Vec<Found> = collect(&mut scope)?
+        let collected = collect(&mut scope)?;
+        let mut running: Vec<Found> = collected
+            .clone()
+            .running()
             .into_iter()
-            .filter(|found| found.entry.end.is_none())
             .filter(|found| task.as_ref().is_none_or(|uid| found.entry.task == *uid))
             .collect();
 
@@ -175,7 +176,7 @@ impl StopCommand {
 
         let mut stopped = Vec::with_capacity(running.len());
         for found in &mut running {
-            stop(&mut scope, found, now)?;
+            stop(&mut scope, &collected, found, now)?;
             stopped.push(TimeEntryRow::new(&scope, found, now));
         }
 
@@ -220,8 +221,8 @@ impl StatusCommand {
     pub fn execute(self, printer: &mut impl Printer, mut scope: Scope) -> Result<()> {
         let now = Timestamp::now();
         let running = collect(&mut scope)?
+            .running()
             .iter()
-            .filter(|found| found.entry.end.is_none())
             .map(|found| TimeEntryRow::new(&scope, found, now))
             .collect();
 

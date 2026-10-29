@@ -16,12 +16,13 @@ use log::debug;
 
 use crate::{
     config::TimeStrategy,
+    scope::Scope,
     shared::client::TaskClient,
     time::entry::{RawItem, Shape, uid_of},
 };
 
 /// A place time entries live in.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum TimePlace {
     /// A tasklist of the account's backend, synced with it.
     Collection(String),
@@ -34,7 +35,7 @@ pub enum TimePlace {
 
 impl TimePlace {
     /// The place the `local` strategy of `client`'s account keeps its
-    /// entries in.
+    /// entries in, where every running entry waits for its stop.
     pub fn local(client: &TaskClient) -> Result<Self> {
         if let Some(root) = client.pimdir_root() {
             return Ok(Self::Pimdir(root));
@@ -43,28 +44,59 @@ impl TimePlace {
         Ok(Self::Directory(client.account.time_directory()?))
     }
 
-    /// Every place `client`'s account keeps entries in: the local one,
+    /// Every place the account at `index` keeps entries in, each with
+    /// the index of the account whose client reaches it: the local one,
     /// then `time.collection` when set, so a history survives a switch of
     /// strategy.
-    pub fn every(client: &TaskClient) -> Result<Vec<Self>> {
-        let mut places = vec![Self::local(client)?];
+    pub fn every(scope: &mut Scope, index: usize) -> Result<Vec<(usize, Self)>> {
+        let mut places = vec![(index, Self::local(scope.client(index))?)];
 
-        if let Some(collection) = &client.account.time_collection {
-            places.push(Self::Collection(collection.clone()));
+        if let Some(collection) = scope.client(index).account.time_collection.clone() {
+            places.push((holder(scope, index)?, Self::Collection(collection)));
         }
 
         Ok(places)
     }
 
-    /// Where `strategy` writes the entries of `client`'s account, and in
-    /// which shape.
+    /// Where `strategy` writes the finished entries of the account at
+    /// `index`, and in which shape.
+    pub fn target(scope: &mut Scope, index: usize, strategy: TimeStrategy) -> Result<Target> {
+        let shape = match strategy {
+            TimeStrategy::Journal => Shape::Journal,
+            TimeStrategy::Event | TimeStrategy::Local => Shape::Event,
+        };
+
+        if strategy == TimeStrategy::Local {
+            return Ok(Target {
+                account: index,
+                place: Self::local(scope.client(index))?,
+                shape,
+            });
+        }
+
+        let Some(collection) = scope.client(index).account.time_collection.clone() else {
+            bail!(missing_collection(strategy));
+        };
+
+        Ok(Target {
+            account: holder(scope, index)?,
+            place: Self::Collection(collection),
+            shape,
+        })
+    }
+
+    /// Where `strategy` writes the entries of `client`'s account alone,
+    /// and in which shape: an import, which spans no scope, refusing a
+    /// `time.account` naming another account.
     pub fn of(client: &TaskClient, strategy: TimeStrategy) -> Result<(Self, Shape)> {
         let collection = || match &client.account.time_collection {
-            Some(collection) => Ok(Self::Collection(collection.clone())),
-            None => Err(anyhow!(
-                "The `{strategy}` time strategy writes to a calendar; set time.collection to \
-                 one of the account's tasklists"
+            Some(_) if client.account.time_account.is_some() => Err(anyhow!(
+                "time.account names the account holding time.collection, which an import does \
+                 not reach; import under the local strategy, then run `unfog migrate --to \
+                 {strategy}`"
             )),
+            Some(collection) => Ok(Self::Collection(collection.clone())),
+            None => Err(anyhow!(missing_collection(strategy))),
         };
 
         match strategy {
@@ -72,6 +104,11 @@ impl TimePlace {
             TimeStrategy::Journal => Ok((collection()?, Shape::Journal)),
             TimeStrategy::Local => Ok((Self::local(client)?, Shape::Event)),
         }
+    }
+
+    /// Whether this is the local place, which no backend syncs.
+    pub fn is_local(&self) -> bool {
+        !matches!(self, Self::Collection(_))
     }
 
     /// How a report names the place.
@@ -137,16 +174,51 @@ impl TimePlace {
     }
 }
 
+/// Where a strategy writes an account's finished entries.
+#[derive(Clone, Debug)]
+pub struct Target {
+    /// The index of the account whose client writes there.
+    pub account: usize,
+    /// The place.
+    pub place: TimePlace,
+    /// The shape entries take there.
+    pub shape: Shape,
+}
+
+/// The index of the account holding the `time.collection` of the account
+/// at `index`: the one `time.account` names, else that account.
+fn holder(scope: &mut Scope, index: usize) -> Result<usize> {
+    match scope.client(index).account.time_account.clone() {
+        Some(name) if name != scope.name(index) => scope.open(&name),
+        _ => Ok(index),
+    }
+}
+
+/// The refusal of a strategy writing to a calendar none names.
+fn missing_collection(strategy: TimeStrategy) -> String {
+    let kind = match strategy {
+        TimeStrategy::Journal => "VJOURNAL",
+        _ => "VEVENT",
+    };
+
+    format!(
+        "The `{strategy}` time strategy writes to a calendar; set time.collection to a \
+         calendar accepting {kind}, best one of its own (a tasklist created by unfog takes \
+         VTODO alone)"
+    )
+}
+
 /// The local time collection of a pimdir store.
 #[cfg(feature = "pimdir")]
 mod pimdir {
-    use std::path::Path;
+    use std::{path::Path, thread, time::Duration};
 
-    use anyhow::{Result, anyhow};
+    use anyhow::{Result, anyhow, bail};
     use io_pimdir::{
-        client::{PimdirStore, TIME_COLLECTION, reader::PimdirReader},
+        client::{PimdirError, PimdirStore, TIME_COLLECTION, reader::PimdirReader},
         placement::PimdirLinkId,
     };
+    use log::debug;
 
     use crate::time::entry::RawItem;
 
@@ -196,9 +268,6 @@ mod pimdir {
 
     /// Writes an entry as the store's owner, its key derived from its
     /// body, declaring the collection first.
-    ///
-    /// The owner's lock is exclusive: a sync running on the store makes
-    /// this fail at once rather than wait.
     pub fn put(root: &Path, contents: &[u8]) -> Result<String> {
         let mut store = owner(root)?;
         store.ensure_time_collection()?;
@@ -213,13 +282,97 @@ mod pimdir {
         Ok(())
     }
 
+    /// How often, and how far apart, a write retries while a sync owns
+    /// the store.
+    #[cfg(not(test))]
+    const RETRIES: (u32, Duration) = (10, Duration::from_millis(200));
+
+    /// Short enough for a test to meet the end of the retries.
+    #[cfg(test)]
+    const RETRIES: (u32, Duration) = (3, Duration::from_millis(10));
+
+    /// Opens the store as its owner for one write, never rebuilding it:
+    /// the store is its sync's, and a schema this build would reconcile
+    /// is refused rather than rewritten (pimdir STORAGE §6). A sync
+    /// holding the lock is waited for a short bounded time, then named.
     fn owner(root: &Path) -> Result<PimdirStore> {
-        PimdirStore::open(root).map_err(|err| {
-            anyhow!(
-                "Write the local time collection of pimdir store `{}`: {err}",
-                root.display()
-            )
-        })
+        let (retries, pause) = RETRIES;
+        let mut attempt = 0;
+
+        loop {
+            match PimdirStore::open_current(root) {
+                Ok(store) => return Ok(store),
+                Err(PimdirError::Owned(_)) if attempt < retries => {
+                    attempt += 1;
+                    debug!(
+                        "pimdir store `{}` is owned, retry {attempt}",
+                        root.display()
+                    );
+                    thread::sleep(pause);
+                }
+                Err(PimdirError::Owned(_)) => bail!(
+                    "Write the local time collection of pimdir store `{}`: a sync holds the \
+                     store; run the command again once it ends",
+                    root.display()
+                ),
+                Err(err @ PimdirError::NotCurrent(_)) => bail!(
+                    "Write the local time collection of pimdir store `{}`: {err}; unfog never \
+                     rebuilds a store it does not own, so let its sync open it first",
+                    root.display()
+                ),
+                Err(err) => bail!(
+                    "Write the local time collection of pimdir store `{}`: {err}",
+                    root.display()
+                ),
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use io_pimdir::client::PimdirStore;
+
+        use super::put;
+
+        /// A sync is another process: one in this process shares its
+        /// lock, so `flock(1)` holds it, the test passing over a system
+        /// without it.
+        #[test]
+        fn a_held_store_is_retried_then_named() {
+            let dir = tempfile::tempdir().unwrap();
+            drop(PimdirStore::open(dir.path()).unwrap());
+
+            let lock = dir.path().join("owner.lock");
+            let held = dir.path().join("held");
+            let Ok(mut sync) = std::process::Command::new("flock")
+                .arg("-x")
+                .arg(&lock)
+                .arg("-c")
+                .arg(format!("touch {} && sleep 5", held.display()))
+                .spawn()
+            else {
+                return;
+            };
+
+            while !held.exists() {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+
+            let err = put(dir.path(), b"").unwrap_err().to_string();
+            sync.kill().unwrap();
+            sync.wait().unwrap();
+            assert!(err.contains("a sync holds the store"), "{err}");
+        }
+
+        #[test]
+        fn an_absent_store_is_never_created() {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dir.path().join("store");
+
+            let err = put(&root, b"").unwrap_err().to_string();
+            assert!(err.contains("never rebuilds"), "{err}");
+            assert!(!root.join("pimdir.db").exists());
+        }
     }
 }
 

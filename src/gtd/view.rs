@@ -7,6 +7,7 @@ use std::fmt;
 
 use anyhow::Result;
 use clap::Parser;
+use jiff::{Timestamp, civil::DateTime, tz::TimeZone};
 use pimalaya_cli::{
     printer::Printer,
     table::{Cell, Color, ContentArrangement, Row, Table, TableStyle},
@@ -15,12 +16,11 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::{
-    scope::{Located, Scope},
+    scope::{Located, Scope, Unreached},
     shared::task::{
         Task,
-        find::{short_id, short_len},
+        find::short_id,
         gtd::{GtdState, GtdView},
-        list::sort_key,
     },
 };
 
@@ -127,22 +127,63 @@ pub fn view(
     filter: &[String],
     max_width: Option<u16>,
 ) -> Result<GtdViewOutput> {
-    let found = scope.select(&|status, categories| view.holds(status, categories, filter))?;
+    view_at(scope, view, filter, max_width, Timestamp::now())
+}
+
+/// The view at `now`, the instant a waiting task's age is counted to.
+pub fn view_at(
+    scope: &mut Scope,
+    view: GtdView,
+    filter: &[String],
+    max_width: Option<u16>,
+    now: Timestamp,
+) -> Result<GtdViewOutput> {
+    // NOTE: the query first, so a filter it cannot spell is refused
+    // before anything is listed.
     let query = view.query(filter)?;
-    Ok(GtdViewOutput::new(scope, view, query, found, max_width))
+    let found = scope.select(&|status, categories| view.holds(status, categories, filter))?;
+    let len = scope.short_len()?;
+    Ok(GtdViewOutput::new(
+        scope, view, query, found, len, max_width, now,
+    ))
+}
+
+/// How many whole days `task` has waited at `now`, since its `DTSTAMP`.
+pub fn waited_days(task: &Task, now: Timestamp) -> Option<i64> {
+    let stamp = task.stamp.as_deref()?.trim();
+    let civil = DateTime::strptime("%Y%m%dT%H%M%S", stamp.strip_suffix(['Z', 'z'])?).ok()?;
+    let since = civil.to_zoned(TimeZone::UTC).ok()?.timestamp();
+
+    Some((now.as_second() - since.as_second()).max(0) / 86_400)
+}
+
+/// What Next orders a task by: due ones first by date, then by priority
+/// (1 first, none last), then the oldest captured.
+fn next_key(task: &Task) -> (bool, Option<String>, i64, (bool, String)) {
+    let due = task.due_key();
+    let priority = task
+        .priority
+        .filter(|priority| (1..=9).contains(priority))
+        .unwrap_or(10);
+
+    (due.is_none(), due, priority, task.captured_key())
 }
 
 /// One task of a view, with where it lives.
 #[derive(Clone, Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GtdViewRow {
-    /// The shortest `UID` prefix telling the listed tasks apart, which
-    /// `gtd clarify` and the `task` commands take.
+    /// The shortest `UID` prefix telling apart every task of the scope,
+    /// which `gtd clarify` and the `task` commands take.
     pub short_id: String,
     /// The account holding the task.
     pub account: String,
     /// The tasklist holding the task.
     pub tasklist: String,
+    /// How many whole days a waiting task has waited, since it was last
+    /// written (its `DTSTAMP`): the Waiting view alone tells it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub waited_days: Option<i64>,
     /// The task.
     #[serde(flatten)]
     pub task: Task,
@@ -167,8 +208,13 @@ pub struct GtdViewOutput {
     /// The view as pimdir's guide spells it (GUIDE.md §17), for a
     /// search over a pimdir store to ask the same.
     pub query: String,
-    /// The tasks, due ones first by date.
+    /// The tasks: for Next, due ones first by date, then by priority,
+    /// then the oldest captured; for the others, the oldest captured
+    /// first.
     pub tasks: Vec<GtdViewRow>,
+    /// The accounts the listing could not reach, left out of it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub unreached: Vec<Unreached>,
 }
 
 /// The per-column colors a view renders with, `task list`'s.
@@ -182,21 +228,21 @@ struct ViewColors {
 }
 
 impl GtdViewOutput {
-    /// Sorts the tasks of a view and gives them their short ids.
-    ///
-    /// The short ids are counted over the view: a prefix too short for the
-    /// whole scope is refused as ambiguous by the command it is given to,
-    /// never guessed.
+    /// Sorts the tasks of a view and gives them their short ids, `len`
+    /// long: counted over the whole scope, so every verb accepts them.
     pub fn new(
         scope: &Scope,
         view: GtdView,
         query: String,
         mut found: Vec<Located>,
+        len: usize,
         max_width: Option<u16>,
+        now: Timestamp,
     ) -> Self {
-        let len = short_len(found.iter().map(|found| found.task.uid.as_str()));
-
-        found.sort_by_cached_key(|found| sort_key(&found.task));
+        match view {
+            GtdView::Next => found.sort_by_cached_key(|found| next_key(&found.task)),
+            _ => found.sort_by_cached_key(|found| found.task.captured_key()),
+        }
 
         let account = &scope.accounts[0].client.account;
 
@@ -220,9 +266,14 @@ impl GtdViewOutput {
                     short_id: short_id(&found.task.uid, len),
                     account: scope.name(found.account).to_owned(),
                     tasklist: found.tasklist,
+                    waited_days: match view {
+                        GtdView::Waiting => waited_days(&found.task, now),
+                        _ => None,
+                    },
                     task: found.task,
                 })
                 .collect(),
+            unreached: scope.unreached().to_vec(),
         }
     }
 }
@@ -237,6 +288,11 @@ impl fmt::Display for GtdViewOutput {
             Cell::new("CATEGORIES"),
             Cell::new("TASKLIST"),
         ];
+
+        if self.view == GtdView::Waiting {
+            header.push(Cell::new("CONTACT"));
+            header.push(Cell::new("WAITED"));
+        }
 
         if self.multi {
             header.push(Cell::new("ACCOUNT"));
@@ -276,6 +332,15 @@ impl fmt::Display for GtdViewOutput {
                 cells.add_cell(Cell::new(priority).fg(self.colors.priority));
                 cells.add_cell(Cell::new(categories.join(", ")).fg(self.colors.categories));
                 cells.add_cell(Cell::new(&row.tasklist));
+
+                if self.view == GtdView::Waiting {
+                    cells.add_cell(Cell::new(task.contacts.join(", ")));
+                    cells.add_cell(Cell::new(
+                        row.waited_days
+                            .map(|days| format!("{days}d"))
+                            .unwrap_or_default(),
+                    ));
+                }
 
                 if self.multi {
                     cells.add_cell(Cell::new(&row.account));

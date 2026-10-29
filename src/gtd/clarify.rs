@@ -22,7 +22,7 @@ use crate::{
     scope::{Located, Scope},
     shared::task::{
         fields::{TaskFieldsArgs, complete, revise},
-        gtd::{GtdState, GtdView, edit_categories, set_contact},
+        gtd::{GtdState, GtdView, edit_categories, set_contact, set_state},
         list::sort_key,
     },
 };
@@ -84,6 +84,10 @@ pub struct ClarifyCommand {
     /// undefined.
     #[arg(long, value_name = "0-9", value_parser = clap::value_parser!(u8).range(0..=9))]
     pub priority: Option<u8>,
+    /// The task this one is a step of (`RELATED-TO`, the parent): its
+    /// handle, or a prefix of its UID.
+    #[arg(long, value_name = "TASK")]
+    pub parent: Option<String>,
     /// Move the task to this tasklist.
     #[arg(long = "to", value_name = "TASKLIST")]
     pub to: Option<String>,
@@ -121,6 +125,8 @@ pub struct Clarification {
     pub categories: Vec<String>,
     /// When it is due.
     pub due: Option<String>,
+    /// The task it is a step of, as named on the command line.
+    pub parent: Option<String>,
     /// Its priority.
     pub priority: Option<u8>,
     /// The tasklist to move it to, in the account named, the task's own
@@ -179,6 +185,7 @@ impl ClarifyCommand {
                 categories: self.categories,
                 due: self.due,
                 priority: self.priority,
+                parent: self.parent,
                 to,
             };
 
@@ -207,6 +214,19 @@ impl ClarifyCommand {
             eprintln!("The Inbox is empty");
         }
 
+        // NOTE: the tasklists a next action may go to, listed once for
+        // the whole walk.
+        let mut targets: Vec<(usize, String)> = Vec::new();
+        for index in 0..scope.accounts.len() {
+            if scope.accounts[index].extra {
+                continue;
+            }
+
+            for tasklist in scope.client(index).list_tasklists()? {
+                targets.push((index, tasklist.id));
+            }
+        }
+
         let mut clarified = Vec::new();
         let total = queue.len();
 
@@ -214,7 +234,7 @@ impl ClarifyCommand {
             eprintln!();
             eprintln!("({}/{total}) {}", index + 1, found.task.summary);
 
-            let Some(clarification) = ask(&mut scope, found)? else {
+            let Some(clarification) = ask(&mut scope, found, &targets)? else {
                 continue;
             };
 
@@ -226,7 +246,11 @@ impl ClarifyCommand {
 }
 
 /// Asks what a task is, `None` when it is skipped.
-fn ask(scope: &mut Scope, found: &Located) -> Result<Option<Clarification>> {
+fn ask(
+    scope: &mut Scope,
+    found: &Located,
+    targets: &[(usize, String)],
+) -> Result<Option<Clarification>> {
     let summary = prompt::text("Rephrase it:", Some(found.task.summary.as_str()))?;
     let summary = (summary.trim() != found.task.summary).then_some(summary);
 
@@ -237,6 +261,7 @@ fn ask(scope: &mut Scope, found: &Located) -> Result<Option<Clarification>> {
         categories: Vec::new(),
         due: None,
         priority: None,
+        parent: None,
         to: None,
     };
 
@@ -280,10 +305,20 @@ fn ask(scope: &mut Scope, found: &Located) -> Result<Option<Clarification>> {
     clarification.due = prompt::some_text("Due (YYYY-MM-DD, optional):", None)?
         .filter(|due| !due.trim().is_empty());
 
-    let mut targets: Vec<(usize, String)> = Vec::new();
-    for index in 0..scope.accounts.len() {
-        for tasklist in scope.client(index).list_tasklists()? {
-            targets.push((index, tasklist.id));
+    // NOTE: a parent is checked now, so a mistyped one is asked again
+    // rather than failing the write.
+    while let Some(parent) = prompt::some_text("Step of which task (an id, optional):", None)? {
+        let parent = parent.trim();
+        if parent.is_empty() {
+            break;
+        }
+
+        match scope.find(parent) {
+            Ok(task) => {
+                clarification.parent = Some(task.task.uid);
+                break;
+            }
+            Err(err) => eprintln!("{err}"),
         }
     }
 
@@ -341,6 +376,7 @@ pub fn apply(
         uid: found.task.uid.clone(),
         outcome,
         moved: false,
+        unchanged: false,
     };
 
     if outcome == ClarifyOutcome::Delete {
@@ -352,10 +388,59 @@ pub fn apply(
         return Ok(clarified);
     }
 
+    let nothing_else = clarification.summary.is_none()
+        && clarification.categories.is_empty()
+        && clarification.due.is_none()
+        && clarification.priority.is_none()
+        && clarification.parent.is_none()
+        && target.is_none();
+
+    // NOTE: a state alone is pimdir GUIDE.md §17's set-state writer, which
+    // leaves a task already in that state untouched: no write, no new
+    // DTSTAMP.
+    let state = match outcome {
+        ClarifyOutcome::Someday => Some(Some(GtdState::Someday)),
+        ClarifyOutcome::Waiting if clarification.contact.is_none() => Some(Some(GtdState::Waiting)),
+        ClarifyOutcome::Next => Some(None),
+        _ => None,
+    };
+
+    if nothing_else && let Some(state) = state {
+        match set_state(&item.contents, state, now)? {
+            None => clarified.unchanged = true,
+            Some(contents) => scope.client(found.account).update_item(
+                &found.tasklist,
+                &found.task.id,
+                contents,
+                etag.as_deref(),
+            )?,
+        }
+        return Ok(clarified);
+    }
+
+    let done = outcome == ClarifyOutcome::Done
+        && found.task.status.as_deref() == Some("COMPLETED")
+        && !found
+            .task
+            .categories
+            .iter()
+            .any(|category| GtdState::of(category).is_some());
+
+    if nothing_else && done {
+        clarified.unchanged = true;
+        return Ok(clarified);
+    }
+
+    let parent = match &clarification.parent {
+        Some(query) => Some(scope.find(query)?.task.uid),
+        None => None,
+    };
+
     let fields = TaskFieldsArgs {
         summary: clarification.summary.clone(),
         due: clarification.due.clone(),
         priority: clarification.priority,
+        parent,
         ..Default::default()
     };
 
@@ -397,6 +482,32 @@ pub fn apply(
         )?;
         return Ok(clarified);
     };
+
+    // NOTE: within one account a backend that can move in one write does
+    // (pimdir: an add superseding the source, whose removal waits for
+    // the add to be pushed).
+    let moved = match account == found.account {
+        true => scope
+            .client(account)
+            .move_item(
+                &found.tasklist,
+                &found.task.id,
+                &tasklist,
+                contents.clone(),
+                etag.as_deref(),
+            )
+            .with_context(|| {
+                format!("Move the task to tasklist `{tasklist}`; it was left where it was")
+            })?,
+        false => None,
+    };
+
+    if let Some(id) = moved {
+        clarified.tasklist = tasklist;
+        clarified.id = id;
+        clarified.moved = true;
+        return Ok(clarified);
+    }
 
     // NOTE: created in the target first, removed from the source only
     // once that create was accepted, so a refused create keeps the
@@ -447,6 +558,9 @@ pub struct ClarifiedTask {
     pub outcome: ClarifyOutcome,
     /// Whether it moved to another tasklist.
     pub moved: bool,
+    /// Whether it was in that state already, and left untouched.
+    #[serde(skip_serializing_if = "core::ops::Not::not")]
+    pub unchanged: bool,
 }
 
 /// What `clarify` did.
@@ -468,13 +582,14 @@ impl fmt::Display for ClarifyOutput {
                 ClarifyOutcome::Next => "a next action",
             };
 
-            match task.moved {
-                true => writeln!(
+            match (task.unchanged, task.moved) {
+                (true, _) => writeln!(f, "Task `{}` is {what} already, left untouched", task.uid)?,
+                (_, true) => writeln!(
                     f,
                     "Task `{}` {what}, moved to tasklist `{}` of account `{}`",
                     task.uid, task.tasklist, task.account
                 )?,
-                false => writeln!(f, "Task `{}` {what}", task.uid)?,
+                _ => writeln!(f, "Task `{}` {what}", task.uid)?,
             }
         }
 

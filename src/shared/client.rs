@@ -262,6 +262,49 @@ impl TaskClient {
             .collect())
     }
 
+    /// Moves the item `item_id` of `from` to `to` within this account, as
+    /// `contents`, in one write where the backend has one: on pimdir an
+    /// `add` superseding the source (pimdir STORAGE §15), so the source is
+    /// removed only once the add was pushed. `None` where the backend
+    /// has none, the caller then creating in the target and removing the
+    /// source once the create was accepted.
+    pub fn move_item(
+        &mut self,
+        from: &str,
+        item_id: &str,
+        to: &str,
+        contents: Vec<u8>,
+        if_match: Option<&str>,
+    ) -> Result<Option<String>> {
+        #[cfg(feature = "pimdir")]
+        #[allow(irrefutable_let_patterns)]
+        if let BackendClient::Pimdir(client) = self.open()? {
+            return client
+                .move_item(from, item_id, to, contents, if_match)
+                .map(Some);
+        }
+
+        let _ = (from, item_id, to, contents, if_match);
+        Ok(None)
+    }
+
+    /// Which of the `Message-ID`s `mids` a message the backend keeps
+    /// replies to: on pimdir, a mail of the store whose `In-Reply-To`
+    /// names it; no other backend keeps mail, so none.
+    pub fn replied(&mut self, mids: &[String]) -> Result<Vec<String>> {
+        if mids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        #[cfg(feature = "pimdir")]
+        #[allow(irrefutable_let_patterns)]
+        if let BackendClient::Pimdir(client) = self.open()? {
+            return client.replied(mids);
+        }
+
+        Ok(Vec::new())
+    }
+
     /// The root of the pimdir store this client reads, `None` on any
     /// other backend.
     pub fn pimdir_root(&self) -> Option<PathBuf> {

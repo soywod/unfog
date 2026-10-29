@@ -12,10 +12,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GTD over plain VTODOs, the convention the Pimalaya app shares: `inbox`, `waiting` and `someday` as reserved categories, with the `gtd` family (`capture`, `inbox`, `next [--category]`, `waiting`, `someday`, `clarify` and `review`) across every configured account; the views show each task's priority, which `gtd clarify --priority` sets.
 - Time tracking back in 2.x: `task start`, `task stop`, `task status`, `worktime` and `migrate`, the entries kept where `time.strategy` says (`local` by default, `event` or `journal` in a synced calendar).
 - `import` of a 1.x store: its projects become plain categories, its starts and stops time entries of the configured strategy.
+- `time.account`, keeping time entries in another account's calendar than the tasks' (a Google or Microsoft calendar, say).
+- `gtd waiting` shows who each task waits on and for how long; `gtd review` adds the tasks waiting over two weeks and, on pimdir, those whose mail got a reply.
+- `gtd capture` reads a mail from stdin: its subject as the summary, its Message-ID as an `ATTACH:mid:` link back to it; every capture carries `CREATED`.
+- `gtd clarify --parent`, and the interactive walk asks for a parent task.
 
 ### Changed
 
 - `context` is replaced by `gtd next --category`; `start`, `stop` and `status` move under `task`.
+- Every `task` verb taking a task (`read`, `update`, `done`, `undone`, `delete`) finds it across every account and tasklist, `-a` and `-l` narrowing the search; a view's short id is long enough for the whole scope.
+- Next sorts by due date, then priority, then the oldest captured; the other views the oldest captured first.
+- `task update --category` replaces the person's own categories and keeps the GTD state; a clarification of a task already in that state writes nothing; `--contact` given an address writes it as `ALTREP="mailto:..."`.
+- A running time entry always waits on the device, so `task status` sees it before any sync; `task stop` writes it finished where `time.strategy` says. `migrate` keeps each entry's UID and resumes a run cut short.
+- On pimdir a move is one `add` superseding the source, removed only once the add was pushed.
+
+### Fixed
+
+- A meeting or any event other than unfog's own in `time.collection` is never taken for a time entry nor rewritten: an entry is transparent and relates to a task, and a `DURATION` ends it.
+- One unreachable account no longer fails a view spanning several.
+- On pimdir a queued capture or move shows at once, editing a queued create is refused with the `pending-add` code, and the `local` time strategy never rebuilds a store, waiting a moment for a sync holding it.
+- `worktime` counts two spellings of a category as one; `task list --category` folds beyond ASCII; a recurring task is clarified on its master.
 
 ## [1.0.6] - 2023-03-07
 

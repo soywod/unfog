@@ -50,6 +50,7 @@ io-vdir = { version = "0.2", default-features = false, features = ["client", "se
 io-webdav = { version = "0.5", default-features = false, features = ["client"], optional = true }
 jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-bundle-always"] }
 log = "0.4"
+mail-parser = { version = "0.11", default-features = false, features = ["full_encoding"] }
 pimalaya-cli = { version = "0.2", default-features = false, features = ["terminal", "table", "prompt"] }
 pimalaya-config = { version = "0.2.1", default-features = false, features = ["toml", "secret"] }
 pimalaya-stream = { version = "0.3", default-features = false, features = ["std"] }
@@ -68,8 +69,6 @@ ical-rs = { git = "https://github.com/pimalaya/ical", rev = "caa14225152a7aff6d8
 #io-gcal = { git = "https://github.com/pimalaya/io-gcal", rev = "90537616dd6d7659c6bfe81df9b4a1428e143f06" }
 io-http = { git = "https://github.com/pimalaya/io-http", rev = "e1815307771c1ec65a86b77256d46c33241d3038" }
 #io-msgraph = { git = "https://github.com/pimalaya/io-msgraph", rev = "2ae26370aefa671c16316dbad98107634436bce6" }
-# NOTE: the local checkout until its tasks-by-categories change (put_item,
-# ensure_time_collection, TIME_COLLECTION) is pushed and pinned to a rev.
-io-pimdir = { path = "../io-pimdir" }
+io-pimdir = { git = "https://github.com/pimalaya/io-pimdir", rev = "1df2b7063d8fe03c28d9b5ec69badb669e6902c3" }
 io-webdav = { git = "https://github.com/pimalaya/io-webdav", rev = "62fad898d1ecb3ebb25c37826a79eb72fcd54d7f" }
 pimalaya-cli = { git = "https://github.com/pimalaya/cli", rev = "55b66933950f02541892407667e5e0b254245871" }

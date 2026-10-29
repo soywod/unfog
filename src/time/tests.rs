@@ -50,8 +50,8 @@ fn running(config: &Config) -> Vec<String> {
     let mut scope = crate::testing::scope(config);
     let mut uids: Vec<String> = collect(&mut scope)
         .unwrap()
+        .running()
         .into_iter()
-        .filter(|found| found.entry.end.is_none())
         .map(|found| found.entry.task)
         .collect();
     uids.sort();
@@ -64,7 +64,9 @@ mod vdir {
 
     use super::*;
     use crate::{
+        backend::Backend,
         config::TimeStrategy,
+        scope::Scope,
         testing::{config, gtd_fixture, timed, vdir_account, vdir_items},
     };
 
@@ -203,6 +205,54 @@ mod vdir {
         assert_eq!(worktime(&config, &[])["seconds"], 5400);
     }
 
+    /// A meeting relating to a document, sharing `time.collection`.
+    const MEETING: &str = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//other//client//EN\r\n\
+        BEGIN:VEVENT\r\nUID:meeting-1\r\nDTSTAMP:20261027T080000Z\r\n\
+        DTSTART:20261027T090000Z\r\nDURATION:PT1H\r\nSUMMARY:Agenda review\r\n\
+        RELATED-TO:agenda-doc-42\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+
+    /// An event that is not one of unfog's entries is never read as one,
+    /// nor rewritten by a start or a stop.
+    #[test]
+    fn a_meeting_in_the_time_collection_is_left_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = fixture(dir.path(), TimeStrategy::Event);
+        let path = dir.path().join("home/time/meeting.ics");
+        fs::write(&path, MEETING).unwrap();
+        let foreign = MEETING
+            .replace("meeting-1", "meeting-2")
+            .replace("DURATION:PT1H\r\n", "TRANSP:TRANSPARENT\r\n");
+        let foreign_path = dir.path().join("home/time/foreign.ics");
+        fs::write(&foreign_path, &foreign).unwrap();
+
+        assert!(running(&config).is_empty());
+
+        let started = start(&config, "next-1", "09:00");
+        assert!(started["stopped"].as_array().unwrap().is_empty());
+        stop(&config, "10:00");
+
+        assert_eq!(fs::read_to_string(&path).unwrap(), MEETING);
+        assert_eq!(fs::read_to_string(&foreign_path).unwrap(), foreign);
+        assert_eq!(worktime(&config, &[])["seconds"], 3600);
+    }
+
+    /// A `DURATION` ends an entry as a `DTEND` does.
+    #[test]
+    fn an_entry_ended_by_a_duration_is_finished() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = fixture(dir.path(), TimeStrategy::Event);
+        let entry = MEETING
+            .replace("RELATED-TO:agenda-doc-42", "RELATED-TO:next-1")
+            .replace(
+                "DURATION:PT1H\r\n",
+                "DURATION:PT1H\r\nTRANSP:TRANSPARENT\r\n",
+            );
+        fs::write(dir.path().join("home/time/entry.ics"), entry).unwrap();
+
+        assert!(running(&config).is_empty());
+        assert_eq!(worktime(&config, &[])["seconds"], 3600);
+    }
+
     /// The entries written under three strategies, one after another.
     fn three_strategies(dir: &Path) -> Config {
         let local = fixture(dir, TimeStrategy::Local);
@@ -288,6 +338,106 @@ mod vdir {
         let after = worktime(&config, &[]);
         assert_eq!(after["seconds"], before["seconds"]);
         assert_eq!(after["tasks"], before["tasks"]);
+    }
+
+    /// A migration cut short after its copy, before its removal, resumes
+    /// without a second copy.
+    #[test]
+    fn a_migration_cut_short_resumes() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = three_strategies(dir.path());
+        let before = worktime(&config, &[]);
+
+        let local = dir.path().join("local");
+        let copied = fs::read_dir(&local).unwrap().next().unwrap().unwrap();
+        fs::copy(copied.path(), dir.path().join("home/time/copied.ics")).unwrap();
+        assert_eq!(worktime(&config, &[])["seconds"], before["seconds"]);
+
+        let mut printer = Kept::default();
+        TimeMigrateCommand::try_parse_from(["migrate", "--to", "event"])
+            .unwrap()
+            .execute_at(&mut printer, crate::testing::scope(&config), at("22:00"))
+            .unwrap();
+
+        assert!(bodies(&local).is_empty());
+        let synced = bodies(&dir.path().join("home/time"));
+        assert_eq!(synced.len(), 3, "{synced:#?}");
+        assert_eq!(worktime(&config, &[])["seconds"], before["seconds"]);
+
+        // NOTE: run again, a migration finds everything in place.
+        let mut printer = Kept::default();
+        TimeMigrateCommand::try_parse_from(["migrate", "--to", "event"])
+            .unwrap()
+            .execute_at(&mut printer, crate::testing::scope(&config), at("22:30"))
+            .unwrap();
+        assert_eq!(printer.last()["moved"], 0);
+        assert_eq!(printer.last()["kept"], 3);
+        assert_eq!(bodies(&dir.path().join("home/time")).len(), 3);
+    }
+
+    /// Two spellings of a category are one row of the report.
+    #[test]
+    fn worktime_folds_the_categories() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = fixture(dir.path(), TimeStrategy::Local);
+        fs::write(
+            dir.path().join("home/tasks/cased.ics"),
+            crate::testing::task("cased-1", "SUMMARY:Plan Q4\r\nCATEGORIES:Work,WORK\r\n"),
+        )
+        .unwrap();
+
+        start(&config, "next-2", "09:00");
+        start(&config, "cased-1", "10:00");
+        stop(&config, "10:30");
+
+        let report = worktime(&config, &[]);
+        let work: Vec<&serde_json::Value> = report["categories"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|row| {
+                row["category"]
+                    .as_str()
+                    .unwrap()
+                    .eq_ignore_ascii_case("work")
+            })
+            .collect();
+        assert_eq!(work.len(), 1, "{report}");
+        assert_eq!(work[0]["seconds"], 3600 + 1800, "{report}");
+    }
+
+    /// `time.account` keeps the entries in another account's calendar,
+    /// reached even while `-a` narrows the scope to the task's account.
+    #[test]
+    fn time_entries_live_in_the_account_time_account_names() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut personal = account(dir.path(), TimeStrategy::Event);
+        personal.time.account = Some("calendars".into());
+        let calendars = vdir_account(&dir.path().join("other"), &["time"]);
+        let config = config(vec![("personal", personal), ("calendars", calendars)]);
+        let narrowed = || Scope::new(config.clone(), Some("personal"), Backend::Auto).unwrap();
+
+        StartCommand::try_parse_from(["start", "next-1"])
+            .unwrap()
+            .execute_at(&mut Kept::default(), narrowed(), at("09:00"))
+            .unwrap();
+        StopCommand::try_parse_from(["stop"])
+            .unwrap()
+            .execute_at(&mut Kept::default(), narrowed(), at("09:45"))
+            .unwrap();
+
+        assert!(bodies(&dir.path().join("home/time")).is_empty());
+        assert!(bodies(&dir.path().join("local")).is_empty());
+        let kept = bodies(&dir.path().join("other/time"));
+        assert_eq!(kept.len(), 1);
+        assert!(kept[0].contains("RELATED-TO:next-1\r\n"), "{}", kept[0]);
+
+        let report = WorktimeCommand::try_parse_from(["worktime"])
+            .unwrap()
+            .report(narrowed(), at("23:00"))
+            .unwrap();
+        assert_eq!(serde_json::to_value(report).unwrap()["seconds"], 2700);
+        assert_eq!(worktime(&config, &[])["seconds"], 2700);
     }
 
     #[test]
@@ -380,6 +530,78 @@ mod pimdir {
                 .is_empty()
         );
         assert_eq!(reader.pending_creates("cal").unwrap().len(), 2);
+    }
+
+    /// The bodies of the creates `collection` queued.
+    fn queued(root: &std::path::Path, collection: &str) -> Vec<String> {
+        let reader = PimdirReader::open(root).unwrap();
+        reader
+            .pending_creates(collection)
+            .unwrap()
+            .into_iter()
+            .map(|pending| {
+                let hash = pending.action.object_hash().unwrap().clone();
+                String::from_utf8(reader.blobs().get(&hash).unwrap().unwrap()).unwrap()
+            })
+            .collect()
+    }
+
+    /// Under a strategy writing to a synced calendar, a running entry
+    /// waits in the local time collection, so a start is seen before any
+    /// sync, and only finished entries are queued.
+    #[test]
+    fn a_running_entry_on_pimdir_is_seen_before_any_sync() {
+        let dir = tempfile::tempdir().unwrap();
+        let account = pimdir_account(dir.path(), &["cal"], &gtd_fixture());
+        let config = config(vec![(
+            "personal",
+            timed(
+                account,
+                TimeStrategy::Event,
+                Some("cal"),
+                &dir.path().join("unused"),
+            ),
+        )]);
+
+        start(&config, "next-1", "09:00");
+        assert_eq!(running(&config), ["next-1"]);
+        assert!(queued(dir.path(), "cal").is_empty());
+
+        let started = start(&config, "next-2", "10:00");
+        assert_eq!(started["stopped"][0]["task"], "next-1");
+        assert_eq!(running(&config), ["next-2"]);
+
+        let stopped = stop(&config, "10:30");
+        assert_eq!(stopped["stopped"][0]["task"], "next-2");
+        assert!(running(&config).is_empty());
+
+        let queued = queued(dir.path(), "cal");
+        assert_eq!(queued.len(), 2, "{queued:?}");
+        assert!(
+            queued.iter().all(|body| body.contains("DTEND:")),
+            "{queued:?}"
+        );
+
+        let reader = PimdirReader::open(dir.path()).unwrap();
+        assert!(
+            reader
+                .list_summaries(TIME_COLLECTION, None, 10)
+                .unwrap()
+                .is_empty()
+        );
+
+        assert_eq!(worktime(&config, &[])["seconds"], 3600 + 1800);
+
+        // NOTE: a second stop finds nothing running, and a sync applying
+        // the queue leaves the worktime as it was.
+        assert!(
+            stop(&config, "11:00")["stopped"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        crate::testing::drain(dir.path());
+        assert_eq!(worktime(&config, &[])["seconds"], 3600 + 1800);
     }
 }
 

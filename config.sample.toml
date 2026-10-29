@@ -50,25 +50,37 @@
 # Time tracking
 #
 # `task start`, `task stop`, `task status` and `worktime` keep time entries
-# tied to a task by RELATED-TO its UID, where `time.strategy` says:
+# tied to a task by RELATED-TO its UID. A running entry always waits on the
+# device; `task stop` writes it finished where `time.strategy` says:
 #
 # - `local` (the default): a VEVENT kept on the device and never synced, in the
 #   local time collection of the pimdir store on the pimdir backend, else in
-#   the vdir directory `time.directory` names. The pimdir store is written as
-#   its owner, so a sync running on it makes `task start` and `task stop` fail
-#   at once.
-# - `event`: a VEVENT (DTSTART, DTEND once stopped, TRANSP:TRANSPARENT) in the
-#   tasklist `time.collection` names, synced with the account. Prefer it as soon
-#   as time is tracked on more than one device.
-# - `journal`: a pair of VJOURNALs, CATEGORIES:start then stop, in the tasklist
+#   the vdir directory `time.directory` names. unfog writes the pimdir store
+#   without ever rebuilding it: a store its sync has not opened yet is refused,
+#   and a sync running on it is waited for a moment, then named.
+# - `event`: a VEVENT (DTSTART, DTEND, TRANSP:TRANSPARENT) in the calendar
+#   `time.collection` names, synced with the account. Prefer it as soon as time
+#   is tracked on more than one device.
+# - `journal`: a pair of VJOURNALs, CATEGORIES:start then stop, in the calendar
 #   `time.collection` names; few servers take VJOURNAL.
 #
+# `time.collection` is best a calendar of its own, holding nothing but time
+# entries, and must accept VEVENT (VJOURNAL for `journal`): a tasklist created
+# by `unfog tasklist create` takes VTODO alone. Only transparent events relating
+# to a task count as entries; any other event there is left alone.
+#
+# `time.account` names the account holding `time.collection` when it is not
+# this one: tasks on one server, time entries in another's calendar (a Google
+# or Microsoft calendar, say).
+#
 # `worktime` reads every place an account keeps entries in, whatever the
-# strategy is now. `unfog migrate --to <strategy>` moves them.
+# strategy is now. `unfog migrate --to <strategy>` moves them, keeping their
+# UID, and resumes where a run cut short stopped.
 # --------------------------------------------------------------------------------
 
 #time.strategy = "local"
 #time.collection = "time"
+#time.account = "calendars"
 #time.directory = "~/.local/share/unfog/time"
 
 # --------------------------------------------------------------------------------

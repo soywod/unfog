@@ -9,66 +9,102 @@ Tracks run in this order; a track in another repo opens its own cairn change the
 
 ## 0. Pre-flight
 
-- [ ] `git status` in pimdir, io-pimdir, unfog, android, neverest, calendula; build and test each as it is, so later failures are ours
-- [ ] delta.md for this change (unfog's spec/gtd.md and spec/time.md moves)
+- [x] `git status` in pimdir, io-pimdir, unfog, android, neverest, calendula; build and test each as it is, so later failures are ours
+- [x] delta.md for this change (unfog's spec/gtd.md and spec/time.md moves)
 
 ## A. io-pimdir and pimdir (H1, H4, M6, M1 rules)
 
-- [ ] io-pimdir: the reader probes `task_summary` columns (`priority`, `categories`, `parent`, `mid`) and reads a missing one as NULL (STORAGE §6); test on a store with the 3b4bed8 `task_summary` shape (fails before the fix)
-- [ ] pimdir STORAGE §15: `add` carrying `supersedes: {collection, seq}`, one owner transaction, tombstone push held until the add is pushed; invariants and vectors
-- [ ] io-pimdir: implement `supersedes` in mutate.rs and the drain; tests for a parked add (duplicate link id) and a refused push leaving the source in place
-- [ ] pimdir STORAGE §15.6: per-collection `x-vtodo` capability; producer gate refuses an add of a VTODO into a collection declaring `none`; io-pimdir implements it
-- [ ] pimdir GUIDE §17: the M1 rules (proposal table), CREATED at capture, capture through the queue (fix GUIDE.md:333), move via `supersedes` (GUIDE.md:334)
-- [ ] pimdir: writer vectors (input VTODO, operation, expected bytes) for set-state, already-in-state, plain category edit, foreign bytes kept, CONTACT with ALTREP, CREATED at capture; checks/vectors.py validates their shape
-- [ ] pimdir STORAGE.md:620 Annex A.4 wording
-- [ ] `nix flake check path:$PWD` in pimdir, `cargo test --all-features` in io-pimdir
+- [x] io-pimdir: the reader probes `task_summary` columns (`priority`, `categories`, `parent`, `mid`) and reads a missing one as NULL (STORAGE §6); test on a store with the 3b4bed8 `task_summary` shape (fails before the fix)
+- [x] pimdir STORAGE §15: `add` carrying `supersedes: {collection, seq}`, one owner transaction, tombstone push held until the add is pushed; invariants and vectors
+- [x] io-pimdir: implement `supersedes` in mutate.rs and the drain; tests for a parked add (duplicate link id) and a refused push leaving the source in place
+- [x] pimdir STORAGE §15.6: per-collection `x-vtodo` capability; producer gate refuses an add of a VTODO into a collection declaring `none`; io-pimdir implements it
+- [x] pimdir GUIDE §17: the M1 rules (proposal table), CREATED at capture, capture through the queue (fix GUIDE.md:333), move via `supersedes` (GUIDE.md:334)
+- [x] pimdir: writer vectors (input VTODO, operation, expected bytes) for set-state, already-in-state, plain category edit, foreign bytes kept, CONTACT with ALTREP, CREATED at capture; checks/vectors.py validates their shape
+- [x] pimdir STORAGE.md:620 Annex A.4 wording
+- [x] `nix flake check path:$PWD` in pimdir, `cargo test --all-features` in io-pimdir
 
 ## B. Pin alignment (H1)
 
 - [ ] With a git grant: commit and push pimdir and io-pimdir, pin unfog, neverest and calendula to that rev (unfog drops the path dependency at Cargo.toml:73)
-- [ ] Without a grant: unfog keeps the path; neverest and calendula get an uncommitted `[patch]` to ../io-pimdir for local builds only, listed in the morning report
-- [ ] unfog never opens a store as owner implicitly (src/time/place.rs:217): the `local` strategy on pimdir writes through the unbound path without reconcile, or refuses with a clear message
+- [x] Without a grant: unfog keeps the path; neverest and calendula get an uncommitted `[patch]` to ../io-pimdir for local builds only, listed in the morning report
+- [x] unfog never opens a store as owner implicitly (src/time/place.rs:217): the `local` strategy on pimdir writes through the unbound path without reconcile, or refuses with a clear message
 
 ## C. unfog time (H2, H3, M7)
 
-- [ ] H2: DURATION is an end; an entry needs `TRANSP:TRANSPARENT` and a RELATED-TO naming a scope task; regression test with the meeting fixture (fails before)
-- [ ] H3: running entries always local; stop writes the finished entry per strategy as one add; tests for status, stop and a second start before any sync
-- [ ] M7: `migrate` keeps UIDs and skips entries already at the target; resumable test
-- [ ] M7: `worktime` folds categories (regression: "Work" and "work" one row)
-- [ ] M7: place.rs:66 message; `time.account`; bounded retry on the owner lock
+- [x] H2: DURATION is an end; an entry needs `TRANSP:TRANSPARENT` and a RELATED-TO naming a scope task; regression test with the meeting fixture (fails before)
+- [x] H3: running entries always local; stop writes the finished entry per strategy as one add; tests for status, stop and a second start before any sync
+- [x] M7: `migrate` keeps UIDs and skips entries already at the target; resumable test
+- [x] M7: `worktime` folds categories (regression: "Work" and "work" one row)
+- [x] M7: place.rs:66 message; `time.account`; bounded retry on the owner lock
 
 ## D. unfog GTD (M1, M3, M4, M5, M8, low)
 
-- [ ] M1: already-in-state untouched; `task update --category` keeps the state; ordering per the rules; CONTACT ALTREP; CREATED at capture; run pimdir's writer vectors
-- [ ] M3: one scope resolver for every task verb; short ids over every UID listed (regressions from the review: `task done <id from gtd next>`, `clarify ffff`)
-- [ ] M4: partial results, warning, `unreached` in JSON
-- [ ] M5: pending creates in `select_tasks`; editing a pending add refused with a clear code
-- [ ] M8: waiting shows CONTACT and age; review adds waiting over two weeks and reply received; stdin RFC 5322 capture; parent in interactive clarify
-- [ ] Low: one snapshot per command; master-only clarify of recurring tasks; Unicode folding in `task list --category`; `"` in a category refused early
-- [ ] spec/gtd.md, spec/time.md drafts in delta.md; README, config.sample.toml, CHANGELOG
+- [x] M1: already-in-state untouched; `task update --category` keeps the state; ordering per the rules; CONTACT ALTREP; CREATED at capture; run pimdir's writer vectors
+- [x] M3: one scope resolver for every task verb; short ids over every UID listed (regressions from the review: `task done <id from gtd next>`, `clarify ffff`)
+- [x] M4: partial results, warning, `unreached` in JSON
+- [x] M5: pending creates in `select_tasks`; editing a pending add refused with a clear code
+- [x] M8: waiting shows CONTACT and age; review adds waiting over two weeks and reply received; stdin RFC 5322 capture; parent in interactive clarify
+- [x] Low: one snapshot per command; master-only clarify of recurring tasks; Unicode folding in `task list --category`; `"` in a category refused early
+- [x] spec/gtd.md, spec/time.md drafts in delta.md; README, config.sample.toml, CHANGELOG
 
 ## E. unfog provider tests
 
-- [ ] tests/radicale.sh and tests/caldav.rs on journal's pattern (ignored, env URL): capture, foreign task round trip (only CATEGORIES and DTSTAMP change), 412 on a stale If-Match, move, both time strategies, H2 meeting untouched
-- [ ] Live harness: scratch collections `unfog-e2e-<run>-<n>` only, every request URL checked against them, cleanup however the run ends, leftovers swept by prefix
-- [ ] Fastmail: read-only component check, then the Radicale cases plus byte preservation, two CATEGORIES lines kept, same UID in two calendars during a move, RELATED-TO and TRANSP kept, VJOURNAL accepted or not
+- [x] tests/radicale.sh and tests/caldav.rs on journal's pattern (ignored, env URL): capture, foreign task round trip (only CATEGORIES and DTSTAMP change), 412 on a stale If-Match, move, both time strategies, H2 meeting untouched
+- [x] Live harness: scratch collections `unfog-e2e-<run>-<n>` only, every request URL checked against them, cleanup however the run ends, leftovers swept by prefix
+- [x] Fastmail: read-only component check, then the Radicale cases plus byte preservation, two CATEGORIES lines kept, same UID in two calendars during a move, RELATED-TO and TRANSP kept, VJOURNAL accepted or not
 - [ ] Posteo: same cases as Fastmail (no VJOURNAL expected)
 - [ ] Google: CalDAV task capture refused with a clear message; `event` entries in a scratch calendar; RELATED-TO survival; no ETag on PUT handled
-- [ ] Microsoft: tokens and calendars only until M3; record what a Graph calendar keeps of RELATED-TO
-- [ ] pimdir path: neverest on the same io-pimdir rev syncs a scratch calendar into a scratch store (never ~/.local/state/neverest), unfog clarifies over it, sync, server state checked
-- [ ] Results written into the proposal's provider table and the open question on `MOVE`
+- [x] Microsoft: tokens and calendars only until M3; record what a Graph calendar keeps of RELATED-TO
+- [x] pimdir path: neverest on the same io-pimdir rev syncs a scratch calendar into a scratch store (never ~/.local/state/neverest), unfog clarifies over it, sync, server state checked
+- [x] Results written into the proposal's provider table and the open question on `MOVE`
 
 ## F. Android (M1, M2, H4, M6)
 
-- [ ] Its own cairn change; bump io-pimdir; derive `task_summary` at listing and staging; read lists from it
-- [ ] M1 rules and the pimdir writer vectors in rust/src/calendar tests
-- [ ] Moves through `supersedes`; capture targets from the `x-vtodo` capability
-- [ ] E2eTaskTest on `fastmail-caldav` (capture, clarify, file elsewhere, send, wait); Gradle unit tests
+- [x] Its own cairn change; bump io-pimdir; derive `task_summary` at listing and staging; read lists from it
+- [x] M1 rules and the pimdir writer vectors in rust/src/calendar tests
+- [x] Moves through `supersedes`; capture targets from the `x-vtodo` capability
+- [x] E2eTaskTest on `fastmail-caldav` (capture, clarify, file elsewhere, send, wait); Gradle unit tests
 
 ## G. cairn hygiene
 
 - [ ] Fold rust-rewrite M0 to M2 into unfog spec/; open M3 and M4 as their own changes
-- [ ] rust-rewrite proposal: drop the `X-PIMALAYA-GTD` example; gtd-family spec: correct "the app does not sort by it"
-- [ ] unfog .gitignore: `.direnv/`
+- [x] rust-rewrite proposal: drop the `X-PIMALAYA-GTD` example; gtd-family spec: correct "the app does not sort by it"
+- [x] unfog .gitignore: `.direnv/`
 
 ## Notes
+
+- Provisional (0): baseline on 2026-10-28 before any edit: io-pimdir, unfog (130 tests) and pimdir (`nix flake check`) green; neverest, calendula and the Android crate in the morning report. Every repo but neverest already held uncommitted work, left as it was.
+- Provisional (C, H2): the "RELATED-TO naming a task of the scope" rule applies to entries in a collection (`time.collection`), shared with other calendar data; entries of the local place are unfog's own and keep counting once their task is deleted, so the history stays whole. An event whose stated end does not read (a whole-day `DTEND`, a `DURATION` with a year) is no entry rather than a running one, so it is never rewritten.
+- Provisional (C, H3): a stopped entry is written to the strategy's calendar and removed from the local place at once, also on pimdir where the write is a queued add: the pimdir backend now lists a collection's pending adds (handle `q<action id>`, no version, edits refused with the `pending-add` code), so the entry counts before a sync. A refused push leaves it parked in the queue rather than lost. The journal strategy writes the pair at stop (two adds); the delta's "as one add" reads as one write per item.
+- Provisional (C, M7): `migrate` keeps the entry's UID; a journal pair's stop is `<UID>-stop`; a shape conversion inside one calendar (journal to event in `time.collection`) takes `<UID>-event` / `<UID>-journal`, since a calendar holds one item per UID (vdir names the file after it, CalDAV servers refuse a duplicate). Running entries are left in the local place and counted as `running` in the output.
+- Provisional (C, M7): `time.account` names the account holding `time.collection`; the scope opens it as an extra account (its tasks never listed) even under `-a`. `unfog import` spans no scope, so it refuses `time.account` and points at importing under `local` then `migrate`.
+- Provisional (B, box 3): the `local` strategy on pimdir opens the store with io-pimdir's new `PimdirStore::open_current` (no migration, no reconcile; refuses an absent or non-current store), retrying 10 times 200 ms while a sync holds the owner lock. Tested with `flock(1)` holding owner.lock from another process (a same-process handle shares the lock by design).
+- Provisional (A, H1): the reader's probe also covers the query client on the attached store (`priority:` reads a task of such a store as of no priority, `category:` as carrying none) and an item read from its summary; `PimdirStore::open_current` refuses a store whose schema text differs at all (an extra or missing table, index or trigger, `PimdirNotCurrent::Shape`), the same test `open` reconciles by, so a store an older io-pimdir reconciled is refused rather than rebuilt.
+- Provisional (A, H4): the pair an add superseded is a new table, `supersessions` (STORAGE §4.3), not columns on `items`, so a store reconciles without rebuilding `items` (a whole mailbox) and a reader of an older store reads it as empty. The hold is "while the created item is live and a pending create of some source syncing its collection" (`list_superseded_pending`): a create withdrawn or purged releases it, and a collection no source syncs holds nothing. A superseded item already gone lets the add apply alone; one no source binds is retained at once; the producer's gate reads the superseded item's `remove` beside the add's capabilities. A pending superseding add hides the item it replaces in the reader's overlay.
+- Provisional (A, M6): `x-vtodo` keeps the proposal's `x-` name although STORAGE now gives it a meaning; unlike an Annex B capability it is read only where a row states it (no row refuses nothing), so declarations written before it keep passing tasks. The gate covers an `add` or `update` writing a VTODO and a `move` or `copy` of one into the collection; io-pimdir exposes `PimdirReader::accepts_vtodo(collection)`. Who declares it (neverest's CalDAV connector from `supported-calendar-component-set`) is not done here.
+- Provisional (A, M1): an edit that changes a line restates `DTSTAMP` to now (appended after the last property when absent) and `LAST-MODIFIED` only where the task carries one (unfog's `revise` rule; Android's `touch` adds `LAST-MODIFIED` when absent), never `SEQUENCE` or `CREATED`; an edit whose result the task already holds writes nothing and queues nothing. A new line (state, person's categories, contact) goes after the last `CATEGORIES` line for the first two, else after the task's last property, ahead of any nested `VALARM`. A plain category edit trims values, drops empty and fold-repeated ones, and refuses a reserved value; "unchanged" compares the person's values exactly, in document order. `CONTACT` with only an address takes the address as its text. These are GUIDE §17's table and vectors/gtd/writers.json's cases.
+- Provisional (A, M8): `list_replied` leaves out mail under the `sent` or `drafts` role (the person's own reply is no "reply received"); a provider filing sent mail elsewhere too (Gmail's All Mail, role `all`) can still report the person's own reply. Ids compare bare and exactly (Message-IDs are case-sensitive), `PimdirReader::replied` trimming each given id and stripping one pair of angle brackets.
+- Provisional (D, M3): `task read|update|done|undone|delete` search the whole scope; `-l` narrows to one tasklist (no fallback to `tasklist.default` any more for those verbs), `task list` and `task create` keep naming one tasklist of one account. The per-tasklist finder (`find_task`) is gone, its matcher tests moved to a scope test.
+- Provisional (D, M4): every error listing an account counts as "unreached" when the scope spans several accounts; alone, it fails as before. The warning goes through the logger (stderr).
+- Provisional (D, Low): "one snapshot per command" is a listing cached on the `Scope` for the command's life; the interactive clarify walk lists the tasklists once before the walk. No test counts the listings (none could fail before without instrumenting the backends).
+- Provisional (D, M8): Waiting's age counts from `DTSTAMP` (what `clarify --waiting` stamps), so a later edit of a waiting task restarts it. `gtd capture` from stdin detects a message by a first line shaped as a header field and a parsed `Subject` or `Message-ID` (mail-parser, a new unfog dependency, default features off, `full_encoding` on); the body is not copied into the task. A capture's `ATTACH:mid:` percent-encodes what a URI does not take as is. `gtd clarify --parent <TASK>` added beside the interactive prompt, so the flow is scriptable and testable.
+- Provisional (D, M1): `--contact "Name <address>"` writes `CONTACT;ALTREP="mailto:address":Name`, a bare address `CONTACT;ALTREP="mailto:address":address`, as the Android writer does (rust/src/calendar/edit.rs:337). A plain `--category` edit places the new categories where the first own category stood, beside that line's reserved values; a line of reserved values alone keeps its bytes; reserved values are refused through `--category`. The capture writes `inbox` through the state writer, so the reserved rule holds there too.
+- Provisional (D, H4 in unfog): within one pimdir account a clarify move stages one `add` with `supersedes`; the backend hides the superseded source from listings until the drain tombstones it. A move across accounts keeps create-then-remove.
+- Provisional (D, M1 vectors): unfog runs pimdir's vectors/gtd/writers.json in src/shared/task/vectors.rs (all 18 cases pass; a corrupted fixture makes it fail), reading ../pimdir/vectors/gtd or `UNFOG_PIMDIR_VECTORS`, passing over them when neither exists. `gtd clarify` with a state alone goes through the same `set_state` writer the vectors check.
+- Provisional (D, M6 in unfog): the pimdir backend's tasklist listing leaves out a calendar for which `PimdirReader::accepts_vtodo` is false; it stays reachable by id (a `time.collection` on an events-only calendar). Declaring `x-vtodo` from a CalDAV server's `supported-calendar-component-set` is neverest's and not done (track A note).
+- Provisional (B, box 2): neverest and calendula build ../io-pimdir through an uncommitted `io-pimdir = { path = "../io-pimdir" }` in their `[patch.crates-io]` (replacing the 3b4bed8 git line, kept in a comment); their Cargo.lock loses the git `source` of io-pimdir. The only API drift met was `PimdirAction::Add::supersedes` (struct literals take `supersedes: None`: neverest src/offline/driver.rs 4 sites, tests/common/mod.rs, tests/drain.rs; calendula src/pimdir/backend.rs); `PimdirLoaded::held`, `PimdirListing::Head` and the rest compiled as they were.
+- Provisional (B, M6 in neverest): neverest cairn/changes/an-events-only-calendar-declares-no-tasks. A CalDAV calendar whose `supported-calendar-component-set` names components but not VTODO is declared `x-vtodo` `none` on that collection; no set stated (any component) or one naming VTODO gets no row, and no `full` row is written anywhere. Since every declaration replaces the source's and the one before the drain opens no endpoint, a local-mode run records those calendars in neverest's sidecar (neverest.json `taskless`, by source, replaced at each listing) and `declare` (and `neverest drain`) read it. Left out: accounts with targets (run_pair records nothing, targets are never declared) and Google Calendar or Graph calendar sources (no source-wide `x-vtodo` `none` for them yet).
+- Provisional (E): the CalDAV suite (tests/caldav.rs) runs one test at a time (a process lock: every test lists the whole home); the "read-only component check" on Fastmail is done on scratch calendars (one per component, the set each states read back), so no existing calendar is read. The live guard (tests/live-guard.py, mitmproxy reverse mode) forwards only requests inside `unfog-e2e-` collections, a depth 0 or 1 PROPFIND of the home (its multistatus cut to the scratch collections) and a depth 0 PROPFIND of the principal; every other request answers 403 and is logged, failing the run.
+- Provisional (E, Posteo, box left open): Posteo refuses MKCALENDAR and calendar DELETE over CalDAV (403, "please use the 'Settings' pages in Posteo's webmailer"), so no Fastmail case can run there without an existing calendar, which the grant forbids. Left open, recorded in the provider table.
+- Provisional (E, Google, box left open): unfog cannot address a Google calendar but the primary: io-webdav names a calendar by its last href segment (`events` for every Google calendar) and addresses `<home>/<id>`. A capture into the scratch calendar was sent to the primary's path and refused by the guard; nothing was written. unfog now refuses an id several listed calendars share and a VTODO into a calendar stating none, but `event` entries in a Google calendar need io-webdav to address calendars by href, and Google drops RELATED-TO anyway (raw PUT read back). Left open.
+- Provisional (E, fixes found by the suite): Radicale answers `Connection: close` after a PUT and io-webdav keeps the dead connection; unfog's CalDAV backend now reconnects once to the cached home-set when a request meets a closed connection (only then: the request never reached the server). The proper fix is io-webdav honouring `Connection: close`.
+- Provisional (G, fold): "Fold rust-rewrite M0 to M2 into unfog spec/" is left undone: tonight's instruction was never to fold, log or archive. Its second half is done: cairn/changes/microsoft-todo and cairn/changes/google-tasks are open (proposal and tasks each, the M3 and M4 items moved there, rust-rewrite's tasks.md pointing at them).
+- Provisional (G, gtd-family): the landed gtd-family proposal keeps its text with a dated correction appended to the sentence on sorting; the spec's sort requirement is corrected in this change's delta (Next by due, priority, captured), to be folded with it.
+- Provisional (G, .gitignore and index): `.direnv/` is already ignored in HEAD, the index and the working tree, and the index no longer holds .direnv/bin/nix-direnv-reload, src/gtd/cli.rs or src/time/cli.rs in the states the proposal's Low item names (checked on 2026-10-29 with read-only git): nothing to change.
+- Provisional (F, bump): android cairn/changes/gtd-hardening. rust/Cargo.toml's `[patch.crates-io]` takes an uncommitted `io-pimdir = { path = "../../io-pimdir" }` for local builds only (the 189db40 git line kept in a comment; Cargo.lock loses io-pimdir's git `source`). Drift adapted: the task row's `priority`, `categories`, `parent`, `mid` on the bridge's summary wire; `PimdirLoaded::held`, filled by the Java store's load through `list_superseded_pending`; `SetRoundCursor::cursor` an `Option`; `PimdirListing::Head` written as a `head` kind no connector reads (the bridge syncs with `PimdirHeads::NONE`). The Java store does not record io-pimdir's attachment stand-ins (its own write path's), as before.
+- Provisional (F, M2): the Tasks tab finds its to-dos as the items holding a `task_summary` row (canonical `list_tasks_page_asc`) and reads only their bodies; a task's fields still come from its body, the row holding no `CONTACT`, `CREATED` or `DESCRIPTION`. Calendar items holding no summary row are derived once at the tab's load, off the main thread. Listing (CalendarEngine, the phone's CalendarRemote) and staging (CalendarStager, when a caller states none) carry the derived summary and sort key; the link id stays the resource name, Android's identity, not the derived `UID`.
+- Provisional (F, M1): GUIDE §17's writing applies to every to-do edit on Android, from the agenda's entry page too; an event's edit writes as before. The app sends the person's categories comma-separated, so its vector runner joins `set-categories` values with `,` (no vector value holds one); a categories edit naming a reserved value is refused and the save says so. rust/src/calendar/vectors.rs reads ../../pimdir/vectors/gtd or `PIMALAYA_PIMDIR_VECTORS`: 18 of 18 pass, 16 of 18 failed against the writers at f506a1c.
+- Provisional (F, H4): Android has no queue: a move is one Java transaction (`PimdirStorage.atomically`) over the engine's add, `supersede_item`, then the tombstone, so a source never pushed is withdrawn with its pair; the hold is the engine's, from the load's `held`, and needs the target synced once. The filed item keeps the source's link id (the name the target is asked to file it by). A 403 on a create still fails that calendar's pass (only 422 and 412 are rejections), the create retried each pass; on Fastmail (UID per calendar home) a move between two of its calendars thus never lands, the task kept in its source.
+- Provisional (F, M6): Android is its own connector: the CalDAV listing reads `supported-calendar-component-set` (io-webdav `components`), and EventStore declares `x-vtodo` per collection on the `server` source, `none` for a set without VTODO and `full` otherwise, with `set_capability` (never `delete_capabilities`, that source being every account's); `takesTasks` reads `load_capabilities`, so before a calendar's first sync nothing refuses. A Fastmail calendar made with no component set states one without VTODO (found live on 2026-10-29) and is not offered for tasks.
+- Provisional (F, E2E): E2eTaskTest is a Robolectric JVM test, no device: run live on 2026-10-29 on `fastmail-caldav` with `-Pe2e.prefix=unfog-e2e-` (new harness property; the Android suite's default stays `pimalaya-e2e-`), its passes syncing only its two scratch calendars `unfog-e2e-<yyyyMMddHHmmss>-<hex6>-<n>` (stated VEVENT and VTODO), deleted after; passed: capture, clarify into Waiting and Next, send-and-wait's Waiting item read back by a second device, filing elsewhere refused 403 with the source kept. Its stale sweep parses a timestamp after the prefix, so it never sweeps unfog's epoch-named runs.
+- B, 2026-10-29: with the commit grant, pimdir (master, after cf5336f) and io-pimdir 1df2b7063d8fe03c28d9b5ec69badb669e6902c3 are committed, and unfog, neverest, calendula and Android pin io-pimdir to that rev (the path entries dropped); tested by fetching the rev from the local checkout. Box 1 stays open until both are pushed, since nothing can fetch the rev before.

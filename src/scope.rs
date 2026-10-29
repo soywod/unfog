@@ -12,9 +12,11 @@
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
-use log::debug;
+use log::{debug, warn};
 use pimalaya_cli::printer::Printer;
 use pimalaya_config::toml::TomlConfig;
+use schemars::JsonSchema;
+use serde::Serialize;
 
 use crate::{
     backend::Backend,
@@ -23,14 +25,36 @@ use crate::{
     shared::{
         client::TaskClient,
         item::TaskItem,
-        task::{Task, find::undashed},
+        task::{
+            Task,
+            find::{short_len, undashed},
+        },
     },
 };
 
 /// The accounts a command spans, each with its backend client.
 pub struct Scope {
-    /// The accounts, the default one first, then by name.
+    /// The accounts, the default one first, then by name, then the
+    /// extra ones [`open`](Self::open) added.
     pub accounts: Vec<ScopeAccount>,
+    /// The configuration the accounts were opened from.
+    config: Config,
+    /// The backend each account is opened through.
+    backend: Backend,
+    /// The listing of every task, once taken.
+    snapshot: Option<Vec<Located>>,
+    /// The accounts that listing could not reach.
+    unreached: Vec<Unreached>,
+}
+
+/// An account a listing could not reach.
+#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Unreached {
+    /// The account's name.
+    pub account: String,
+    /// Why it could not be listed.
+    pub error: String,
 }
 
 /// One account of a [`Scope`].
@@ -39,6 +63,9 @@ pub struct ScopeAccount {
     pub name: String,
     /// The client of the backend selected for it.
     pub client: TaskClient,
+    /// Whether it was opened for its calendar alone (`time.account`),
+    /// outside the accounts the command spans: its tasks are not listed.
+    pub extra: bool,
 }
 
 /// A task found in a scope, with where it lives.
@@ -81,6 +108,7 @@ impl Scope {
         names.sort();
 
         let mut accounts = Vec::with_capacity(names.len());
+        let all = config.clone();
 
         for (_, name) in names {
             let mut config = config.clone();
@@ -92,7 +120,11 @@ impl Scope {
             config.accounts.clear();
 
             match TaskClient::new(config, account_config, backend) {
-                Ok(client) => accounts.push(ScopeAccount { name, client }),
+                Ok(client) => accounts.push(ScopeAccount {
+                    name,
+                    client,
+                    extra: false,
+                }),
                 Err(err) if account_name.is_none() => {
                     debug!("leaving account `{name}` out: {err}");
                 }
@@ -104,13 +136,51 @@ impl Scope {
             bail!("No account configured with a backend matching `{backend}`");
         }
 
-        Ok(Self { accounts })
+        Ok(Self {
+            accounts,
+            config: all,
+            backend,
+            snapshot: None,
+            unreached: Vec::new(),
+        })
     }
 
     /// Whether the scope spans more than one account, which a listing
     /// then names.
     pub fn is_multi(&self) -> bool {
-        self.accounts.len() > 1
+        self.accounts
+            .iter()
+            .filter(|account| !account.extra)
+            .count()
+            > 1
+    }
+
+    /// The index of the account named `name`, opening it as an extra
+    /// account when the scope does not span it: the account a
+    /// `time.account` names, say, while `-a` narrows the scope.
+    pub fn open(&mut self, name: &str) -> Result<usize> {
+        if let Some(index) = self
+            .accounts
+            .iter()
+            .position(|account| account.name == name)
+        {
+            return Ok(index);
+        }
+
+        let mut config = self.config.clone();
+        let Some((name, account_config)) = config.take_account(Some(name))? else {
+            bail!("Cannot find account `{name}`");
+        };
+        config.accounts.clear();
+
+        let client = TaskClient::new(config, account_config, self.backend)?;
+        self.accounts.push(ScopeAccount {
+            name,
+            client,
+            extra: true,
+        });
+
+        Ok(self.accounts.len() - 1)
     }
 
     /// The name of the account at `index`.
@@ -136,31 +206,75 @@ impl Scope {
     }
 
     /// Every task of every tasklist of the scope whose status and
-    /// categories `keep` accepts.
+    /// categories `keep` accepts, from the scope's one listing.
     pub fn select(
         &mut self,
         keep: &dyn Fn(Option<&str>, &[String]) -> bool,
     ) -> Result<Vec<Located>> {
-        let mut found = Vec::new();
-
-        for (index, account) in self.accounts.iter_mut().enumerate() {
-            for tasklist in account.client.list_tasklists()? {
-                let tasks = account.client.select_tasks(&tasklist.id, keep)?;
-
-                found.extend(tasks.into_iter().map(|task| Located {
-                    account: index,
-                    tasklist: tasklist.id.clone(),
-                    task,
-                }));
-            }
-        }
-
-        Ok(found)
+        Ok(self
+            .snapshot()?
+            .iter()
+            .filter(|found| keep(found.task.status.as_deref(), &found.task.categories))
+            .cloned()
+            .collect())
     }
 
     /// Every task of the scope.
     pub fn tasks(&mut self) -> Result<Vec<Located>> {
-        self.select(&|_, _| true)
+        Ok(self.snapshot()?.to_vec())
+    }
+
+    /// Every task of every tasklist of every account the scope spans,
+    /// listed once per command and kept: the views, the short ids and the
+    /// lookups of one command all read the same listing.
+    ///
+    /// An account that cannot be listed while the scope spans several is
+    /// left out, warned about and kept in [`unreached`](Self::unreached):
+    /// one dead server never hides the others. Alone, it fails.
+    pub fn snapshot(&mut self) -> Result<&[Located]> {
+        if self.snapshot.is_none() {
+            let spanned = self.accounts.iter().filter(|a| !a.extra).count();
+            let mut found = Vec::new();
+            let mut unreached = Vec::new();
+
+            for (index, account) in self.accounts.iter_mut().enumerate() {
+                if account.extra {
+                    continue;
+                }
+
+                match list(index, &mut account.client) {
+                    Ok(tasks) => found.extend(tasks),
+                    Err(err) if spanned > 1 => {
+                        warn!(
+                            "leaving account `{}` out, it cannot be listed: {err:#}",
+                            account.name
+                        );
+                        unreached.push(Unreached {
+                            account: account.name.clone(),
+                            error: format!("{err:#}"),
+                        });
+                    }
+                    Err(err) => return Err(err),
+                }
+            }
+
+            self.unreached = unreached;
+            self.snapshot = Some(found);
+        }
+
+        Ok(self.snapshot.as_deref().unwrap_or_default())
+    }
+
+    /// The accounts the last listing could not reach.
+    pub fn unreached(&self) -> &[Unreached] {
+        &self.unreached
+    }
+
+    /// The length of the short ids telling apart every `UID` of the
+    /// scope, so a short id a view prints works with every verb.
+    pub fn short_len(&mut self) -> Result<usize> {
+        let tasks = self.snapshot()?;
+        Ok(short_len(tasks.iter().map(|found| found.task.uid.as_str())))
     }
 
     /// Finds the task `query` names across the scope: by the handle of its
@@ -169,13 +283,26 @@ impl Scope {
     /// A prefix matching several tasks is refused naming them, never
     /// guessed.
     pub fn find(&mut self, query: &str) -> Result<Located> {
+        self.find_in(query, None)
+    }
+
+    /// Finds the task `query` names across the scope, in the tasklist
+    /// `tasklist` alone when given (`-l`).
+    ///
+    /// A task not found while an account was unreached is refused naming
+    /// it: it may be there.
+    pub fn find_in(&mut self, query: &str, tasklist: Option<&str>) -> Result<Located> {
         let query = query.trim();
 
         if query.is_empty() {
             bail!("Cannot find a task from an empty id");
         }
 
-        let tasks = self.tasks()?;
+        let tasks: Vec<Located> = self
+            .tasks()?
+            .into_iter()
+            .filter(|found| tasklist.is_none_or(|id| found.tasklist == id))
+            .collect();
 
         let by_handle: Vec<&Located> = tasks
             .iter()
@@ -202,6 +329,18 @@ impl Scope {
         });
 
         match matching.as_slice() {
+            [] if !self.unreached.is_empty() => {
+                let names: Vec<&str> = self
+                    .unreached
+                    .iter()
+                    .map(|unreached| unreached.account.as_str())
+                    .collect();
+                bail!(
+                    "Cannot find task `{query}` in the accounts reached; {} could not be \
+                     listed and may hold it",
+                    names.join(", ")
+                )
+            }
             [] => bail!("Cannot find task `{query}`"),
             [found] => Ok((*found).clone()),
             several => {
@@ -224,10 +363,36 @@ impl Scope {
         }
     }
 
+    /// Finds the task `query` names, in the tasklist `tasklist` alone
+    /// when given, and reads the item holding it afresh: what a verb
+    /// writing one task starts from.
+    pub fn locate(&mut self, query: &str, tasklist: Option<&str>) -> Result<(Located, TaskItem)> {
+        let found = self.find_in(query, tasklist)?;
+        let item = self.item(&found)?;
+        Ok((found, item))
+    }
+
     /// The item holding a located task, read afresh so its entity tag
     /// guards the write that follows.
     pub fn item(&mut self, found: &Located) -> Result<TaskItem> {
         self.client(found.account)
             .get_item(&found.tasklist, &found.task.id)
     }
+}
+
+/// Every task of every tasklist of the account at `index`.
+fn list(index: usize, client: &mut TaskClient) -> Result<Vec<Located>> {
+    let mut found = Vec::new();
+
+    for tasklist in client.list_tasklists()? {
+        let tasks = client.select_tasks(&tasklist.id, &|_, _| true)?;
+
+        found.extend(tasks.into_iter().map(|task| Located {
+            account: index,
+            tasklist: tasklist.id.clone(),
+            task,
+        }));
+    }
+
+    Ok(found)
 }

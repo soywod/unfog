@@ -11,10 +11,9 @@ use pimalaya_cli::printer::Printer;
 use schemars::JsonSchema;
 use serde::Serialize;
 
-use crate::shared::{
-    arg::TasklistIdArg,
-    client::TaskClient,
-    task::{Task, find::find_task},
+use crate::{
+    scope::Scope,
+    shared::{arg::TasklistFilterArg, task::Task},
 };
 
 /// Read a single task.
@@ -27,7 +26,7 @@ use crate::shared::{
 #[derive(Debug, Parser)]
 pub struct TaskReadCommand {
     #[command(flatten)]
-    pub tasklist: TasklistIdArg,
+    pub tasklist: TasklistFilterArg,
     /// Print the stored iCalendar bytes instead of the fields.
     #[arg(long)]
     pub raw: bool,
@@ -37,9 +36,8 @@ pub struct TaskReadCommand {
 }
 
 impl TaskReadCommand {
-    pub fn execute(self, printer: &mut impl Printer, mut client: TaskClient) -> Result<()> {
-        let tasklist_id = client.account.tasklist_id(self.tasklist.id)?;
-        let item = find_task(&mut client, &tasklist_id, &self.task)?;
+    pub fn execute(self, printer: &mut impl Printer, mut scope: Scope) -> Result<()> {
+        let (_, item) = scope.locate(&self.task, self.tasklist.id.as_deref())?;
 
         let Some(task) = Task::project(&item).into_iter().next() else {
             bail!("Item `{}` holds no VTODO", item.id);

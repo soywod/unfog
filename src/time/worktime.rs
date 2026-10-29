@@ -19,7 +19,7 @@ use crate::{
     scope::Scope,
     shared::task::{
         find::{short_id, short_len},
-        gtd::{GtdState, same},
+        gtd::{GtdState, fold, same},
     },
     time::{collect, duration},
 };
@@ -70,7 +70,7 @@ impl WorktimeCommand {
         let since = self.since.as_deref().map(bound).transpose()?;
         let until = self.until.as_deref().map(bound).transpose()?;
 
-        let entries = collect(&mut scope)?;
+        let entries = collect(&mut scope)?.entries;
         let tasks = scope.tasks()?;
 
         let mut per_task: BTreeMap<String, WorktimeTask> = BTreeMap::new();
@@ -121,17 +121,30 @@ impl WorktimeCommand {
         }
         tasks.sort_by(|a, b| b.seconds.cmp(&a.seconds).then(a.summary.cmp(&b.summary)));
 
-        let mut per_category: BTreeMap<String, i64> = BTreeMap::new();
+        // NOTE: two spellings of one category are one row, shown as the
+        // first met, and a task carrying both counts once in it.
+        let mut per_category: BTreeMap<String, WorktimeCategory> = BTreeMap::new();
         for task in &tasks {
+            let mut counted = Vec::new();
+
             for category in &task.categories {
-                *per_category.entry(category.clone()).or_default() += task.seconds;
+                let folded = fold(category);
+                if counted.contains(&folded) {
+                    continue;
+                }
+
+                per_category
+                    .entry(folded.clone())
+                    .or_insert_with(|| WorktimeCategory {
+                        category: category.clone(),
+                        seconds: 0,
+                    })
+                    .seconds += task.seconds;
+                counted.push(folded);
             }
         }
 
-        let mut categories: Vec<WorktimeCategory> = per_category
-            .into_iter()
-            .map(|(category, seconds)| WorktimeCategory { category, seconds })
-            .collect();
+        let mut categories: Vec<WorktimeCategory> = per_category.into_values().collect();
         categories.sort_by(|a, b| b.seconds.cmp(&a.seconds).then(a.category.cmp(&b.category)));
 
         Ok(WorktimeOutput {

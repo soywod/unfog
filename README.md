@@ -19,17 +19,19 @@ Unfog 2, rewritten in Rust (the `src/` crate), is a GTD task manager over plain 
 A task's state is one of three reserved categories, `inbox`, `waiting` and `someday`, compared case-insensitively; every other category is your own (contexts, projects). A next action is an open task carrying none of the three, so a to-do another client wrote is one.
 
 ```sh
-unfog gtd capture "Call Jo about the lease"   # or pipe a text to stdin
+unfog gtd capture "Call Jo about the lease"   # or pipe a text, or a mail, to stdin
 unfog gtd inbox
 unfog gtd clarify                             # walk the Inbox, one task at a time
 unfog gtd clarify 4c1e --next -C phone --due 2026-11-02 --priority 2
 unfog gtd next -C phone
 unfog gtd waiting
 unfog gtd someday
-unfog gtd review                              # counts, then every view
+unfog gtd review                              # counts, every view, who to chase
 ```
 
-The views show each task's priority (`PRIORITY`, 1 the highest, set with `--priority` on `gtd clarify` or `task update`) without sorting by it: GTD picks a next action by context, time and energy first. The views span every configured account (`-a` narrows them to one), and `--json` prints each as JSON, its schema given by `unfog json-schema`.
+Next lists due tasks first, then by priority (`PRIORITY`, 1 the highest, set with `--priority` on `gtd clarify` or `task update`), then the oldest captured; the other views list the oldest captured first. Waiting shows who each task waits on and for how long, and `gtd review` ends with the tasks waiting over two weeks and, on pimdir, those whose mail got a reply. The views span every configured account (`-a` narrows them to one): an account that cannot be reached is warned about and the others still listed. `--json` prints each view as JSON, its schema given by `unfog json-schema`.
+
+The short id a view prints tells apart every task of every account, so `task done`, `task update` and every other verb taking a task accept it, finding the task across every account and tasklist (`-a` and `-l` narrow the search). A mail piped to `gtd capture` gives its subject as the summary and a link back to it (`ATTACH:mid:`). `task update --category` replaces your own categories and keeps the GTD state; a task already in the state a clarification asks is left untouched. On a pimdir store a capture shows at once, before the next sync, and a move waits for the sync to push the task where it goes before removing it where it was.
 
 ### Time tracking
 
@@ -40,15 +42,15 @@ unfog task stop
 unfog worktime --since 2026-10-26 -C work
 ```
 
-One entry runs at a time: a start stops the running one first. Where an entry goes is `time.strategy`, per account:
+One entry runs at a time: a start stops the running one first. A running entry waits on the device, so `task status` sees it before any sync; `task stop` writes it finished where `time.strategy` says, per account:
 
 | Strategy | Entry | Where | Synced |
 | --- | --- | --- | --- |
 | `local` (default) | a VEVENT | the pimdir store's local time collection on the pimdir backend, else `time.directory` (`$XDG_DATA_HOME/unfog/time`) | no |
-| `event` | a VEVENT (`DTSTART`, `DTEND` once stopped, `TRANSP:TRANSPARENT`, `RELATED-TO` the task) | the tasklist `time.collection` names | yes |
-| `journal` | a pair of VJOURNALs, `CATEGORIES:start` and `stop` | the tasklist `time.collection` names | where the server takes VJOURNAL |
+| `event` | a VEVENT (`DTSTART`, `DTEND` once stopped, `TRANSP:TRANSPARENT`, `RELATED-TO` the task) | the calendar `time.collection` names, of the account `time.account` names when set | yes |
+| `journal` | a pair of VJOURNALs, `CATEGORIES:start` and `stop` | the calendar `time.collection` names, of the account `time.account` names when set | where the server takes VJOURNAL |
 
-Track time on more than one device with `event`. `worktime` reads every place an account keeps entries in, so a history survives a switch, and `unfog migrate --to event` moves the entries. See config.sample.toml for every option.
+Track time on more than one device with `event`. Give `time.collection` a calendar of its own that accepts VEVENT: only transparent events relating to a task count as entries, and any other event there is left alone. `worktime` reads every place an account keeps entries in, so a history survives a switch, and `unfog migrate --to event` moves the entries, keeping their UID, so a run cut short resumes. See config.sample.toml for every option.
 
 ## Unfog 1 (Haskell)
 
