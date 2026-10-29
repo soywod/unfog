@@ -25,7 +25,7 @@ Tracks run in this order; a track in another repo opens its own cairn change the
 
 ## B. Pin alignment (H1)
 
-- [ ] With a git grant: commit and push pimdir and io-pimdir, pin unfog, neverest and calendula to that rev (unfog drops the path dependency at Cargo.toml:73)
+- [x] With a git grant: commit and push pimdir and io-pimdir, pin unfog, neverest and calendula to that rev (unfog drops the path dependency at Cargo.toml:73)
 - [x] Without a grant: unfog keeps the path; neverest and calendula get an uncommitted `[patch]` to ../io-pimdir for local builds only, listed in the morning report
 - [x] unfog never opens a store as owner implicitly (src/time/place.rs:217): the `local` strategy on pimdir writes through the unbound path without reconcile, or refuses with a clear message
 
@@ -52,8 +52,8 @@ Tracks run in this order; a track in another repo opens its own cairn change the
 - [x] tests/radicale.sh and tests/caldav.rs on journal's pattern (ignored, env URL): capture, foreign task round trip (only CATEGORIES and DTSTAMP change), 412 on a stale If-Match, move, both time strategies, H2 meeting untouched
 - [x] Live harness: scratch collections `unfog-e2e-<run>-<n>` only, every request URL checked against them, cleanup however the run ends, leftovers swept by prefix
 - [x] Fastmail: read-only component check, then the Radicale cases plus byte preservation, two CATEGORIES lines kept, same UID in two calendars during a move, RELATED-TO and TRANSP kept, VJOURNAL accepted or not
-- [ ] Posteo: same cases as Fastmail (no VJOURNAL expected)
-- [ ] Google: CalDAV task capture refused with a clear message; `event` entries in a scratch calendar; RELATED-TO survival; no ETag on PUT handled
+- [ ] Posteo: same cases as Fastmail (no VJOURNAL expected) (moved to cairn/changes/provider-tests-posteo-google on landing)
+- [ ] Google: CalDAV task capture refused with a clear message; `event` entries in a scratch calendar; RELATED-TO survival; no ETag on PUT handled (moved to cairn/changes/provider-tests-posteo-google on landing)
 - [x] Microsoft: tokens and calendars only until M3; record what a Graph calendar keeps of RELATED-TO
 - [x] pimdir path: neverest on the same io-pimdir rev syncs a scratch calendar into a scratch store (never ~/.local/state/neverest), unfog clarifies over it, sync, server state checked
 - [x] Results written into the proposal's provider table and the open question on `MOVE`
@@ -67,7 +67,7 @@ Tracks run in this order; a track in another repo opens its own cairn change the
 
 ## G. cairn hygiene
 
-- [ ] Fold rust-rewrite M0 to M2 into unfog spec/; open M3 and M4 as their own changes
+- [x] Fold rust-rewrite M0 to M2 into unfog spec/; open M3 and M4 as their own changes
 - [x] rust-rewrite proposal: drop the `X-PIMALAYA-GTD` example; gtd-family spec: correct "the app does not sort by it"
 - [x] unfog .gitignore: `.direnv/`
 
