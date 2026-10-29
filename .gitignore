@@ -5,3 +5,4 @@ dist-newstyle
 /target
 .direnv/
 .envrc
+__pycache__/
