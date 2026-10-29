@@ -95,6 +95,7 @@ if [ "$target" = fastmail ]; then
     : >"$work/guard.log"
     UNFOG_E2E_HOME=$home UNFOG_E2E_GUARD_LOG=$work/guard.log \
         UNFOG_E2E_PRINCIPAL=/dav/principals/user/$user/ \
+        UNFOG_E2E_GUARD_EMPTY=${home}Inbox/ \
         UNFOG_E2E_UPSTREAM_HOST=caldav.fastmail.com \
         nix-shell -p mitmproxy --run "mitmdump -q --listen-host 127.0.0.1 -p $port \
             --mode reverse:$upstream -s tests/live-guard.py" &
@@ -163,6 +164,15 @@ has "$(uf gtd next)" pimdir-1@other.example
 # NOTE: the store names a calendar after its source: `caldav/<calendar>`.
 uf gtd clarify pimdir-2 --next --to "caldav/$to" >/dev/null
 
+# How many resources of the target hold pimdir-2, by their bodies: a moved
+# task keeps its source's resource name, a created one takes its UID's.
+in_target() {
+    http "-X REPORT -H 'Depth: 1' -H 'Content-Type: application/xml' --data \
+'<c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop>\
+<c:calendar-data/></d:prop><c:filter><c:comp-filter name=\"VCALENDAR\"/></c:filter>\
+</c:calendar-query>' '$base$home$to/'" | grep -c 'UID:pimdir-2@other.example' || true
+}
+
 echo "== second sync"
 # NOTE: a warning makes neverest exit non-zero; the state is checked
 # whatever it says.
@@ -178,7 +188,7 @@ echo "$served" | grep -qx 'X-OTHER-CLIENT-STATE:kept' || { echo "$served" >&2; e
 echo "clarified: CATEGORIES and the X- line as expected on the server"
 
 source_left=$(http "-o /dev/null -w '%{http_code}' '$base$home$from/move.ics'")
-target_listing=$(http "-X PROPFIND -H 'Depth: 1' '$base$home$to/'" | grep -c 'pimdir-2' || true)
+target_listing=$(in_target)
 echo "move: source GET $source_left, target holds it: $target_listing"
 echo "move: unfog lists it in $(uf gtd next | tr '{' '\n' | grep pimdir-2 | grep -o '"tasklist":"[^"]*"')"
 grep -iE 'park|refus|error|warn' "$work/sync2.out" | head -5 || true
@@ -186,12 +196,13 @@ grep -iE 'park|refus|error|warn' "$work/sync2.out" | head -5 || true
 echo "== third sync: the held delete goes once its add was pushed"
 nv sync >"$work/sync3.out" 2>&1 || echo "third sync exited $?"
 source_left=$(http "-o /dev/null -w '%{http_code}' '$base$home$from/move.ics'")
-target_listing=$(http "-X PROPFIND -H 'Depth: 1' '$base$home$to/'" | grep -c 'pimdir-2' || true)
+target_listing=$(in_target)
 echo "move: source GET $source_left, target holds it: $target_listing, after the third sync"
 
-# NOTE: either the add was pushed and the held delete followed, or the
-# server refused the add (one UID per home, Fastmail) and the task stays
-# where it was: never both gone, never the delete alone.
+# NOTE: either the add was delivered (by a MOVE where the server has one,
+# so Fastmail, keeping one UID per account, takes it) and the held delete
+# followed, or the server refused the add and the task stays where it was:
+# never both gone, never the delete alone.
 if [ "$target_listing" -ge 1 ]; then
     [ "$source_left" = 404 ] || { cat "$work/sync3.out" >&2; exit 1; }
 else

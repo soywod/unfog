@@ -17,6 +17,10 @@
 #   cut down to the home and the scratch collections, so no client ever
 #   sees another collection of the account;
 # - a PROPFIND of depth 0 on the principal UNFOG_E2E_PRINCIPAL names.
+# - a PROPFIND of depth 0 on the path UNFOG_E2E_GUARD_EMPTY names, answered
+#   here with an empty multistatus, never forwarded: a probe a client takes
+#   as stating nothing (neverest asks the scheduling inbox for a default
+#   calendar), which must not hand it a collection outside the run's.
 #
 # Nothing here logs a header: credentials pass through, never written.
 
@@ -33,6 +37,7 @@ LOG = os.environ["UNFOG_E2E_GUARD_LOG"]
 ALLOW = os.environ.get("UNFOG_E2E_GUARD_ALLOW", "")
 UPSTREAM = os.environ.get("UNFOG_E2E_UPSTREAM_HOST", "")
 PROTECT = os.environ.get("UNFOG_E2E_GUARD_PROTECT", "")
+EMPTY = os.environ.get("UNFOG_E2E_GUARD_EMPTY", "")
 READS = {"GET", "HEAD", "OPTIONS", "PROPFIND", "REPORT"}
 
 RESPONSE = re.compile(
@@ -100,6 +105,12 @@ def request(flow: http.HTTPFlow) -> None:
     method = flow.request.method.upper()
     depth = flow.request.headers.get("Depth", "0").strip()
 
+    if EMPTY and path.rstrip("/") == EMPTY.rstrip("/") and method == "PROPFIND" and depth == "0":
+        flow.response = http.Response.make(
+            207, b'<?xml version="1.0"?><d:multistatus xmlns:d="DAV:"/>',
+            {"Content-Type": "application/xml; charset=utf-8"},
+        )
+        return
     if is_protected(path) and method not in READS:
         refuse(flow, "a lent collection or an item it held before the run")
         return
