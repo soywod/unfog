@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `task update --category` replaces the person's own categories and keeps the GTD state; a clarification of a task already in that state writes nothing; `--contact` given an address writes it as `ALTREP="mailto:..."`.
 - A running time entry always waits on the device, so `task status` sees it before any sync; `task stop` writes it finished where `time.strategy` says. `migrate` keeps each entry's UID and resumes a run cut short.
 - On pimdir a move is one `add` superseding the source, removed only once the add was pushed.
+- On CalDAV a move within one account is a WebDAV `MOVE` then a write of the clarified body, so a server keeping one UID per account (Fastmail) takes it; one without `MOVE` (Google) gets a create then a remove. A Google secondary calendar is addressed by its own path, never as the primary calendar.
 
 ### Fixed
 

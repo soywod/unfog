@@ -265,9 +265,9 @@ impl TaskClient {
     /// Moves the item `item_id` of `from` to `to` within this account, as
     /// `contents`, in one write where the backend has one: on pimdir an
     /// `add` superseding the source (pimdir STORAGE §15), so the source is
-    /// removed only once the add was pushed. `None` where the backend
-    /// has none, the caller then creating in the target and removing the
-    /// source once the create was accepted.
+    /// removed only once the add was pushed; on CalDAV a WebDAV `MOVE`.
+    /// `None` where the backend has none, the caller then creating in the
+    /// target and removing the source once the create was accepted.
     pub fn move_item(
         &mut self,
         from: &str,
@@ -282,6 +282,12 @@ impl TaskClient {
             return client
                 .move_item(from, item_id, to, contents, if_match)
                 .map(Some);
+        }
+
+        #[cfg(feature = "caldav")]
+        #[allow(irrefutable_let_patterns)]
+        if let BackendClient::Caldav(client) = self.open()? {
+            return client.move_item(from, item_id, to, contents, if_match);
         }
 
         let _ = (from, item_id, to, contents, if_match);

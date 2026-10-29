@@ -9,7 +9,10 @@
 # - any method on a path inside the calendar home whose first segment
 #   starts with `unfog-e2e-`, or on a path listed in the file
 #   UNFOG_E2E_GUARD_ALLOW names (one prefix per line, for providers whose
-#   scratch ids carry no prefix);
+#   scratch ids carry no prefix), but on a path listed in the file
+#   UNFOG_E2E_GUARD_PROTECT names, exactly, only a read (GET, HEAD, OPTIONS,
+#   PROPFIND, REPORT): a calendar a provider lends the run and the items it
+#   held before, which the run must not change;
 # - a PROPFIND of depth 0 or 1 on the home itself, whose multistatus is
 #   cut down to the home and the scratch collections, so no client ever
 #   sees another collection of the account;
@@ -29,6 +32,8 @@ PRINCIPAL = os.environ.get("UNFOG_E2E_PRINCIPAL", "")
 LOG = os.environ["UNFOG_E2E_GUARD_LOG"]
 ALLOW = os.environ.get("UNFOG_E2E_GUARD_ALLOW", "")
 UPSTREAM = os.environ.get("UNFOG_E2E_UPSTREAM_HOST", "")
+PROTECT = os.environ.get("UNFOG_E2E_GUARD_PROTECT", "")
+READS = {"GET", "HEAD", "OPTIONS", "PROPFIND", "REPORT"}
 
 RESPONSE = re.compile(
     r"<(?P<ns>(?:[A-Za-z0-9_-]+:)?)response\b.*?</(?P=ns)response>", re.DOTALL
@@ -48,10 +53,23 @@ def allowed_prefixes():
         return [line.strip() for line in lines if line.strip()]
 
 
+def protected_paths():
+    if not PROTECT or not os.path.exists(PROTECT):
+        return set()
+    with open(PROTECT) as lines:
+        return {line.strip().rstrip("/") for line in lines if line.strip()}
+
+
+def is_protected(path):
+    return path.rstrip("/") in protected_paths()
+
+
 def is_scratch(path):
     if path.startswith(HOME) and path[len(HOME):].startswith(PREFIX):
         return True
-    return any(path.startswith(prefix) for prefix in allowed_prefixes())
+    # NOTE: a collection is asked for with or without its trailing slash.
+    path = path.rstrip("/") + "/"
+    return any(path.startswith(prefix.rstrip("/") + "/") for prefix in allowed_prefixes())
 
 
 def is_home(path):
@@ -82,6 +100,9 @@ def request(flow: http.HTTPFlow) -> None:
     method = flow.request.method.upper()
     depth = flow.request.headers.get("Depth", "0").strip()
 
+    if is_protected(path) and method not in READS:
+        refuse(flow, "a lent collection or an item it held before the run")
+        return
     if is_scratch(path):
         return
     if is_home(path) and method == "PROPFIND" and depth in ("0", "1"):

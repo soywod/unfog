@@ -485,7 +485,7 @@ pub fn apply(
 
     // NOTE: within one account a backend that can move in one write does
     // (pimdir: an add superseding the source, whose removal waits for
-    // the add to be pushed).
+    // the add to be pushed; CalDAV: a `MOVE`).
     let moved = match account == found.account {
         true => scope
             .client(account)

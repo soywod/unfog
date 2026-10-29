@@ -170,14 +170,19 @@ fn wait_for(path: &Path) {
     }
 }
 
-/// A move creates the task in the target, then removes it from the
-/// source. A server refusing the same UID in two calendars of one home
-/// refuses the create, which leaves the task where it was.
+/// A move is a WebDAV `MOVE` of the task, then a write of its clarified
+/// body: a server keeping one UID per account (Fastmail), which refuses a
+/// create of the task in the target while the source holds it, takes it,
+/// and the task keeps its resource name.
 #[test]
 #[ignore = "requires a CalDAV server (tests/radicale.sh or tests/live.sh) and --ignored"]
-fn a_move_creates_there_then_removes_here() {
+fn a_move_moves_the_task_on_its_server() {
     let _serial = common::serial();
     let server = Server::from_env();
+    if server.borrowed.is_some() {
+        eprintln!("skipped: one borrowed calendar, and this needs two calendars");
+        return;
+    }
     let from = server.scratch(&["VTODO"]);
     let to = server.scratch(&["VTODO"]);
     let dir = tempfile::tempdir().unwrap();
@@ -188,22 +193,18 @@ fn a_move_creates_there_then_removes_here() {
         true,
         &["gtd", "clarify", "foreign-1", "--next", "--to", &to.id],
     );
-    let said = String::from_utf8_lossy(&output.stdout).into_owned();
-
-    if !output.status.success() {
-        // NOTE: a server holding one UID per calendar home (Fastmail)
-        // refuses the copy: the move fails whole, the task where it was
-        // and nothing in the target. Printed for the record.
-        assert!(said.contains("same UID"), "{said}");
-        assert_eq!(from.get("foreign.ics").unwrap(), served, "{said}");
-        assert!(to.items().is_empty(), "{said}");
-        eprintln!("move: refused, the task left where it was: {said}");
-        return;
-    }
+    let said = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.status.success(), "{said}");
 
     assert!(from.items().is_empty(), "the source still holds it");
     let moved = to.items();
     assert_eq!(moved.len(), 1);
+    assert_eq!(moved[0].0, "foreign.ics", "the resource name is kept");
+    assert_ne!(moved[0].1, served, "the clarified body was written");
     assert!(
         moved[0].1.contains("UID:foreign-1@other.example\r\n"),
         "{}",
@@ -223,6 +224,10 @@ fn a_move_creates_there_then_removes_here() {
 fn a_strategy_round_trips(strategy: &str, component: &str) {
     let _serial = common::serial();
     let server = Server::from_env();
+    if server.borrowed.is_some() {
+        eprintln!("skipped: one borrowed calendar, and this needs a time calendar beside the tasks");
+        return;
+    }
     let tasks = server.scratch(&["VTODO"]);
     let time = server.scratch(&[component]);
     let dir = tempfile::tempdir().unwrap();
@@ -326,6 +331,10 @@ fn zz_the_leftovers_are_swept() {
 fn the_server_states_the_components_it_takes() {
     let _serial = common::serial();
     let server = Server::from_env();
+    if server.borrowed.is_some() {
+        eprintln!("skipped: one borrowed calendar, and this needs calendars it creates");
+        return;
+    }
     let mut tasks = false;
 
     for component in ["VTODO", "VEVENT", "VJOURNAL"] {
@@ -368,6 +377,10 @@ fn the_server_states_the_components_it_takes() {
 fn a_capture_into_an_events_calendar_says_why() {
     let _serial = common::serial();
     let server = Server::from_env();
+    if server.borrowed.is_some() {
+        eprintln!("skipped: one borrowed calendar, and this needs an events-only calendar");
+        return;
+    }
     let events = server.scratch(&["VEVENT"]);
     let dir = tempfile::tempdir().unwrap();
     let unfog = Unfog::new(dir.path(), &server, "");

@@ -84,6 +84,10 @@ pub struct Server {
     password: String,
     /// The run's id, in every scratch name.
     pub run: String,
+    /// The calendar a provider refusing `MKCALENDAR` lends the run
+    /// (`UNFOG_E2E_CALENDAR`, its id under the home): every scratch is
+    /// that calendar, and only the items a test added are removed.
+    pub borrowed: Option<String>,
 }
 
 /// How many scratch collections this process created.
@@ -137,6 +141,7 @@ impl Server {
             password_command,
             password,
             run,
+            borrowed: env::var("UNFOG_E2E_CALENDAR").ok(),
         };
 
         SWEPT.call_once(|| server.sweep());
@@ -194,6 +199,17 @@ impl Server {
     /// A new scratch calendar taking `components`, or the response of a
     /// server refusing it.
     pub fn try_scratch(&self, components: &[&str]) -> Result<Scratch, Response> {
+        if let Some(id) = &self.borrowed {
+            let mut scratch = Scratch {
+                server: self.clone(),
+                id: id.clone(),
+                path: format!("{}{id}/", self.home),
+                before: None,
+            };
+            scratch.before = Some(scratch.names());
+            return Ok(scratch);
+        }
+
         let n = COUNT.fetch_add(1, Ordering::SeqCst);
         let id = format!("{PREFIX}{}-{n}", self.run);
         let path = format!("{}{id}/", self.home);
@@ -224,12 +240,19 @@ impl Server {
             server: self.clone(),
             id,
             path,
+            before: None,
         })
     }
 
     /// Deletes every collection of the home carrying the scratch prefix,
     /// the leftovers of a run that could not clean up.
     pub fn sweep(&self) {
+        // NOTE: a borrowed calendar is never swept: each test removes what
+        // it added, and what it held before is the lender's.
+        if self.borrowed.is_some() {
+            return;
+        }
+
         let response = self.http(
             "PROPFIND",
             &self.home,
@@ -258,9 +281,29 @@ pub struct Scratch {
     pub id: String,
     /// Its path, ending in `/`.
     pub path: String,
+    /// On a borrowed calendar, the items it held when lent, never
+    /// removed.
+    before: Option<Vec<String>>,
 }
 
 impl Scratch {
+    /// The names of the resources it holds.
+    fn names(&self) -> Vec<String> {
+        let response = self.server.http(
+            "PROPFIND",
+            &self.path,
+            &[("Depth", "1"), ("Content-Type", "application/xml")],
+            "<?xml version=\"1.0\"?><D:propfind xmlns:D=\"DAV:\"><D:prop><D:getetag/>\
+             </D:prop></D:propfind>",
+        );
+
+        hrefs(&response.body)
+            .into_iter()
+            .filter(|href| !href.ends_with('/'))
+            .filter_map(|href| Some(href.rsplit('/').next()?.to_owned()))
+            .collect()
+    }
+
     /// The path of the resource `name` in it.
     pub fn item(&self, name: &str) -> String {
         format!("{}{name}", self.path)
@@ -318,6 +361,19 @@ impl Scratch {
 
 impl Drop for Scratch {
     fn drop(&mut self) {
+        if let Some(before) = &self.before {
+            for name in self.names() {
+                if before.contains(&name) {
+                    continue;
+                }
+                let response = self.server.http("DELETE", &self.item(&name), &[], "");
+                if !matches!(response.status, 200 | 204 | 404) {
+                    eprintln!("DELETE {name} answered {}; remove it by hand", response.status);
+                }
+            }
+            return;
+        }
+
         let response = self.server.http("DELETE", &self.path, &[], "");
         if !matches!(response.status, 200 | 204 | 404) {
             eprintln!(

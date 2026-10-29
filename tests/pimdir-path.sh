@@ -69,6 +69,14 @@ cleanup() {
     for pid in $(ss -ltnpH "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2); do
         kill "$pid" 2>/dev/null || true
     done
+    # NOTE: and waits for it to go, so nothing listens once this exits.
+    for _ in $(seq 50); do
+        ss -ltnH "sport = :$port" 2>/dev/null | grep -q . || break
+        sleep 0.1
+    done
+    for pid in $(ss -ltnpH "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2); do
+        kill -9 "$pid" 2>/dev/null || true
+    done
     if [ -s "$work/guard.log" ]; then
         echo "the guard refused:" >&2
         cat "$work/guard.log" >&2
